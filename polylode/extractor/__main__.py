@@ -38,7 +38,7 @@ def selftest(path: str) -> int:
     """Write what a packaged program can import and find to *path*; 0 when nothing is missing.
 
     The window has no console, so a packaged build is checked by this file
-    (``build_extractor.py`` runs it): the converters' imports, every source,
+    (``build.py`` runs it): the converters' imports, every source,
     and the source files Blender is handed beside the program.
     """
     import json
@@ -71,7 +71,7 @@ def selftest(path: str) -> int:
     report["blender_files_missing"] = missing()
     from . import bundled
     from ..core.paths import frozen
-    # the packaged program carries AnimeStudio and a .NET runtime (``build_extractor.py``)
+    # the packaged program carries AnimeStudio and a .NET runtime (``build.py``)
     report["bundled_missing"] = [name for name, there in (("tools/AnimeStudio/AnimeStudio.CLI.exe", bundled.animestudio()),
                                                           ("dotnet/dotnet.exe", bundled.dotnet())) if frozen() and there is None]
     # what the window starts its scans and jobs with must be there (Nuitka's sys.executable is not, §7.1452)

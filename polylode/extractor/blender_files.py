@@ -4,7 +4,7 @@ The converters start Blender with a worker script beside their own module
 (``gf2/blender_worker.py``) that puts the project's root on Blender's path and
 also runs ``tools/ef_fbx_blender.py``; the GF2 export also signs its result
 with those files' bytes.  A compiled program has no ``.py`` files, so
-``build_extractor.py`` copies the package and that script beside the program
+``build.py`` copies the package and that script beside the program
 at the same relative paths, and :func:`missing` says what is not there.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ REQUIRED = ("polylode/gf2/blender_worker.py", "polylode/gf2/export.py", "polylod
             "tools/ef_fbx_blender.py", "tools/wuwa_source_blender.py")
 
 
-#: Third-party modules the build leaves as source beside the program (``build_extractor.py``): UnityPy's
+#: Third-party modules the build leaves as source beside the program (``build.py``): UnityPy's
 #: generated class table is a 31 MB C file the C compiler cannot optimise within 9 GB.
 SOURCE_MODULES = ("UnityPy.classes.generated",)
 
