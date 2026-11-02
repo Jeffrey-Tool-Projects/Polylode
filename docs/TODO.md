@@ -9,5 +9,3 @@
   - 確認方法：在 Unity 開 ardelia 的毛皮材質（`M_actor_ardelia_fur_02`，縮放 5.99×5.22、偏移 1.97／0.12），看貼圖位置對不對。
 - **預覽與模型檢視器只在離屏驗證過**（§7.1455）：`--selftest` 用 `QQuickRenderControl` 在離屏載入 `.glb`。真正的視窗裡，
   旋轉、平移、縮放、視角按鈕和刪除都還沒有實際操作過。
-- **CI 的 selftest 在 GitHub 的 Windows runner 上靠軟體 OpenGL 跑**（`QT_OPENGL=software`，用 windows 平台）：第一次跑通後刪掉這一條；
-  如果跑不通，就改成只在 Release 的打包版自檢裡載入 `.glb`。
