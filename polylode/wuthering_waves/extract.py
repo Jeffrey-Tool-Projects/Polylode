@@ -33,9 +33,14 @@ def run(reader: Path, dotnet: Path, install: Path, keys: Path, output: Path, mod
     environment = dict(os.environ, DOTNET_ROOT=str(dotnet), DOTNET_CLI_TELEMETRY_OPTOUT="1",
                        DOTNET_PROCESSOR_COUNT=os.environ.get("DOTNET_PROCESSOR_COUNT", "6"))
     output.mkdir(parents=True, exist_ok=True)
+    # CUE4Parse fetches its Oodle and zlib-ng libraries into the folder it runs in on first use: a folder the
+    # user can write (the packaged program's own may not be), kept so they are fetched once
+    from ..core.paths import derived_root
+    workdir = derived_root() / "assets_cache" / "wuthering_waves" / "reader_runtime"
+    workdir.mkdir(parents=True, exist_ok=True)
     log(f"讀取遊戲檔案（{mode}）…")
     done = subprocess.run(command(reader, dotnet, install, keys, output, mode, argument), capture_output=True,
-                          text=True, encoding="utf-8", errors="replace", check=False, env=environment)
+                          text=True, encoding="utf-8", errors="replace", check=False, env=environment, cwd=workdir)
     if done.returncode != 0:
         raise ReaderError(f"讀取器 {mode} exit {done.returncode}：{(done.stdout + done.stderr)[-1500:]}")
     return done.stdout

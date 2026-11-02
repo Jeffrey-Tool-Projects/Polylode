@@ -10,7 +10,7 @@ Es un programa de escritorio para Windows con ventana, una vista previa que se g
 |---|---|---|
 | Arknights: Endfield | Todos los prefabs de personajes jugables | Los mapas de recursos se construyen desde tu instalación en el primer escaneo (por lotes comprobados y reanudables) y de nuevo tras una actualización |
 | Girls' Frontline 2: Exilium | Todos los atuendos de personajes jugables | Solo raíces con su propia malla con skin y un esqueleto humano completo (sin mascotas, accesorios ni variantes vacías) |
-| Wuthering Waves | Todos los modelos de presentación de personajes jugables | Necesita el lector de archivos construido desde `tools/wuwa_cli` y tu archivo de claves AES |
+| Wuthering Waves | Todos los modelos de presentación de personajes jugables | Necesita tu archivo de claves AES; el lector de archivos (construido desde `tools/wuwa_cli`) viene incluido |
 | Conversiones existentes | Modelos terminados en carpetas `*_Converted` | Se copian tras comprobar el SHA-256 de cada archivo |
 
 ## Funciones
@@ -33,7 +33,7 @@ Es un programa de escritorio para Windows con ventana, una vista previa que se g
 ## Descarga
 
 Descarga el último `Polylode-<versión>-windows-x64.zip` de [Releases](https://github.com/JE-Chen/Polylode/releases), descomprímelo donde quieras y
-ejecuta `Polylode.exe`. Lleva todo lo que necesita: AnimeStudio (para Endfield), un runtime de .NET 10, el importador de glTF y un OpenGL por
+ejecuta `Polylode.exe`. Lleva todo lo que necesita: AnimeStudio (para Endfield), el lector de Wuthering Waves, un runtime de .NET 10, el importador de glTF y un OpenGL por
 software para equipos sin controlador de GPU.
 
 Requisitos: Windows 10 u 11 de 64 bits. Blender 4.x o 5.x solo para `.blend`.

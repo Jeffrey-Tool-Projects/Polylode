@@ -35,3 +35,21 @@ jobs:
           $env:PATH = "$(python -c 'import PySide6, os; print(os.path.dirname(PySide6.__file__))');$env:PATH"
           python -m polylode.extractor --selftest selftest.json
           Get-Content selftest.json
+
+  # the reader the release carries: built on every push, so a change that breaks it shows before a release
+  wuwa-reader:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      # the Wuthering Waves reader, built here from CUE4Parse at the commit tools/wuwa_cli/README.md names
+      - uses: actions/checkout@v4
+        with:
+          repository: FabianFG/CUE4Parse
+          ref: 2a159ad0702120db30fdd85c1219dff78e5204b8
+          path: tools/wuwa_cli/CUE4Parse
+          submodules: recursive
+      - name: Build the Wuthering Waves reader
+        run: tools/wuwa_cli/build.ps1 -CUE4Parse tools/wuwa_cli/CUE4Parse -Output tools/WuwaReader

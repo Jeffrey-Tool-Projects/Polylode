@@ -10,7 +10,7 @@ fenêtre, un aperçu qu'on tourne à la souris et une visionneuse de modèles.
 |---|---|---|
 | Arknights: Endfield | Tous les prefabs de personnages jouables | Les tables de ressources sont construites depuis votre installation à la première analyse (par lots vérifiés et reprenables), puis de nouveau après une mise à jour |
 | Girls' Frontline 2: Exilium | Toutes les tenues des personnages jouables | Seules les racines avec leur propre maillage skinné et un squelette humain complet sont listées (ni animaux, ni accessoires, ni variantes vides) |
-| Wuthering Waves | Tous les modèles d'affichage des personnages jouables | Nécessite le lecteur de fichiers construit depuis `tools/wuwa_cli` et votre fichier de clés AES |
+| Wuthering Waves | Tous les modèles d'affichage des personnages jouables | Nécessite votre fichier de clés AES ; le lecteur de fichiers (construit depuis `tools/wuwa_cli`) est fourni |
 | Conversions existantes | Les modèles finis des dossiers `*_Converted` | Copiés après vérification du SHA-256 de chaque fichier |
 
 ## Fonctions
@@ -35,7 +35,7 @@ fenêtre, un aperçu qu'on tourne à la souris et une visionneuse de modèles.
 ## Téléchargement
 
 Prenez le dernier `Polylode-<version>-windows-x64.zip` sur la page [Releases](https://github.com/JE-Chen/Polylode/releases), décompressez-le où vous
-voulez et lancez `Polylode.exe`. Il contient tout ce qu'il lui faut : AnimeStudio (pour Endfield), un runtime .NET 10, l'importateur glTF et un
+voulez et lancez `Polylode.exe`. Il contient tout ce qu'il lui faut : AnimeStudio (pour Endfield), le lecteur de Wuthering Waves, un runtime .NET 10, l'importateur glTF et un
 OpenGL logiciel pour les ordinateurs sans pilote de GPU.
 
 Configuration : Windows 10 ou 11, 64 bits. Blender 4.x ou 5.x uniquement pour `.blend`.

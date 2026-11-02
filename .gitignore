@@ -24,3 +24,9 @@ preview/
 *.blend
 *.blend1
 !tests/**/*.glb
+
+# the Wuthering Waves reader's build (tools/wuwa_cli/build.ps1): CUE4Parse's checkout and the built program
+tools/wuwa_cli/CUE4Parse/
+tools/wuwa_cli/bin/
+tools/wuwa_cli/obj/
+tools/WuwaReader/

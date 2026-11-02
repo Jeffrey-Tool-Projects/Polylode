@@ -10,7 +10,7 @@ Windows desktop program with a window, a preview you can turn with the mouse, an
 |---|---|---|
 | Arknights: Endfield | Every playable character prefab | The asset maps are built from your install on the first scan (in checked, resumable batches) and again after a game update |
 | Girls' Frontline 2: Exilium | Every playable character's outfits | Only roots with their own skinned mesh and a whole human skeleton are listed (no pets, props or empty variants) |
-| Wuthering Waves | Every playable character's display models | Needs the game-file reader built from `tools/wuwa_cli` and your AES keys file |
+| Wuthering Waves | Every playable character's display models | Needs your AES keys file; the game-file reader (built from `tools/wuwa_cli`) comes with the program |
 | Existing conversions | Finished models in `*_Converted` folders | Copied out after checking each file's SHA-256 |
 
 ## Features
@@ -38,7 +38,7 @@ Windows desktop program with a window, a preview you can turn with the mouse, an
 
 Take the latest `Polylode-<version>-windows-x64.zip` from the
 [Releases](https://github.com/JE-Chen/Polylode/releases) page, unzip it anywhere and run `Polylode.exe`. It carries everything it needs:
-AnimeStudio (for Endfield), a .NET 10 runtime, the glTF importer and a software OpenGL for computers without a GPU
+AnimeStudio (for Endfield), the Wuthering Waves reader, a .NET 10 runtime, the glTF importer and a software OpenGL for computers without a GPU
 driver.
 
 Requirements: Windows 10 or 11, 64-bit. Blender 4.x or 5.x only for `.blend`.

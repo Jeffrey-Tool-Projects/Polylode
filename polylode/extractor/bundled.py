@@ -1,4 +1,5 @@
-"""The tools the packaged extractor carries: AnimeStudio (MIT) and a .NET runtime for it and the WuWa reader.
+"""The tools the packaged extractor carries: AnimeStudio (MIT), the Wuthering Waves reader (built from
+``tools/wuwa_cli`` and CUE4Parse, Apache 2.0) and a .NET runtime for both.
 
 ``build.py`` copies them beside the program: ``tools/AnimeStudio``
 (the Endfield research kit's ``endfield-vfs5-1070`` build, with its
@@ -26,6 +27,13 @@ def animestudio() -> Path | None:
     """The AnimeStudio CLI this program carries (or the checkout's research-kit build), when it is there."""
     folder = root() / "tools" / "AnimeStudio"
     path = folder / ANIMESTUDIO
+    return path if path.is_file() else None
+
+
+def wuwa_reader() -> Path | None:
+    """The Wuthering Waves reader this program carries (``tools/WuwaReader``, which ``build.py`` copies from
+    ``tools/wuwa_cli/build.ps1``'s output; a checkout has one only when it was built there)."""
+    path = root() / "tools" / "WuwaReader" / "wuwa.exe"
     return path if path.is_file() else None
 
 

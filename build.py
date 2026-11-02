@@ -155,6 +155,20 @@ def copy_animestudio(folder: Path) -> int:
     return sum(1 for p in target.rglob("*") if p.is_file())
 
 
+def copy_wuwa_reader(folder: Path, source: Path) -> int:
+    """The Wuthering Waves reader (``tools/wuwa_cli/build.ps1``'s output, with CUE4Parse's licence) beside the
+    program as ``tools/WuwaReader``; how many files."""
+    source = Path(source)
+    if not (source / "wuwa.exe").is_file() or not (source / "CUE4Parse-LICENSE").is_file():
+        raise SystemExit(f"no Wuthering Waves reader in {source} (build it with tools/wuwa_cli/build.ps1, "
+                         "or give --wuwa-reader <its folder>)")
+    target = folder / "tools" / "WuwaReader"
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(source, target, ignore=shutil.ignore_patterns("*.pdb"))
+    return sum(1 for p in target.rglob("*") if p.is_file())
+
+
 def copy_dotnet(folder: Path, source: Path) -> str:
     """The .NET runtime (``dotnet.exe``, ``host``, ``shared/Microsoft.NETCore.App/<version>``, licence and
     notices) beside the program as ``dotnet``; its version.  The runtime only, no SDK."""
@@ -178,6 +192,8 @@ def main() -> int:
     parser.add_argument("--check-only", action="store_true")
     parser.add_argument("--dotnet", type=Path, default=os.environ.get("DOTNET_ROOT"),
                         help="a dotnet folder whose .NET 10 runtime the program carries (default: DOTNET_ROOT)")
+    parser.add_argument("--wuwa-reader", type=Path, default=ROOT / "tools" / "WuwaReader",
+                        help="the Wuthering Waves reader the program carries (tools/wuwa_cli/build.ps1's -Output)")
     parser.add_argument("--jobs", type=int, default=8,
                         help="C compilers at once (1 lets the largest generated file have the whole memory cap)")
     args = parser.parse_args()
@@ -197,6 +213,7 @@ def main() -> int:
     print(f"copied {copy_sources(FINAL)} source files for Blender")
     copy_source_modules(FINAL)
     print(f"AnimeStudio: {copy_animestudio(FINAL)} files")
+    print(f"Wuthering Waves reader: {copy_wuwa_reader(FINAL, args.wuwa_reader)} files")
     # Qt's software OpenGL beside the program: the preview draws on a machine without a GPU driver (and the
     # selftest's off-screen load on a CI runner) with QT_OPENGL=software
     import PySide6

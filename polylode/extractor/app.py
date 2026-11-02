@@ -301,11 +301,14 @@ class SourcePage(QWidget):
     def ask_tools(self) -> bool:
         """Before a preview or an export: each tool the source cannot convert without (``PathSpec.required``),
         asked for when unset or gone.  False when one was not given."""
+        from . import bundled
         settings = self.window_.settings
         for spec in (spec for spec in self.source.paths if spec.required and not spec.install):
             current = settings.tool(spec.key)
             if current is not None and (current.is_dir() if spec.kind == "dir" else current.is_file()):
                 continue
+            if current is None and spec.bundled and getattr(bundled, spec.bundled)() is not None:
+                continue                                    # an empty field: the one this program carries
             title = tr(f"選擇{spec.label}") + (f"（{tr(spec.hint)}）" if spec.hint else "")
             start = str(current.parent) if current is not None else ""
             chosen = (QFileDialog.getExistingDirectory(self, title, start) if spec.kind == "dir"

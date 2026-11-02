@@ -25,9 +25,11 @@ class PathSpec:
     install: bool = False   # the game's install folder itself (``Settings.installs``), else a tool (``Settings.tools``)
     #: an install's data, relative to the folder it is found from (``locate.game_root``): the folder named may be above or inside it
     marker: str = ""
-    #: a tool an export cannot run without and this program does not carry: the window asks for it
-    #: before a preview or an export rather than letting the job fail on it (``SourcePage.ask_tools``)
+    #: a tool an export cannot run without: the window asks for it before a preview or an export rather
+    #: than letting the job fail on it (``SourcePage.ask_tools``) — unless this program carries one
     required: bool = False
+    #: the ``bundled`` function naming the tool this program carries, what an empty field means
+    bundled: str = ""
 
 
 @dataclass(frozen=True)

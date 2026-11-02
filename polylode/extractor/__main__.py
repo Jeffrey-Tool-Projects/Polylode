@@ -71,8 +71,9 @@ def selftest(path: str) -> int:
     report["blender_files_missing"] = missing()
     from . import bundled
     from ..core.paths import frozen
-    # the packaged program carries AnimeStudio and a .NET runtime (``build.py``)
+    # the packaged program carries AnimeStudio, the Wuthering Waves reader and a .NET runtime (``build.py``)
     report["bundled_missing"] = [name for name, there in (("tools/AnimeStudio/AnimeStudio.CLI.exe", bundled.animestudio()),
+                                                          ("tools/WuwaReader/wuwa.exe", bundled.wuwa_reader()),
                                                           ("dotnet/dotnet.exe", bundled.dotnet())) if frozen() and there is None]
     # what the window starts its scans and jobs with must be there (Nuitka's sys.executable is not, §7.1452)
     from .jobs import program

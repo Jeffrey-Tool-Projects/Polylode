@@ -9,7 +9,7 @@ glTF（`.glb`）、FBX 與 Blender（`.blend`）。它是 Windows 桌面程式�
 |---|---|---|
 | 明日方舟：終末地 | 每個可玩角色的預製物 | 第一次掃描會從你的安裝建資產對照表（分批核對、可中斷續跑），遊戲更新後重建 |
 | 少女前線 2：追放 | 每個可玩角色的各套衣裝 | 只列出有自己蒙皮網格與完整人形骨架的根節點（不含寵物、道具與空的變體） |
-| 鳴潮 | 每個可玩角色的顯示模型 | 需要由 `tools/wuwa_cli` 建出的遊戲檔讀取器與你的 AES 金鑰檔 |
+| 鳴潮 | 每個可玩角色的顯示模型 | 需要你的 AES 金鑰檔；遊戲檔讀取器（由 `tools/wuwa_cli` 建出）已隨程式附上 |
 | 既有轉出物 | `*_Converted` 資料夾裡做好的模型 | 逐檔核對 SHA-256 後複製出來 |
 
 ## 功能
@@ -28,7 +28,7 @@ glTF（`.glb`）、FBX 與 Blender（`.blend`）。它是 Windows 桌面程式�
 ## 下載
 
 到 [Releases](https://github.com/JE-Chen/Polylode/releases) 下載最新的 `Polylode-<版本>-windows-x64.zip`，解壓到任何地方，執行 `Polylode.exe`。
-需要的東西都已經附上：AnimeStudio（終末地用）、.NET 10 執行環境、glTF 匯入器，以及給沒有顯示卡驅動的電腦用的軟體 OpenGL。
+需要的東西都已經附上：AnimeStudio（終末地用）、鳴潮讀取器、.NET 10 執行環境、glTF 匯入器，以及給沒有顯示卡驅動的電腦用的軟體 OpenGL。
 
 需求：Windows 10 或 11，64 位元。只有 `.blend` 需要 Blender 4.x 或 5.x。
 

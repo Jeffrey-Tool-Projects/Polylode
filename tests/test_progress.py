@@ -187,3 +187,25 @@ def test_a_preview_or_export_asks_for_each_required_tool_it_lacks_once(tmp_path,
     assert not page.ask_tools()                                 # gone and not given: nothing converted
     window.close()
     del qt
+
+
+def test_a_tool_the_program_carries_is_not_asked_for(tmp_path, monkeypatch):
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication, QFileDialog
+    from polylode.extractor import app as A
+    from polylode.extractor import bundled
+    monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    S.save(S.Settings())
+    reader, keys = tmp_path / "wuwa.exe", tmp_path / "keys.json"
+    reader.write_bytes(b""), keys.write_text("{}")
+    monkeypatch.setattr(bundled, "wuwa_reader", lambda: reader)
+    qt = QApplication.instance() or QApplication([])
+    window = A.Window()
+    page = next(window.pages.widget(i) for i in range(window.pages.count())
+                if getattr(getattr(window.pages.widget(i), "source", None), "id", "") == "wuwa")
+    asked = []
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a: (asked.append(a[1]) or str(keys), ""))
+    assert page.ask_tools() and len(asked) == 1                  # the keys only: the reader is carried
+    assert S.load().tools.get("wuwa_reader", "") == ""            # its field stays empty: the carried one
+    window.close()
+    del qt
