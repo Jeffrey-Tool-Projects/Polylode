@@ -5,6 +5,8 @@ job process runs :func:`run_job`, which prints one line per event:
 
 * ``LOG <text>`` — a line for the log;
 * ``OUTPUT <path>`` — a file written;
+* ``PROGRESS <done> <total> <text>`` — how far the current step has got (``core.progress``; *total* 0
+  when it cannot be counted, *text* empty to keep the step's last one);
 * ``ERROR <text>`` — the reason it stopped (exit status 1).
 
 A scan is the same kind of process (:func:`scan_command`, :func:`run_scan`):
@@ -14,10 +16,12 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import traceback
 from dataclasses import asdict
 from pathlib import Path
 
+from ..core import progress
 from ..core.paths import frozen
 from . import settings as S
 from .sources import ExtractorError, Model, registry
@@ -70,7 +74,8 @@ def run_scan(source_id: str, settings_file: Path) -> int:
         _emit("ERROR", f"沒有這個來源：{source_id}")
         return 1
     try:
-        models = source.scan(settings, lambda line: _emit("LOG", line))
+        with progress.reporting(ProgressLines()):
+            models = source.scan(settings, lambda line: _emit("LOG", line))
     except ExtractorError as refusal:
         _emit("ERROR", str(refusal))
         return 1
@@ -80,6 +85,35 @@ def run_scan(source_id: str, settings_file: Path) -> int:
     for model in models:
         print("MODEL " + json.dumps(asdict(model), ensure_ascii=False), flush=True)
     return 0
+
+
+class ProgressLines:
+    """The job's ``PROGRESS`` lines: a new step's text and a count's last report always, the rest at most
+    ten a second (a loop over thousands of bundle files would otherwise flood the window)."""
+
+    def __init__(self, clock=time.monotonic, write=print):
+        self.clock, self.write = clock, write
+        self.last, self.text = float("-inf"), None
+
+    def __call__(self, done: int, total: int, text: str) -> None:
+        now = self.clock()
+        fresh = bool(text) and text != self.text
+        if not fresh and not (total and done >= total) and now - self.last < 0.1:
+            return
+        self.last = now
+        if text:
+            self.text = text
+        self.write(f"PROGRESS {done} {total} {' '.join(text.split())}", flush=True)
+
+
+def read_progress(text: str) -> tuple[int, int, str] | None:
+    """A ``PROGRESS`` line's ``(done, total, text)`` (the part after the word), or None when it is not one."""
+    done, _, rest = text.partition(" ")
+    total, _, label = rest.partition(" ")
+    try:
+        return int(done), int(total), label
+    except ValueError:
+        return None
 
 
 def _emit(kind: str, text: str) -> None:
@@ -99,7 +133,8 @@ def run_job(path: Path) -> int:
     output = Path(job["output"])
     try:
         output.mkdir(parents=True, exist_ok=True)
-        written = source.export(model, settings, output, list(job["formats"]), lambda line: _emit("LOG", line))
+        with progress.reporting(ProgressLines()):
+            written = source.export(model, settings, output, list(job["formats"]), lambda line: _emit("LOG", line))
     except ExtractorError as refusal:
         _emit("ERROR", str(refusal))
         return 1

@@ -155,6 +155,10 @@ class PreviewPanel(QWidget):
         self.view.setSource(QUrl.fromLocalFile(str(QML)))
         self.view.setMinimumSize(200, 200)
         layout.addWidget(self.view, 1)
+        from .stepbar import StepBar
+        # the conversion a preview waits for (the file's own load is the view's bar)
+        self.steps = StepBar()
+        layout.addWidget(self.steps)
         self.caption = QLabel("左鍵拖曳旋轉、右鍵平移、滾輪縮放")
         self.apply_texts()
         self.caption.setObjectName("muted")

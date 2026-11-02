@@ -39,6 +39,7 @@ import subprocess
 from contextlib import ExitStack
 from pathlib import Path
 
+from ..core import progress
 from .assetmap import iter_entries
 from .cabmap import read_cabmap
 
@@ -93,6 +94,7 @@ def run_index(exe: Path, game: Path, work: Path, log=print) -> Path:
         argv += ["--fallback-assets", str(Path(game) / layers[0])]
     argv += ["-b", "bundle", "-b", "initial-bundle", "--jsonl", "-o", str(output)]
     log(f"列出 {layer} 的現行資料槽…")
+    progress.step("列出現行資料槽")
     done = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
     if done.returncode != 0 or not output.is_file():
         raise MapBuildError(f"vfs-index exit {done.returncode}: {(done.stdout + done.stderr)[-2000:]}")
@@ -351,6 +353,7 @@ def build(exe: Path, game: Path, work: Path, meta: Path, log=print) -> dict:
     _write(plan_path, {**identity, "tasks": tasks})
     done = 0
     while done < len(tasks):
+        progress.report(done, len(tasks), "建立資產對照表")
         task = tasks[done]
         outcome = run_shard(exe, task, work, identity)
         if outcome == NEEDS_SPLIT:
@@ -361,6 +364,8 @@ def build(exe: Path, game: Path, work: Path, meta: Path, log=print) -> dict:
         done += 1
         if done % 10 == 0 or done == len(tasks):
             log(f"資產對照表：{done} / {len(tasks)} 批")
+    progress.report(len(tasks), len(tasks), "建立資產對照表")
+    progress.step("合併資產對照表")
     summary = {**identity, "game": str(Path(game).resolve()), "batches": len(tasks),
                "slots": sum(len(r["offsets"]) for r in rows), "layers": merge(game, tasks, rows, work, meta)}
     _write(meta / "build.json", summary)

@@ -11,6 +11,7 @@ import json
 import traceback
 from pathlib import Path
 
+from ..core import progress
 from ..core.paths import write_json_atomic
 from . import playable, store
 
@@ -52,6 +53,7 @@ def skinned_roots(catalog, entries: list[dict], declared, results: dict, log=pri
         groups[entry["cab"]].append(entry)
     kept = []
     for done, (cab, members) in enumerate(sorted(groups.items()), 1):
+        progress.report(done, len(groups), '檢查哪些根節點是角色模型')
         env = catalog.environment()
         try:
             file = env.find_file(cab)

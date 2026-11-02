@@ -19,6 +19,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from ..core import progress
 from .sources import ExtractorError, Log, Model, PathSpec, require
 
 INSTALL = PathSpec("wuwa", "鳴潮安裝資料夾", "dir", "遊戲資料夾或它的上一層（官方啟動器或 Steam）", install=True,
@@ -60,7 +61,9 @@ def extract_config(settings, log: Log) -> Path:
     stamp_path.unlink(missing_ok=True)
     listing = root / "files.txt"
     listing.write_text("\n".join(scope.FILES) + "\n", encoding="utf-8")
+    progress.report(0, 2, "從安裝讀角色表")
     _reader(settings, "raw-list", root, str(listing), log)
+    progress.report(1, 2, "從安裝讀角色表")
     _reader(settings, "json", (root / MODEL_TABLE_JSON).parent, assembly.MODEL_TABLE, log)
     missing = [name for name in wanted if not (root / name).is_file()]
     if missing:
@@ -119,7 +122,8 @@ class WuwaSource:
         sources = root.parent / "source"
         stamp = (root / "install.json").read_text(encoding="utf-8")       # the archives the tables were read from
         dumped = []
-        for part in row["parts"]:
+        for number, part in enumerate(row["parts"]):
+            progress.report(number, len(row["parts"]), "讀取部件網格")
             ident = part["package"].rsplit("/", 1)[-1]
             folder = sources / ident
             receipt, dumped_from = folder / "export.json", folder / "install.json"
@@ -132,8 +136,10 @@ class WuwaSource:
             dumped.append({"ident": ident, "package": part["package"] + ".uasset"})
         listing = sources / f"{model.ident}.metadata.json"
         listing.write_text(json.dumps({"models": dumped}), encoding="utf-8")
+        progress.step("讀取材質")
         _reader(settings, "metadata", sources, str(listing), log)
         log("組合顯示模型（主網格、子網格、插槽裝飾）…")
+        progress.step("組合顯示模型")
         try:
             case = assemble(row, sources, root.parent / "cases")
         except ValueError as refusal:
@@ -141,7 +147,8 @@ class WuwaSource:
         written = []
         if "blend" in formats:
             log(f"以 Blender 建 .blend 並讀回 {model.ident}（每個模型幾分鐘）…")
-            for mode in ("build", "check"):
+            for number, mode in enumerate(("build", "check")):
+                progress.report(number, 2, "以 Blender 建 .blend 並讀回")
                 blender_run(blender, mode, case, model.ident)
             written.append(Path(shutil.copy2(case / f"{model.ident}.blend", output / f"{model.ident}.blend")))
         return written + write_own(formats, case / "source_document.json", output, model.ident, blender, log)

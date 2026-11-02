@@ -93,9 +93,12 @@ def write_own(formats: list[str], document: Path, folder: Path, stem: str, blend
 
     FBX is always read back by the project's own node reader (``endfield/fbxfile``) as well.
     """
+    from ..core import progress
     from ..interchange import fbx, glb
     written = []
-    for kind in (kind for kind in OWN_FORMATS if kind in formats):
+    kinds = [kind for kind in OWN_FORMATS if kind in formats]
+    for number, kind in enumerate(kinds):
+        progress.report(number, len(kinds), f"寫出並讀回 .{kind}")
         module = glb if kind == "glb" else fbx
         path = Path(folder) / f"{stem}.{kind}"
         try:

@@ -12,6 +12,7 @@ import json
 import shutil
 from pathlib import Path, PureWindowsPath
 
+from ..core import progress
 from ..converted.scope import EXCLUDED_WUWA
 from .sources import ExtractorError, Log, Model, PathSpec, require
 
@@ -78,7 +79,8 @@ class ConvertedSource:
     def export(self, model: Model, settings, output: Path, formats: list[str], log: Log) -> list[Path]:
         root = require(settings, FOLDER)
         written = []
-        for kind in formats:
+        for number, kind in enumerate(formats):
+            progress.report(number, len(formats), "複製並核對檔案")
             relative = model.detail["files"].get(kind)
             if relative is None:
                 log(f"{model.ident} 沒有 .{kind}（既有轉出物只有 {'、'.join('.' + k for k in model.detail['files'])}），略過")

@@ -23,6 +23,7 @@ import shutil
 from contextlib import contextmanager
 from pathlib import Path
 
+from ..core import progress
 from .sources import ExtractorError, Log, Model, PathSpec, require
 
 INSTALL = PathSpec("endfield", "終末地安裝資料夾", "dir", "遊戲資料夾或它的上一層（官方啟動器或 Steam）", install=True,
@@ -114,6 +115,7 @@ class EndfieldSource:
         except FileNotFoundError as missing:
             raise ExtractorError(f"資產對照表缺 {missing}") from None
         log("讀資產對照表（第一次會建索引，要幾分鐘）…")
+        progress.step("讀資產對照表")
         pipeline = PL.Pipeline(sources, log)
         elsewhere = pipeline.cabs.outside(install)
         if elsewhere:
@@ -144,6 +146,7 @@ class EndfieldSource:
                 job = next((j for j in PL.select(pipeline.assets, ["chara"]) if j.ident == model.ident), None)
                 if job is None:
                     raise ExtractorError(f"安裝裡沒有 {model.ident}")
+                progress.step("從安裝轉換預製物")
                 result = pipeline.run([job])
                 key = f"chara/{model.ident}"
                 if key in result.failed:
@@ -174,12 +177,14 @@ def write_files(ident: str, blender: Path | None, output: Path, formats: list[st
     written = []
     if "blend" in formats:
         log(f"以 Blender 建 .blend 並讀回 {folder}（每個模型幾分鐘）…")
+        progress.step("以 Blender 建 .blend 並讀回")
         row, _report = FX.write_one(target, output, blender, None, blend=True)
         if not row["success"]:
             raise ExtractorError(f"{ident} 讀回沒有通過：{'; '.join(row['problems'])}")
         Path(row["fbx"]).unlink()           # Blender's FBX was for its read-back; FBX is written below
         written.append(Path(row["fbx"]).with_suffix(".blend"))
     if any(kind in formats for kind in ("glb", "fbx")):
+        progress.step("組合場景")
         _scene, document = FX.scene_document(target, output, None)
         try:
             written += write_own(formats, document, output / folder, target.stem, blender, log)

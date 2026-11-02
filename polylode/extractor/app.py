@@ -18,6 +18,7 @@ from .i18n import tr
 from . import settings as S
 from .preview import PreviewPanel, cache_folder, cached, preview_settings
 from .sources import Model, PathSpec, registry
+from .stepbar import StepBar
 
 TITLE = "Polylode"
 #: drawn by ``tools/make_extractor_icon.py``; the packaged program's own icon is its ``icon.ico``
@@ -222,6 +223,8 @@ class SourcePage(QWidget):
         self.status = QLabel("尚未掃描")
         self.status.setObjectName("muted")
         layout.addWidget(self.status)
+        self.scan_bar = StepBar()
+        layout.addWidget(self.scan_bar)
         tools = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setPlaceholderText("搜尋角色、衣裝或編號…")
@@ -306,6 +309,7 @@ class SourcePage(QWidget):
         self.models = []
         self.table_model.removeRows(0, self.table_model.rowCount())
         self.status.setText(tr("掃描中…"))
+        self.scan_bar.start("掃描中")
         self.scan_button.setEnabled(False)
         self.process = QProcess(self)
         self.lines = Lines()
@@ -321,6 +325,8 @@ class SourcePage(QWidget):
 
     def _scan_lines(self, lines: list[str]) -> None:
         for line in lines:
+            if self.scan_bar.take(line):
+                continue
             if line.startswith("MODEL "):
                 model = Model(**json.loads(line[6:]))
                 self.models.append(model)
@@ -342,6 +348,7 @@ class SourcePage(QWidget):
             self.window_.log(f"[{self.source.label}] 無法啟動掃描：{self.process.errorString()}")
         ok = code == 0 and not crashed
         self.status.setText(tr(f"找到 {len(self.models)} 個可匯出的模型" if ok else "掃描失敗，見下方記錄"))
+        self.scan_bar.stop()
         self.scan_button.setEnabled(True)
         self.process = None
 
@@ -378,6 +385,7 @@ class SourcePage(QWidget):
                              preview_settings(self.window_.settings), folder, ["glb"])
         self.preview_model, self.preview_written = model, None
         self.preview_panel.show_message(f"轉換 {model.character}　{model.outfit} 以預覽（第一次要幾十秒到幾分鐘）…")
+        self.preview_panel.steps.start("轉換模型以預覽")
         self.preview_button.setEnabled(False)
         self.preview_process = QProcess(self)
         self.preview_lines = Lines()
@@ -395,6 +403,8 @@ class SourcePage(QWidget):
 
     def _preview_lines(self, lines: list[str]) -> None:
         for line in lines:
+            if self.preview_panel.steps.take(line):
+                continue
             kind, _, text = line.partition(" ")
             if kind == "OUTPUT" and text.endswith(".glb"):
                 self.preview_written = Path(text)
@@ -408,6 +418,7 @@ class SourcePage(QWidget):
         self.preview_error = getattr(self, "preview_error", "")
         self._preview_lines(self.preview_lines.rest())
         model, written = self.preview_model, self.preview_written
+        self.preview_panel.steps.stop()
         if code == -1:
             self.preview_panel.show_message(f"無法啟動預覽：{self.preview_process.errorString()}")
         elif written is not None and written.is_file():
@@ -492,6 +503,8 @@ class Window(QMainWindow):
         left.addWidget(QLabel("匯出佇列"))
         left.addWidget(self.queue_list, 1)
         left.addWidget(self.progress)
+        self.job_bar = StepBar()
+        left.addWidget(self.job_bar)
         bottom_layout.addLayout(left, 1)
         right = QVBoxLayout()
         right.addWidget(QLabel("記錄"))
@@ -536,7 +549,10 @@ class Window(QMainWindow):
         self._next()
 
     def _next(self) -> None:
-        if self.process is not None or not self.pending:
+        if self.process is not None:
+            return
+        if not self.pending:
+            self.job_bar.stop()
             return
         self.current = self.pending.pop(0)
         model: Model = self.current.data(Qt.UserRole)
@@ -552,6 +568,7 @@ class Window(QMainWindow):
         self.process.errorOccurred.connect(lambda _error: failed_start(self.process) and self._job_done(-1, None))
         program, *arguments = jobs.command(job)
         self.log(f"開始匯出 {model.ident} → {output}")
+        self.job_bar.start("開始匯出")
         self.process.start(program, arguments)
 
     def _job_output(self) -> None:
@@ -559,6 +576,8 @@ class Window(QMainWindow):
 
     def _job_lines(self, lines: list[str]) -> None:
         for line in lines:
+            if self.job_bar.take(line):
+                continue
             kind, _, text = line.partition(" ")
             self.log({"OUTPUT": f"  寫出 {text}", "ERROR": f"  錯誤：{text}"}.get(kind, f"  {text if kind == 'LOG' else line}"))
 

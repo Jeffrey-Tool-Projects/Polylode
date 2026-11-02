@@ -16,6 +16,8 @@ import numpy as np
 import UnityPy
 from UnityPy.exceptions import UnityVersionFallbackError
 
+from ..core import progress
+
 HEADER = b'UnityFS\0\0\0\0\x075.x.'
 
 
@@ -143,8 +145,10 @@ def directories(path: Path):
 def scan_directories(install: Path, output: Path):
     """Build dependency locations only; this does not enumerate other models."""
     output.parent.mkdir(parents=True, exist_ok=True)
+    paths = bundle_paths(install)
     with output.open('w', encoding='utf8') as log:
-        for path in bundle_paths(install):
+        for number, path in enumerate(paths, 1):
+            progress.report(number, len(paths), '讀 bundle 目錄')
             row = {'path': path.relative_to(install).as_posix(), 'members': []}
             try:
                 row['members'] = [{'offset': offset, 'cabs': [{'name': n} for n in names]}
@@ -170,6 +174,7 @@ def scan(install: Path, output: Path, limit: int = 0):
         paths = paths[:limit]
     with output.open('a', encoding='utf8') as log:
         for number, path in enumerate(paths, 1):
+            progress.report(number, len(paths), '建立 bundle 索引')
             relative = path.relative_to(install).as_posix()
             stamp = [path.stat().st_size, path.stat().st_mtime_ns]
             if previous.get(relative, {}).get('stamp') == stamp and not previous[relative].get('error'):

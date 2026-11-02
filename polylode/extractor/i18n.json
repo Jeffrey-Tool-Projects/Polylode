@@ -958,5 +958,131 @@
   "zh-CN": "这些没能移到回收站：",
   "ja": "これらはごみ箱へ移動できませんでした：",
   "ko": "이것들은 휴지통으로 이동하지 못함:"
+ },
+ "掃描中": {
+  "en": "Scanning",
+  "zh-CN": "扫描中",
+  "ja": "スキャン中",
+  "ko": "스캔 중"
+ },
+ "轉換模型以預覽": {
+  "en": "Converting the model to preview",
+  "zh-CN": "转换模型以预览",
+  "ja": "プレビュー用にモデルを変換中",
+  "ko": "미리보기용으로 모델 변환 중"
+ },
+ "開始匯出": {
+  "en": "Starting the export",
+  "zh-CN": "开始导出",
+  "ja": "書き出しを開始",
+  "ko": "내보내기 시작"
+ },
+ "讀 bundle 目錄": {
+  "en": "Reading bundle directories",
+  "zh-CN": "读取 bundle 目录",
+  "ja": "bundle のディレクトリを読み込み中",
+  "ko": "bundle 디렉터리 읽는 중"
+ },
+ "建立 bundle 索引": {
+  "en": "Indexing bundles",
+  "zh-CN": "建立 bundle 索引",
+  "ja": "bundle の索引を作成中",
+  "ko": "bundle 색인 만드는 중"
+ },
+ "檢查哪些根節點是角色模型": {
+  "en": "Checking which roots are character models",
+  "zh-CN": "检查哪些根节点是角色模型",
+  "ja": "どのルートがキャラクターモデルか確認中",
+  "ko": "어떤 루트가 캐릭터 모델인지 확인 중"
+ },
+ "列出現行資料槽": {
+  "en": "Listing the current data slots",
+  "zh-CN": "列出现行数据槽",
+  "ja": "現行のデータスロットを列挙中",
+  "ko": "현재 데이터 슬롯 나열 중"
+ },
+ "建立資產對照表": {
+  "en": "Building the asset maps",
+  "zh-CN": "建立资产对照表",
+  "ja": "資産対応表を作成中",
+  "ko": "자산 대응표 만드는 중"
+ },
+ "合併資產對照表": {
+  "en": "Merging the asset maps",
+  "zh-CN": "合并资产对照表",
+  "ja": "資産対応表を統合中",
+  "ko": "자산 대응표 병합 중"
+ },
+ "讀資產對照表": {
+  "en": "Reading the asset maps",
+  "zh-CN": "读取资产对照表",
+  "ja": "資産対応表を読み込み中",
+  "ko": "자산 대응표 읽는 중"
+ },
+ "從安裝轉換預製物": {
+  "en": "Converting the prefab from the install",
+  "zh-CN": "从安装转换预制体",
+  "ja": "インストールからプレハブを変換中",
+  "ko": "설치에서 프리팹 변환 중"
+ },
+ "從安裝轉換模型": {
+  "en": "Converting the model from the install",
+  "zh-CN": "从安装转换模型",
+  "ja": "インストールからモデルを変換中",
+  "ko": "설치에서 모델 변환 중"
+ },
+ "以 Blender 建 .blend 並讀回": {
+  "en": "Building the .blend in Blender and reading it back",
+  "zh-CN": "以 Blender 建立 .blend 并读回",
+  "ja": "Blender で .blend を作成して読み戻し中",
+  "ko": "Blender로 .blend를 만들고 다시 읽는 중"
+ },
+ "組合場景": {
+  "en": "Assembling the scene",
+  "zh-CN": "组合场景",
+  "ja": "シーンを組み立て中",
+  "ko": "장면 조립 중"
+ },
+ "把眼睛疊層烘進貼圖": {
+  "en": "Baking the eye layers into the texture",
+  "zh-CN": "把眼睛叠层烘进贴图",
+  "ja": "目のレイヤーをテクスチャに焼き込み中",
+  "ko": "눈 레이어를 텍스처에 굽는 중"
+ },
+ "讀取部件網格": {
+  "en": "Reading the parts' meshes",
+  "zh-CN": "读取部件网格",
+  "ja": "パーツのメッシュを読み込み中",
+  "ko": "부품 메시 읽는 중"
+ },
+ "讀取材質": {
+  "en": "Reading the materials",
+  "zh-CN": "读取材质",
+  "ja": "マテリアルを読み込み中",
+  "ko": "재질 읽는 중"
+ },
+ "組合顯示模型": {
+  "en": "Assembling the display model",
+  "zh-CN": "组合显示模型",
+  "ja": "表示モデルを組み立て中",
+  "ko": "표시 모델 조립 중"
+ },
+ "從安裝讀角色表": {
+  "en": "Reading the character tables from the install",
+  "zh-CN": "从安装读取角色表",
+  "ja": "インストールからキャラクター表を読み込み中",
+  "ko": "설치에서 캐릭터 표 읽는 중"
+ },
+ "複製並核對檔案": {
+  "en": "Copying and checking the files",
+  "zh-CN": "复制并核对文件",
+  "ja": "ファイルをコピーして確認中",
+  "ko": "파일 복사 및 확인 중"
+ },
+ "寫出並讀回 .{0}": {
+  "en": "Writing and reading back the .{0}",
+  "zh-CN": "写出并读回 .{0}",
+  "ja": ".{0} を書き出して読み戻し中",
+  "ko": ".{0} 쓰고 다시 읽는 중"
  }
 }

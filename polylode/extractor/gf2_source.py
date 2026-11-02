@@ -16,6 +16,7 @@ import shutil
 from contextlib import contextmanager
 from pathlib import Path
 
+from ..core import progress
 from .sources import ExtractorError, Log, Model, PathSpec, require
 
 INSTALL = PathSpec("gf2", "GF2 安裝資料夾", "dir", "遊戲資料夾或它的上一層（官方啟動器或 Steam）", install=True,
@@ -72,6 +73,7 @@ class GF2Source:
         recorded = root / "extractor_index_stamp.json"
         if index:
             log("建立 bundle 索引（第一次會花很久；之後只讀有變動的檔案）…")
+            progress.step("建立 bundle 索引")
             scan_directories(install, root / "cab_index.jsonl")
             scan(install, root / "bundle_index.jsonl", 0)
             recorded.write_text(stamp, encoding="utf-8")
@@ -126,6 +128,7 @@ class GF2Source:
         install, catalog, declared = self._catalog(settings, log, index=False)
         entry = model.detail["entry"]
         results = load_results()
+        progress.step("從安裝轉換模型")
         outcome = convert_entry(catalog, entry, declared, results, log=log)
         save_results(install, results)
         row = results[f'{entry["cab"]}/{entry["id"]}']
@@ -134,16 +137,19 @@ class GF2Source:
         written = []
         if "blend" in formats:
             log(f"以 Blender 建 .blend 並讀回 {row['ident']}（每個模型幾分鐘）…")
+            progress.step("以 Blender 建 .blend 並讀回")
             exported = export_one(blender, row["ident"], declared)
             if not exported.get("ok"):
                 raise ExtractorError(f"{row['ident']} 讀回沒有通過：{'; '.join(exported.get('problems') or [])}")
             written += copy_out(Path(exported["fbx"]), exported.get("blend"), output, ["blend"])
         if any(kind in formats for kind in ("glb", "fbx")):
             # into the job's output: the store's exports/<ident>.fbx is the Blender-checked one export_one recorded
+            progress.step("組合場景")
             _scene, _selection, _layout, _folder, document = scene_document(row["ident"], declared)
             # glTF and FBX cannot multiply or add the eye layers: their effect is baked into the eye's map
             # (gf2.eye_bake, owner 2026-11-02); the .blend above keeps them as layers
             from ..gf2.eye_bake import bake
+            progress.step("把眼睛疊層烘進貼圖")
             written += write_own(formats, bake(document, log), output, row["ident"], blender, log)
         return written
 

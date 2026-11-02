@@ -19,9 +19,23 @@ Rectangle {
     property string loadingText: "載入中…"
     property string errorText: "讀不進這個檔案："
     // the loader's state as the window reads it: "", "loading", "ready" or the loader's error
-    property string state_: loader.status === RuntimeLoader.Success ? "ready"
+    property string state_: loader.source.toString() !== source.toString() ? (source.toString() ? "loading" : "")
+                           : loader.status === RuntimeLoader.Success ? "ready"
                            : loader.status === RuntimeLoader.Error ? root.errorText + loader.errorString
                            : source.toString() ? "loading" : ""
+
+    // RuntimeLoader reads the file on this thread and says nothing until it is done: the loader is
+    // emptied at once and given the file a frame later, so the moving bar below is drawn before the
+    // read holds the window
+    onSourceChanged: {
+        loader.source = "";
+        deferred.restart();
+    }
+    Timer {
+        id: deferred
+        interval: 50
+        onTriggered: loader.source = root.source
+    }
     property vector3d low: loader.bounds.minimum
     property vector3d high: loader.bounds.maximum
     property vector3d centre: Qt.vector3d((low.x + high.x) / 2, (low.y + high.y) / 2, (low.z + high.z) / 2)
@@ -69,7 +83,7 @@ Rectangle {
 
         RuntimeLoader {
             id: loader
-            source: root.source
+            // set by root.onSourceChanged, a frame after the file is chosen
             // a newly loaded model is seen from the front, whatever the last one was turned to
             onStatusChanged: if (status === RuntimeLoader.Success) root.look(0, 0)
         }
@@ -99,10 +113,39 @@ Rectangle {
     }
 
     Text {
+        id: message
         anchors.centerIn: parent
         visible: root.state_ !== "ready"
         color: Qt.colorEqual(root.backdrop, "#e9ecf2") ? "#3a3f4c" : "#c9ced8"
         font.pixelSize: 14
         text: root.state_ === "" ? root.hint : root.state_ === "loading" ? root.loadingText : root.state_
+    }
+
+    // while a file loads: a moving bar (the loader reports no count, only that it is done)
+    Rectangle {
+        id: track
+        objectName: "loadingBar"
+        visible: root.state_ === "loading"
+        anchors.top: message.bottom
+        anchors.topMargin: 12
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(260, root.width * 0.6)
+        height: 6
+        radius: 3
+        clip: true
+        color: Qt.colorEqual(root.backdrop, "#e9ecf2") ? "#c9ced8" : "#333846"
+        Rectangle {
+            width: track.width / 3
+            height: track.height
+            radius: track.radius
+            color: "#2f6feb"
+            NumberAnimation on x {
+                running: track.visible
+                from: -track.width / 3
+                to: track.width
+                duration: 1100
+                loops: Animation.Infinite
+            }
+        }
     }
 }
