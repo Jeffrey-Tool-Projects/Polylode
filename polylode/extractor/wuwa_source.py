@@ -24,9 +24,10 @@ from .sources import ExtractorError, Log, Model, PathSpec, require
 
 INSTALL = PathSpec("wuwa", "鳴潮安裝資料夾", "dir", "遊戲資料夾或它的上一層（官方啟動器或 Steam）", install=True,
                    marker="Client/Content/Paks")
-READER = PathSpec("wuwa_reader", "鳴潮讀取器（wuwa.exe 或 wuwa.dll）", "file", "tools/wuwa_cli 建出的 wuwa.exe")
+READER = PathSpec("wuwa_reader", "鳴潮讀取器（wuwa.exe 或 wuwa.dll）", "file", "tools/wuwa_cli 建出的 wuwa.exe",
+                  required=True)
 DOTNET = PathSpec("dotnet", ".NET 10 執行環境資料夾", "dir", "含 dotnet.exe 的資料夾；打包版留空用內建的")
-KEYS = PathSpec("wuwa_keys", "鳴潮 AES 金鑰檔", "file", "含 mainKey 與 dynamicKeys 的 JSON")
+KEYS = PathSpec("wuwa_keys", "鳴潮 AES 金鑰檔", "file", "含 mainKey 與 dynamicKeys 的 JSON", required=True)
 BLENDER = PathSpec("blender", "Blender 執行檔", "file")
 MODEL_TABLE_JSON = "model_config/package.json"
 

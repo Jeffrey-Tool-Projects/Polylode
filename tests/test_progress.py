@@ -162,3 +162,28 @@ def test_an_obj_box_is_its_vertices_and_a_file_not_measured_says_so(tmp_path):
     (tmp_path / "broken.fbx").write_bytes(b"not an fbx")
     assert model_bounds(tmp_path / "broken.fbx") is None
     assert model_bounds(tmp_path / "x.stl") is None
+
+
+def test_a_preview_or_export_asks_for_each_required_tool_it_lacks_once(tmp_path, monkeypatch):
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication, QFileDialog
+    from polylode.extractor import app as A
+    monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    S.save(S.Settings())
+    qt = QApplication.instance() or QApplication([])
+    window = A.Window()
+    page = next(window.pages.widget(i) for i in range(window.pages.count())
+                if getattr(getattr(window.pages.widget(i), "source", None), "id", "") == "wuwa")
+    reader, keys = tmp_path / "wuwa.exe", tmp_path / "keys.json"
+    reader.write_bytes(b""), keys.write_text("{}")
+    asked = []
+    answers = iter([str(reader), str(keys)])
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a: (asked.append(a[1]) or next(answers), ""))
+    assert page.ask_tools()
+    assert len(asked) == 2 and S.load().tools["wuwa_reader"] == str(reader) and S.load().tools["wuwa_keys"] == str(keys)
+    assert page.ask_tools() and len(asked) == 2                 # set and there: not asked again
+    keys.unlink()
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a: ("", ""))
+    assert not page.ask_tools()                                 # gone and not given: nothing converted
+    window.close()
+    del qt

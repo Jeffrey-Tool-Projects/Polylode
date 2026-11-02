@@ -298,6 +298,25 @@ class SourcePage(QWidget):
             self.window_.settings_page.set_path(spec.key, chosen)
         return True
 
+    def ask_tools(self) -> bool:
+        """Before a preview or an export: each tool the source cannot convert without (``PathSpec.required``),
+        asked for when unset or gone.  False when one was not given."""
+        settings = self.window_.settings
+        for spec in (spec for spec in self.source.paths if spec.required and not spec.install):
+            current = settings.tool(spec.key)
+            if current is not None and (current.is_dir() if spec.kind == "dir" else current.is_file()):
+                continue
+            title = tr(f"選擇{spec.label}") + (f"（{tr(spec.hint)}）" if spec.hint else "")
+            start = str(current.parent) if current is not None else ""
+            chosen = (QFileDialog.getExistingDirectory(self, title, start) if spec.kind == "dir"
+                      else QFileDialog.getOpenFileName(self, title, start)[0])
+            if not chosen:
+                self.status.setText(tr(f"還沒有選{spec.label}，沒有轉換"))
+                return False
+            self.window_.settings_page.set_path(spec.key, chosen)
+        self.window_.settings_page._save()
+        return True
+
     def scan(self) -> None:
         if self.process is not None:
             return
@@ -379,6 +398,8 @@ class SourcePage(QWidget):
         if self.preview_process is not None:
             return
         self.window_.settings_page._save()
+        if not self.ask_tools():
+            return
         folder = cache_folder(model)
         folder.mkdir(parents=True, exist_ok=True)
         job = jobs.write_job(Path(tempfile.gettempdir()) / f"extractor_preview_{model.source}.json", model,
@@ -440,6 +461,8 @@ class SourcePage(QWidget):
                   if self.table_model.item(row, 0).checkState() == Qt.Checked]
         if not chosen:
             QMessageBox.information(self, TITLE, "先勾選要匯出的模型。")
+            return
+        if not self.ask_tools():
             return
         self.window_.queue(chosen)
 
