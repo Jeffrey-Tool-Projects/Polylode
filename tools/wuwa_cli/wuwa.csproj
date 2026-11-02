@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <!-- A CUE4Parse checkout at the commit README.md names, with cue4parse_wuthering_waves.patch applied. -->
     <CUE4ParseRoot Condition="'$(CUE4ParseRoot)' == ''">$(MSBuildProjectDirectory)/CUE4Parse</CUE4ParseRoot>
+    <!-- A checkout in its default place is inside this folder: its sources are its own projects', not this one's. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);CUE4Parse/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.13" />
