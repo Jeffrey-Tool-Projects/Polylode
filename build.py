@@ -2,7 +2,7 @@
 
     python build.py              # compile, copy Blender's source files, run --selftest
     python build.py --check-only # only copy the source files and run --selftest again
-    python build_extractor.py --jobs 1     # one C compiler: the compile cache keeps what earlier runs finished
+    python build.py --jobs 1     # one C compiler: the compile cache keeps what earlier runs finished
 
 Carried beside the program: AnimeStudio (``tools/AnimeStudio``, MIT, with its licence) and the .NET 10
 runtime (``dotnet``, from ``--dotnet`` or ``DOTNET_ROOT``, with Microsoft's licence and notices), which

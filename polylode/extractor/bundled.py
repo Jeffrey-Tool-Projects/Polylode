@@ -1,6 +1,6 @@
 """The tools the packaged extractor carries: AnimeStudio (MIT) and a .NET runtime for it and the WuWa reader.
 
-``build_extractor.py`` copies them beside the program: ``tools/AnimeStudio``
+``build.py`` copies them beside the program: ``tools/AnimeStudio``
 (the Endfield research kit's ``endfield-vfs5-1070`` build, with its
 licence) and ``dotnet`` (the .NET runtime, with Microsoft's licence and
 third-party notices).  In a checkout the AnimeStudio build is the one under
