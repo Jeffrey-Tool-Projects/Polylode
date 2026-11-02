@@ -198,3 +198,16 @@ def test_a_colour_layer_multiplied_or_added_onto_what_is_behind_is_kept_but_draw
     cloth = next(m for m in gltf["materials"] if m["name"] == "cloth")
     assert cloth["alphaMode"] == "BLEND" and cloth["pbrMetallicRoughness"]["baseColorFactor"][3] == 0.0
     assert cloth["extras"]["blend"] == "add" and cloth["extras"]["strength"] == 0.5
+
+
+def test_a_sources_vertex_colours_are_kept_as_data_and_never_multiply_the_base_colour(tmp_path):
+    # GF2 keeps outline normals in its vertex colours, about (0.5, 0.5, 1): as COLOR_0 every viewer would
+    # multiply them into the base colour, and Qt's loader drew the characters not at all
+    document, arrays = _scene(tmp_path)
+    document["parts"][0]["colors"] = True
+    arrays["p0_col"] = np.array([[.5, .5, 1, 1]] * 4, np.float32)
+    glb.write(document, arrays, tmp_path, tmp_path / "out.glb")
+    gltf, accessor, _view = _read(tmp_path / "out.glb")
+    attributes = gltf["meshes"][0]["primitives"][0]["attributes"]
+    assert "COLOR_0" not in attributes and glb.VERTEX_DATA.startswith("_")
+    assert np.allclose(accessor(attributes[glb.VERTEX_DATA]), [.5, .5, 1, 1])

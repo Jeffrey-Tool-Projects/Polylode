@@ -238,8 +238,7 @@ class ViewerPage(QWidget):
         names = "\n".join(f"  {p.relative_to(output)}" for p in doomed)
         if QMessageBox.question(self, "刪除模型", "把這些移到資源回收筒？\n" + names) != QMessageBox.StandardButton.Yes:
             return
-        root = self.panel.view.rootObject()
-        if root is not None and Path(root.property("source").toLocalFile() or ".").resolve() in {p.resolve() for p in doomed}:
+        if self.panel.current is not None and self.panel.current.resolve() in {p.resolve() for p in doomed}:
             self.panel.show_message("已刪除")
             self.info.clear()
         failed = [p for p in doomed if not trash(p)]

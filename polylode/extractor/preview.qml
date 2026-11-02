@@ -36,16 +36,58 @@ Rectangle {
         interval: 50
         onTriggered: loader.source = root.source
     }
-    property vector3d low: loader.bounds.minimum
-    property vector3d high: loader.bounds.maximum
+    // the model's box as the window measured it from a glTF file's own data (preview.gltf_bounds): the
+    // loader's own bounds are all zero for a skinned model, and every character is one; without it, the
+    // loader's bounds, or the boxes of the scene's models added up (measured)
+    property bool framed: false
+    property vector3d frameLow: Qt.vector3d(0, 0, 0)
+    property vector3d frameHigh: Qt.vector3d(0, 0, 0)
+    property vector3d measuredLow: Qt.vector3d(0, 0, 0)
+    property vector3d measuredHigh: Qt.vector3d(0, 0, 0)
+    property bool loaderBoxEmpty: loader.bounds.maximum.minus(loader.bounds.minimum).length() <= 0
+    property vector3d low: framed ? frameLow : loaderBoxEmpty ? measuredLow : loader.bounds.minimum
+    property vector3d high: framed ? frameHigh : loaderBoxEmpty ? measuredHigh : loader.bounds.maximum
     property vector3d centre: Qt.vector3d((low.x + high.x) / 2, (low.y + high.y) / 2, (low.z + high.z) / 2)
-    property real size: Math.max(high.x - low.x, high.y - low.y, high.z - low.z, 0.01)
+    property real size: measured ? Math.max(high.x - low.x, high.y - low.y, high.z - low.z, 0.001) : 3
+    // whether there is a box to frame by at all
+    property bool measured: high.minus(low).length() > 0
 
-    // the model from *yaw* and *pitch* degrees (0, 0: from the front), framed again and centred
+    // the boxes of every model under *node*, in the scene's frame, grown into measuredLow/High
+    function measure(node, box) {
+        if (node.bounds !== undefined && node.mapPositionToScene !== undefined) {
+            var a = node.bounds.minimum, b = node.bounds.maximum;
+            if (b.minus(a).length() > 0) {
+                for (var i = 0; i < 8; ++i) {
+                    var p = node.mapPositionToScene(Qt.vector3d(i & 1 ? b.x : a.x, i & 2 ? b.y : a.y, i & 4 ? b.z : a.z));
+                    box.low = box.low ? Qt.vector3d(Math.min(box.low.x, p.x), Math.min(box.low.y, p.y), Math.min(box.low.z, p.z)) : p;
+                    box.high = box.high ? Qt.vector3d(Math.max(box.high.x, p.x), Math.max(box.high.y, p.y), Math.max(box.high.z, p.z)) : p;
+                }
+            }
+        }
+        for (var c = 0; c < node.children.length; ++c)
+            measure(node.children[c], box);
+    }
+
+    // the model from *yaw* and *pitch* degrees (0, 0: from the front), centred on its box and as close as
+    // lets the whole box show in the view, whichever way the view is wider
     function look(yaw, pitch) {
+        if (!root.measured) {
+            // no box (a file the window could not measure): the origin, from a fixed distance
+            origin.position = Qt.vector3d(0, 0, 0);
+            origin.eulerRotation = Qt.vector3d(pitch, yaw, 0);
+            camera.position = Qt.vector3d(0, 0, 3);
+            camera.eulerRotation = Qt.vector3d(0, 0, 0);
+            return;
+        }
+        var half = Math.tan(camera.fieldOfView * Math.PI / 360);    // the vertical half view, as a slope
+        var aspect = Math.max(view.width, 1) / Math.max(view.height, 1);
+        var tall = (high.y - low.y) / 2;
+        var wide = Math.max(high.x - low.x, high.z - low.z) / 2;      // any side may face the camera
+        var deep = Math.max(high.x - low.x, high.z - low.z) / 2;
+        var distance = Math.max(tall / half, wide / (half * aspect)) * 1.12 + deep;
         origin.position = root.centre;
         origin.eulerRotation = Qt.vector3d(pitch, yaw, 0);
-        camera.position = Qt.vector3d(0, 0, root.size * 2.2);
+        camera.position = Qt.vector3d(0, 0, Math.max(distance, root.size * 0.5));
         camera.eulerRotation = Qt.vector3d(0, 0, 0);
     }
 
@@ -72,7 +114,7 @@ Rectangle {
                 fieldOfView: 30
                 clipNear: root.size / 1000
                 clipFar: root.size * 100
-                // far enough that the whole height fits a 30° view, with a margin
+                // placed by root.look() once a model is loaded
                 z: root.size * 2.2
             }
         }
@@ -84,8 +126,18 @@ Rectangle {
         RuntimeLoader {
             id: loader
             // set by root.onSourceChanged, a frame after the file is chosen
-            // a newly loaded model is seen from the front, whatever the last one was turned to
-            onStatusChanged: if (status === RuntimeLoader.Success) root.look(0, 0)
+            // a newly loaded model is seen from the front, framed to its box, whatever the last one was turned to
+            onStatusChanged: {
+                if (status !== RuntimeLoader.Success)
+                    return;
+                if (!root.framed && root.loaderBoxEmpty) {
+                    var box = {};
+                    root.measure(loader, box);
+                    root.measuredLow = box.low ? box.low : Qt.vector3d(0, 0, 0);
+                    root.measuredHigh = box.high ? box.high : Qt.vector3d(0, 0, 0);
+                }
+                root.look(0, 0);
+            }
         }
     }
 

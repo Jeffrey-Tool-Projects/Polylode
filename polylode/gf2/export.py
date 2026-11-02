@@ -13,7 +13,7 @@ from ..core.paths import write_json_atomic
 from ..endfield import fbxfile
 from ..endfield import rigscene as RS
 from ..origin import bake
-from . import display, frames, playable, precision, publish, store
+from . import display, frames, playable, precision, presentation, publish, store
 
 
 def worker(blender, mode, document, fbx):
@@ -151,6 +151,14 @@ def scene_document(ident, declared=None):
     profile = display.stored_profile(ident)
     if profile is not None:
         document_data = display.document_profile(document_data, profile)
+    else:
+        # no reviewed profile: the standard rule, each LOD family shown at its most detailed level and its
+        # other levels kept but hidden (presentation.display_lods); with every level shown, a viewer drew
+        # each mesh two or three times over itself
+        hidden = presentation.display_lods(document_data['parts'])['hidden']
+        for part in document_data['parts']:
+            part.setdefault('source_hidden', part['hidden'])
+            part['hidden'] = hidden[part['name']]
     layout = frames.plan(scene.bones, scene.parts)
     if any(any(v != 0 for v in frame['origin']) for frame in layout['frames']):
         document_data['local_frames'] = layout

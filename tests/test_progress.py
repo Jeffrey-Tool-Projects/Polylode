@@ -102,3 +102,63 @@ def test_every_step_the_converters_name_has_every_language():
                 named.add(node.args[0].value)
     assert len(named) >= 20
     assert not sorted(named - set(catalog))
+
+
+def test_a_gltf_box_is_its_meshes_placed_by_their_nodes_and_a_skinned_mesh_by_its_joints(tmp_path):
+    import struct
+    from polylode.extractor.preview import gltf_bounds
+    positions = {"min": [-1, 0, -1], "max": [1, 2, 1]}
+    document = {"asset": {"version": "2.0"}, "scene": 0, "scenes": [{"nodes": [0, 2]}],
+                "nodes": [{"translation": [10, 0, 0], "children": [1]},
+                          {"mesh": 0, "scale": [2, 2, 2]},            # under a moved node: 8..12 in x
+                          {"mesh": 0, "skin": 0, "translation": [0, 50, 0]}],   # skinned: its node does not move it
+                "meshes": [{"primitives": [{"attributes": {"POSITION": 0}}]}],
+                "accessors": [{"count": 2, "type": "VEC3", "componentType": 5126, **positions}]}
+    text = json.dumps(document).encode()
+    text += b" " * (-len(text) % 4)
+    path = tmp_path / "box.glb"
+    path.write_bytes(struct.pack("<III", 0x46546C67, 2, 20 + len(text)) + struct.pack("<II", len(text), 0x4E4F534A) + text)
+    low, high = gltf_bounds(path)
+    assert low == (-1.0, 0.0, -2.0) and high == (12.0, 4.0, 2.0)
+    (tmp_path / "x.fbx").write_bytes(b"Kaydara FBX Binary")
+    assert gltf_bounds(tmp_path / "x.fbx") is None             # not glTF: the view measures it itself
+
+
+def test_a_glb_is_shown_without_its_hidden_parts_and_the_file_itself_is_left_alone(tmp_path, monkeypatch):
+    import struct
+    from polylode.extractor import preview
+    monkeypatch.setattr(preview, "derived_root", lambda: tmp_path / "derived")
+    hidden = {"KHR_node_visibility": {"visible": False}}
+    document = {"asset": {"version": "2.0"}, "scene": 0, "scenes": [{"nodes": [0, 1]}],
+                "nodes": [{"name": "lod0", "mesh": 0}, {"name": "lod1", "mesh": 0, "skin": 0, "extensions": hidden}],
+                "meshes": [{"primitives": [{"attributes": {"POSITION": 0}}]}],
+                "accessors": [{"count": 2, "type": "VEC3", "componentType": 5126, "min": [0, 0, 0], "max": [1, 1, 1]}]}
+
+    def glb(doc, path):
+        text = json.dumps(doc).encode()
+        text += b" " * (-len(text) % 4)
+        blob = b"\0" * 8
+        path.write_bytes(struct.pack("<III", 0x46546C67, 2, 28 + len(text) + len(blob)) + struct.pack("<II", len(text), 0x4E4F534A)
+                         + text + struct.pack("<II", len(blob), 0x004E4942) + blob)
+        return path
+
+    original = glb(document, tmp_path / "model.glb")
+    before = original.read_bytes()
+    shown = preview.shown_copy(original)
+    assert shown != original and original.read_bytes() == before
+    data = shown.read_bytes()
+    nodes = json.loads(data[20:20 + struct.unpack_from("<I", data, 12)[0]])["nodes"]
+    assert "mesh" in nodes[0] and "mesh" not in nodes[1] and "skin" not in nodes[1]
+    assert data.endswith(before[-16:]) and struct.unpack_from("<I", data, 8)[0] == len(data)
+    assert preview.shown_copy(original) == shown                    # kept: not written again
+    plain = glb({**document, "nodes": document["nodes"][:1]}, tmp_path / "plain.glb")
+    assert preview.shown_copy(plain) == plain                       # nothing hidden: the file itself
+
+
+def test_an_obj_box_is_its_vertices_and_a_file_not_measured_says_so(tmp_path):
+    from polylode.extractor.preview import model_bounds
+    (tmp_path / "m.obj").write_text("# x\nv 0 0 0\nv 1 2 -3\nvt 0 0\nf 1 2 1\n", encoding="utf-8")
+    assert model_bounds(tmp_path / "m.obj") == ((0.0, 0.0, -3.0), (1.0, 2.0, 0.0))
+    (tmp_path / "broken.fbx").write_bytes(b"not an fbx")
+    assert model_bounds(tmp_path / "broken.fbx") is None
+    assert model_bounds(tmp_path / "x.stl") is None

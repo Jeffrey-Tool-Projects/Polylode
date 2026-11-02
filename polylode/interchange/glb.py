@@ -42,8 +42,15 @@ ARRAY_BUFFER, ELEMENT_ARRAY_BUFFER = 34962, 34963
 TYPES = {1: "SCALAR", 2: "VEC2", 3: "VEC3", 4: "VEC4", 16: "MAT4"}
 #: the rules a file was written by, kept in ``asset.extras.rules``: a viewer says a file of older rules
 #: should be exported again (1: coverage — overlays, transparency, cut-outs, eye layers; 2: GF2's eye layers
-#: baked into the eye's map — §7.1455)
-RULES = 2
+#: baked into the eye's map — §7.1455; 3: the sources' vertex colours as ``_SOURCE_COLOR``, not ``COLOR_0``, and GF2's
+#: lower LOD levels hidden)
+RULES = 3
+#: where a source's vertex colours go: an application attribute (the spec's leading underscore), not
+#: ``COLOR_0``, which every glTF viewer multiplies into the base colour.  The three games keep shader data
+#: there (GF2's are outline normals, about (0.5, 0.5, 1)), never a colour their materials multiply by; as
+#: ``COLOR_0`` they tinted a model blue in a viewer that follows the spec, and Qt's loader drew GF2's
+#: characters not at all
+VERTEX_DATA = "_SOURCE_COLOR"
 
 
 class GlbError(ValueError):
@@ -263,7 +270,7 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
             uv[:, 1] = 1.0 - uv[:, 1]
             attributes[f"TEXCOORD_{slot}"] = builder.accessor(uv, FLOAT, ARRAY_BUFFER)
         if part.get("colors"):
-            attributes["COLOR_0"] = builder.accessor(np.asarray(arrays[p + "col"], dtype=np.float64), FLOAT,
+            attributes[VERTEX_DATA] = builder.accessor(np.asarray(arrays[p + "col"], dtype=np.float64), FLOAT,
                                                      ARRAY_BUFFER)
         joints = np.asarray(arrays[p + "jnt"])
         weights = np.asarray(arrays[p + "wgt"], dtype=np.float64)
