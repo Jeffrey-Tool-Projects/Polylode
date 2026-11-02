@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# build output (build.py)
+build/
+dist/
+*.build/
+*.dist/
+*.onefile-build/
+nuitka-crash-report.xml
+
+# what a run of the program from a checkout writes beside it (core.paths.derived_root)
+assets_cache/
+UserData/
+preview/
+
+# exported models and scratch
+*.glb
+*.fbx
+*.blend
+*.blend1
+!tests/**/*.glb

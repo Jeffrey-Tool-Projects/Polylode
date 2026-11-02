@@ -1,0 +1,157 @@
+"""Wuthering Waves: the install's playable characters' display models, read through the user's own game-file reader.
+
+Scanning copies the role, model and language tables out of the install
+(``wuthering_waves.scope.FILES``, with ``tools/wuwa_cli``'s ``raw-list``) and
+reads the model table as JSON (``assembly.MODEL_TABLE``) into
+``assets_cache/wuthering_waves/config`` — again only when the archives
+changed.  It lists one row per display model the character menu puts
+together (``assembly.display_models``: a primary mesh with its UI parts),
+named from the game's own traditional Chinese text.  Every playable
+character is listed, women and men, with no exclusion: these are the game's
+own models for the user's own use (owner 2026-11-02, §7.1455), written only to
+the output folder and ``assets_cache/wuthering_waves``, which the game does
+not read.
+"""
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+from .sources import ExtractorError, Log, Model, PathSpec, require
+
+INSTALL = PathSpec("wuwa", "鳴潮安裝資料夾", "dir", "遊戲資料夾或它的上一層（官方啟動器或 Steam）", install=True,
+                   marker="Client/Content/Paks")
+READER = PathSpec("wuwa_reader", "鳴潮讀取器（wuwa.exe 或 wuwa.dll）", "file", "tools/wuwa_cli 建出的 wuwa.exe")
+DOTNET = PathSpec("dotnet", ".NET 10 執行環境資料夾", "dir", "含 dotnet.exe 的資料夾；打包版留空用內建的")
+KEYS = PathSpec("wuwa_keys", "鳴潮 AES 金鑰檔", "file", "含 mainKey 與 dynamicKeys 的 JSON")
+BLENDER = PathSpec("blender", "Blender 執行檔", "file")
+MODEL_TABLE_JSON = "model_config/package.json"
+
+
+def config_root() -> Path:
+    from ..core.paths import derived_root
+    return derived_root() / "assets_cache" / "wuthering_waves" / "config"
+
+
+def _reader(settings, mode: str, output: Path, argument: str, log: Log) -> None:
+    from ..wuthering_waves import extract
+    try:
+        from . import bundled
+        extract.run(require(settings, READER), require(settings, DOTNET, bundled.dotnet()), require(settings, INSTALL),
+                    require(settings, KEYS), output, mode, argument, log)
+    except extract.ReaderError as failure:
+        raise ExtractorError(str(failure)) from None
+
+
+def extract_config(settings, log: Log) -> Path:
+    """The tables a scan reads, copied out of this install; copied again when its archives changed."""
+    from ..wuthering_waves import assembly, extract, scope
+    install = require(settings, INSTALL)
+    root = config_root()
+    stamp_path = root / "install.json"
+    stamp = {"install": str(install), "archives": extract.install_stamp(install)}
+    wanted = [*scope.FILES, MODEL_TABLE_JSON]
+    if (stamp_path.is_file() and json.loads(stamp_path.read_text(encoding="utf-8")) == stamp
+            and all((root / name).is_file() for name in wanted)):
+        return root
+    root.mkdir(parents=True, exist_ok=True)
+    stamp_path.unlink(missing_ok=True)
+    listing = root / "files.txt"
+    listing.write_text("\n".join(scope.FILES) + "\n", encoding="utf-8")
+    _reader(settings, "raw-list", root, str(listing), log)
+    _reader(settings, "json", (root / MODEL_TABLE_JSON).parent, assembly.MODEL_TABLE, log)
+    missing = [name for name in wanted if not (root / name).is_file()]
+    if missing:
+        raise ExtractorError(f"讀取器沒有寫出：{', '.join(missing)}")
+    stamp_path.write_text(json.dumps(stamp), encoding="utf-8")
+    return root
+
+
+def display_models(root: Path, log: Log) -> list[dict]:
+    """The menu's display models of this extraction (``assembly.display_models``)."""
+    from ..wuthering_waves import assembly, scope
+    found = scope.read_scope(root)
+    if found["unresolved"]:
+        log(f"{len(found['unresolved'])} 個衣裝的模型編號在預載表裡沒有：{found['unresolved'][:5]}")
+    table = json.loads((root / MODEL_TABLE_JSON).read_text(encoding="utf-8-sig"))[0]["Rows"]
+    return assembly.display_models(found, assembly.ui_assemblies(found, table))
+
+
+def _label(keys: list[str], root: Path) -> str:
+    """The game's own text for *keys*; a key the table does not hold is shown as itself, never translated."""
+    from ..converted import names, store
+    shown = []
+    for key in dict.fromkeys(keys):
+        try:
+            shown.append(names.wuthering_name(root, [key], extraction=root)[0])
+        except store.WarehouseError:
+            shown.append(key)
+    return "、".join(shown)
+
+
+class WuwaSource:
+    id = "wuwa"
+    label = "鳴潮"
+    paths = (INSTALL, READER, DOTNET, KEYS)
+
+    def scan(self, settings, log: Log) -> list[Model]:
+        root = extract_config(settings, log)
+        models = []
+        for row in display_models(root, log):
+            owners = row["owners"]
+            models.append(Model("wuwa", row["ident"], _label([o["role_name_key"] for o in owners], root),
+                                _label([o["outfit_name_key"] for o in owners], root),
+                                {"parts": row["parts"], "model_ids": row["model_ids"]}))
+        log(f"可玩角色的顯示模型 {len(models)} 個")
+        return models
+
+    def export(self, model: Model, settings, output: Path, formats: list[str], log: Log) -> list[Path]:
+        """Dump each part with the reader, assemble the display model, have Blender build and read it back."""
+        from ..wuthering_waves.source_scene import assemble
+        from .sources import blender_for, write_own
+        blender = blender_for(settings, formats, BLENDER)
+        root = extract_config(settings, log)
+        row = next((r for r in display_models(root, log) if r["ident"] == model.ident), None)
+        if row is None:
+            raise ExtractorError(f"這個安裝的角色選單沒有 {model.ident}")
+        sources = root.parent / "source"
+        stamp = (root / "install.json").read_text(encoding="utf-8")       # the archives the tables were read from
+        dumped = []
+        for part in row["parts"]:
+            ident = part["package"].rsplit("/", 1)[-1]
+            folder = sources / ident
+            receipt, dumped_from = folder / "export.json", folder / "install.json"
+            # a dump is reused only from the same archives: after a game update the mesh is read again
+            if not (receipt.is_file() and dumped_from.is_file() and dumped_from.read_text(encoding="utf-8") == stamp
+                    and all(item.get("Success") for item in json.loads(receipt.read_text(encoding="utf-8")))):
+                shutil.rmtree(folder, ignore_errors=True)
+                _reader(settings, "mesh", folder, part["package"] + ".uasset", log)
+                dumped_from.write_text(stamp, encoding="utf-8")
+            dumped.append({"ident": ident, "package": part["package"] + ".uasset"})
+        listing = sources / f"{model.ident}.metadata.json"
+        listing.write_text(json.dumps({"models": dumped}), encoding="utf-8")
+        _reader(settings, "metadata", sources, str(listing), log)
+        log("組合顯示模型（主網格、子網格、插槽裝飾）…")
+        try:
+            case = assemble(row, sources, root.parent / "cases")
+        except ValueError as refusal:
+            raise ExtractorError(f"{model.ident} 組合失敗：{refusal}") from None
+        written = []
+        if "blend" in formats:
+            log(f"以 Blender 建 .blend 並讀回 {model.ident}（每個模型幾分鐘）…")
+            for mode in ("build", "check"):
+                blender_run(blender, mode, case, model.ident)
+            written.append(Path(shutil.copy2(case / f"{model.ident}.blend", output / f"{model.ident}.blend")))
+        return written + write_own(formats, case / "source_document.json", output, model.ident, blender, log)
+
+
+def blender_run(blender: Path, mode: str, case: Path, ident: str) -> None:
+    """``tools/wuwa_source_blender.py`` in *mode*; its last lines when it fails."""
+    from .blender_files import root
+    done = subprocess.run([str(blender), "--background", "--factory-startup", "--python-exit-code", "1", "--python",
+                           str(root() / "tools" / "wuwa_source_blender.py"), "--", mode, str(case), ident],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+    if done.returncode != 0:
+        raise ExtractorError(f"Blender {mode} exit {done.returncode}：{(done.stdout + done.stderr)[-1500:]}")

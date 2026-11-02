@@ -1,0 +1,821 @@
+[
+  {
+    "target": {
+      "container": "7ce1d50268bc4294484fbed039c24b9f",
+      "cab": "CAB-9d47b480b8d2045e0d1f6201bbc53e7f",
+      "id": 7836280204791488222,
+      "type": "GameObject",
+      "name": "c_AlvaSSR01_Upgrade",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/252a07acdadccb57ea81726ec2b13493.bundle",
+      "offset": 847193
+    },
+    "node": [
+      "cab-9d47b480b8d2045e0d1f6201bbc53e7f",
+      7836280201201719470
+    ],
+    "owner": [
+      "cab-9d47b480b8d2045e0d1f6201bbc53e7f",
+      7836280201711399510
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Alva/AlvaSSR01/Models/c_AlvaSSR01_slg_cloth2_lod0.mesh",
+    "role_mesh_res": [
+      "cab-9d47b480b8d2045e0d1f6201bbc53e7f",
+      7836280202771386281
+    ],
+    "role_sha256": "c95053dc3c64fc5d3dcc6439cd8cb45a51b783244c9219e697a1d69449108ab4",
+    "source": {
+      "container": "e67c2a1cf58ed5541bc07cd1b968bdc7",
+      "cab": "CAB-1ef1bbd1cf8ea481b3ea5e88bd5bd775",
+      "id": -6504066211136011371,
+      "type": "GameObject",
+      "name": "c_AlvaSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/3d53d18d16cde91e9cc205c859dab4f9.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-1ef1bbd1cf8ea481b3ea5e88bd5bd775",
+      -6504066210961376640
+    ],
+    "mesh_sha256": "9f8e140a3ad049504b8f0efb5b38e5995a32e71d9e04fbcff160a21db74e78bb"
+  },
+  {
+    "target": {
+      "container": "7ce1d50268bc4294484fbed039c24b9f",
+      "cab": "CAB-9d47b480b8d2045e0d1f6201bbc53e7f",
+      "id": 7836280204791488222,
+      "type": "GameObject",
+      "name": "c_AlvaSSR01_Upgrade",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/252a07acdadccb57ea81726ec2b13493.bundle",
+      "offset": 847193
+    },
+    "node": [
+      "cab-9d47b480b8d2045e0d1f6201bbc53e7f",
+      7836280203471266509
+    ],
+    "owner": [
+      "cab-9d47b480b8d2045e0d1f6201bbc53e7f",
+      7836280201711399510
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Alva/AlvaSSR01/Models/c_AlvaSSR01_slg_cloth3_lod0.mesh",
+    "role_mesh_res": [
+      "cab-9d47b480b8d2045e0d1f6201bbc53e7f",
+      7836280202771386281
+    ],
+    "role_sha256": "c95053dc3c64fc5d3dcc6439cd8cb45a51b783244c9219e697a1d69449108ab4",
+    "source": {
+      "container": "e67c2a1cf58ed5541bc07cd1b968bdc7",
+      "cab": "CAB-1ef1bbd1cf8ea481b3ea5e88bd5bd775",
+      "id": -6504066211136011371,
+      "type": "GameObject",
+      "name": "c_AlvaSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/3d53d18d16cde91e9cc205c859dab4f9.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-1ef1bbd1cf8ea481b3ea5e88bd5bd775",
+      -6504066211004612353
+    ],
+    "mesh_sha256": "3083c0eeb2fbc2628dbcfa6a91db907f991ef364d91cc7004f5977f2f4f69c98"
+  },
+  {
+    "target": {
+      "container": "bf6384b8aee46d94982b4ae4b5fed4af",
+      "cab": "CAB-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      "id": 8390896152351860481,
+      "type": "GameObject",
+      "name": "c_CheyanneSSR01_Upgrade",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/3306905eb7800f0efcb35a0867101423.bundle",
+      "offset": 7095728
+    },
+    "node": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896151455585732
+    ],
+    "owner": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896151409978502
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Cheyanne/CheyanneSSR01/Models/c_CheyanneSSR01_slg_cloth1_lod0.mesh",
+    "role_mesh_res": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896150426209349
+    ],
+    "role_sha256": "b10d8b4e72f4ca8679e073581a07b40a5a5658a15544326ecd49aee67fd15b19",
+    "source": {
+      "container": "ab4d7100e86acf1419591b68e577342f",
+      "cab": "CAB-9c1b7f5ef3f92d7dee9790e37ff602cd",
+      "id": 1755233626921639858,
+      "type": "GameObject",
+      "name": "c_CheyanneSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/b3b584acbcb33ab8c3d9b68e12434288.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-9c1b7f5ef3f92d7dee9790e37ff602cd",
+      1755233628672183057
+    ],
+    "mesh_sha256": "c99d4fc0a300eaaf27714375401c138417e1455bc79322c0f6be46558feca240"
+  },
+  {
+    "target": {
+      "container": "bf6384b8aee46d94982b4ae4b5fed4af",
+      "cab": "CAB-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      "id": 8390896152351860481,
+      "type": "GameObject",
+      "name": "c_CheyanneSSR01_Upgrade",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/3306905eb7800f0efcb35a0867101423.bundle",
+      "offset": 7095728
+    },
+    "node": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896150999361137
+    ],
+    "owner": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896151409978502
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Cheyanne/CheyanneSSR01/Models/c_CheyanneSSR01_slg_cloth2_lod0.mesh",
+    "role_mesh_res": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896150426209349
+    ],
+    "role_sha256": "b10d8b4e72f4ca8679e073581a07b40a5a5658a15544326ecd49aee67fd15b19",
+    "source": {
+      "container": "ab4d7100e86acf1419591b68e577342f",
+      "cab": "CAB-9c1b7f5ef3f92d7dee9790e37ff602cd",
+      "id": 1755233626921639858,
+      "type": "GameObject",
+      "name": "c_CheyanneSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/b3b584acbcb33ab8c3d9b68e12434288.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-9c1b7f5ef3f92d7dee9790e37ff602cd",
+      1755233627237395152
+    ],
+    "mesh_sha256": "f131eeaf92e573dc7b8427cc6123763735325e8ece2edcb1d8b8185860a0a84a"
+  },
+  {
+    "target": {
+      "container": "bf6384b8aee46d94982b4ae4b5fed4af",
+      "cab": "CAB-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      "id": 8390896152351860481,
+      "type": "GameObject",
+      "name": "c_CheyanneSSR01_Upgrade",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/3306905eb7800f0efcb35a0867101423.bundle",
+      "offset": 7095728
+    },
+    "node": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896150773781349
+    ],
+    "owner": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896151409978502
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Cheyanne/CheyanneSSR01/Models/c_CheyanneSSR01_slg_cloth3_lod0.mesh",
+    "role_mesh_res": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896150426209349
+    ],
+    "role_sha256": "b10d8b4e72f4ca8679e073581a07b40a5a5658a15544326ecd49aee67fd15b19",
+    "source": {
+      "container": "ab4d7100e86acf1419591b68e577342f",
+      "cab": "CAB-9c1b7f5ef3f92d7dee9790e37ff602cd",
+      "id": 1755233626921639858,
+      "type": "GameObject",
+      "name": "c_CheyanneSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/b3b584acbcb33ab8c3d9b68e12434288.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-9c1b7f5ef3f92d7dee9790e37ff602cd",
+      1755233626842367020
+    ],
+    "mesh_sha256": "1b1a6760fc8148df22b10b13f2333573ce16a2625487e7d11eca00275a5d531d"
+  },
+  {
+    "target": {
+      "container": "bf6384b8aee46d94982b4ae4b5fed4af",
+      "cab": "CAB-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      "id": 8390896152351860481,
+      "type": "GameObject",
+      "name": "c_CheyanneSSR01_Upgrade",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/3306905eb7800f0efcb35a0867101423.bundle",
+      "offset": 7095728
+    },
+    "node": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896150710777526
+    ],
+    "owner": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896151409978502
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Cheyanne/CheyanneSSR01/Models/c_CheyanneSSR01_slg_cloth3_trans_lod0.mesh",
+    "role_mesh_res": [
+      "cab-e9ebdda31a8aa5ae8ea63faa0b3325fb",
+      8390896150426209349
+    ],
+    "role_sha256": "b10d8b4e72f4ca8679e073581a07b40a5a5658a15544326ecd49aee67fd15b19",
+    "source": {
+      "container": "ab4d7100e86acf1419591b68e577342f",
+      "cab": "CAB-9c1b7f5ef3f92d7dee9790e37ff602cd",
+      "id": 1755233626921639858,
+      "type": "GameObject",
+      "name": "c_CheyanneSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/b3b584acbcb33ab8c3d9b68e12434288.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-9c1b7f5ef3f92d7dee9790e37ff602cd",
+      1755233628167531021
+    ],
+    "mesh_sha256": "c44fb0b3a64fefefa958163fa729d272cfeec68bb4cac9f535f130662a6d5b78"
+  },
+  {
+    "target": {
+      "container": "56325f164a80a6c4891dddb071ce57f9",
+      "cab": "CAB-1fcf7232b14bf2e69c425983543aa5c7",
+      "id": -5241878334351877391,
+      "type": "GameObject",
+      "name": "c_KseniaDorm_Cloth_Idle",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/63741e88275c6cd157549a437511cdb3.bundle",
+      "offset": 2265284
+    },
+    "node": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878335193913030
+    ],
+    "owner": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878334421213815
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Ksenia/KseniaDorm/Models/c_KseniaDorm_slg_body_lod0.mesh",
+    "role_mesh_res": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878335118659709
+    ],
+    "role_sha256": "7f2d8d5e248dc2f550ac2cf10108f0c33c2040af21556c7ed06e270a0beaa1dc",
+    "source": {
+      "container": "3208f204a2d7686408443ff230461859",
+      "cab": "CAB-4da0026934d000f54e18c2b8675448ca",
+      "id": 3482548649865662306,
+      "type": "GameObject",
+      "name": "c_KseniaDorm_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/a84c11ef8a6d810aa0e2a659e5fb9367.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-4da0026934d000f54e18c2b8675448ca",
+      3482548649299298993
+    ],
+    "mesh_sha256": "b1ce05f8cf3e5f6b7559f9a4a183066efe549e21693da9689cb1ef4e9478fd81"
+  },
+  {
+    "target": {
+      "container": "56325f164a80a6c4891dddb071ce57f9",
+      "cab": "CAB-1fcf7232b14bf2e69c425983543aa5c7",
+      "id": -5241878334351877391,
+      "type": "GameObject",
+      "name": "c_KseniaDorm_Cloth_Idle",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/63741e88275c6cd157549a437511cdb3.bundle",
+      "offset": 2265284
+    },
+    "node": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878334543694739
+    ],
+    "owner": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878334421213815
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Ksenia/KseniaDorm/Models/c_KseniaDorm_slg_cloth1_lod0.mesh",
+    "role_mesh_res": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878335118659709
+    ],
+    "role_sha256": "7f2d8d5e248dc2f550ac2cf10108f0c33c2040af21556c7ed06e270a0beaa1dc",
+    "source": {
+      "container": "3208f204a2d7686408443ff230461859",
+      "cab": "CAB-4da0026934d000f54e18c2b8675448ca",
+      "id": 3482548649865662306,
+      "type": "GameObject",
+      "name": "c_KseniaDorm_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/a84c11ef8a6d810aa0e2a659e5fb9367.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-4da0026934d000f54e18c2b8675448ca",
+      3482548647930104638
+    ],
+    "mesh_sha256": "b91d316886ecfabe060c97d53ea875dfea83fa8d0614de54c769fa730b080cf0"
+  },
+  {
+    "target": {
+      "container": "56325f164a80a6c4891dddb071ce57f9",
+      "cab": "CAB-1fcf7232b14bf2e69c425983543aa5c7",
+      "id": -5241878334351877391,
+      "type": "GameObject",
+      "name": "c_KseniaDorm_Cloth_Idle",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/63741e88275c6cd157549a437511cdb3.bundle",
+      "offset": 2265284
+    },
+    "node": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878332221682173
+    ],
+    "owner": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878334421213815
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Ksenia/KseniaDorm/Models/c_KseniaDorm_slg_cloth2_lod0.mesh",
+    "role_mesh_res": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878335118659709
+    ],
+    "role_sha256": "7f2d8d5e248dc2f550ac2cf10108f0c33c2040af21556c7ed06e270a0beaa1dc",
+    "source": {
+      "container": "3208f204a2d7686408443ff230461859",
+      "cab": "CAB-4da0026934d000f54e18c2b8675448ca",
+      "id": 3482548649865662306,
+      "type": "GameObject",
+      "name": "c_KseniaDorm_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/a84c11ef8a6d810aa0e2a659e5fb9367.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-4da0026934d000f54e18c2b8675448ca",
+      3482548648832312018
+    ],
+    "mesh_sha256": "4b0b548ccb5bfaa4ab5512c4c2c91d59a2362e5253e081ac947f0520e967ef8a"
+  },
+  {
+    "target": {
+      "container": "56325f164a80a6c4891dddb071ce57f9",
+      "cab": "CAB-1fcf7232b14bf2e69c425983543aa5c7",
+      "id": -5241878334351877391,
+      "type": "GameObject",
+      "name": "c_KseniaDorm_Cloth_Idle",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/63741e88275c6cd157549a437511cdb3.bundle",
+      "offset": 2265284
+    },
+    "node": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878333418034609
+    ],
+    "owner": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878334421213815
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Ksenia/KseniaDorm/Models/c_KseniaDorm_slg_hair_lod0.mesh",
+    "role_mesh_res": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878335118659709
+    ],
+    "role_sha256": "7f2d8d5e248dc2f550ac2cf10108f0c33c2040af21556c7ed06e270a0beaa1dc",
+    "source": {
+      "container": "3208f204a2d7686408443ff230461859",
+      "cab": "CAB-4da0026934d000f54e18c2b8675448ca",
+      "id": 3482548649865662306,
+      "type": "GameObject",
+      "name": "c_KseniaDorm_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/a84c11ef8a6d810aa0e2a659e5fb9367.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-4da0026934d000f54e18c2b8675448ca",
+      3482548646958232090
+    ],
+    "mesh_sha256": "2afa317020a02a8bcdcbcf6c0aec4ba438017211992f078e625dd3900c306992"
+  },
+  {
+    "target": {
+      "container": "56325f164a80a6c4891dddb071ce57f9",
+      "cab": "CAB-1fcf7232b14bf2e69c425983543aa5c7",
+      "id": -5241878334351877391,
+      "type": "GameObject",
+      "name": "c_KseniaDorm_Cloth_Idle",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/63741e88275c6cd157549a437511cdb3.bundle",
+      "offset": 2265284
+    },
+    "node": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878332775764530
+    ],
+    "owner": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878334421213815
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Ksenia/KseniaDorm/Models/c_KseniaSR01_slg_face_lod0.mesh",
+    "role_mesh_res": [
+      "cab-1fcf7232b14bf2e69c425983543aa5c7",
+      -5241878335118659709
+    ],
+    "role_sha256": "7f2d8d5e248dc2f550ac2cf10108f0c33c2040af21556c7ed06e270a0beaa1dc",
+    "source": {
+      "container": "3208f204a2d7686408443ff230461859",
+      "cab": "CAB-4da0026934d000f54e18c2b8675448ca",
+      "id": 3482548649865662306,
+      "type": "GameObject",
+      "name": "c_KseniaDorm_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/a84c11ef8a6d810aa0e2a659e5fb9367.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-4da0026934d000f54e18c2b8675448ca",
+      3482548650945658312
+    ],
+    "mesh_sha256": "dbb140cea397510af86f15f3a5814eba6e963c7328d52868e8162d6dd79dc190"
+  },
+  {
+    "target": {
+      "container": "674f32cdcc1cf1f4a88d27b15db9eb1e",
+      "cab": "CAB-ce80266a2313eed70e38eb8f226bcd11",
+      "id": 4930036605865940594,
+      "type": "GameObject",
+      "name": "c_LoreleySSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/519763fcd9d6bc97041fd467d168ef31.bundle",
+      "offset": 11573518
+    },
+    "node": [
+      "cab-ce80266a2313eed70e38eb8f226bcd11",
+      4930036606776339844
+    ],
+    "owner": [
+      "cab-ce80266a2313eed70e38eb8f226bcd11",
+      4930036607653002322
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Loreley/LoreleySSR01/Models/c_LoreleySSR01_slg_face_lod0.mesh",
+    "role_mesh_res": [
+      "cab-ce80266a2313eed70e38eb8f226bcd11",
+      4930036606127492904
+    ],
+    "role_sha256": "403584e282bb1bf0667c4fb7c7cc4a0fbf75dc5001d65b422657348e2eee9f1d",
+    "source": {
+      "container": "e93012d1b081c484dad90983c6b6ddbc",
+      "cab": "CAB-7c6e5ad5a8cdb0ebbcd1e269b2a50fb1",
+      "id": -4180669732465054699,
+      "type": "GameObject",
+      "name": "c_LoreleySSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/f37fc8b60ac9695ac71827a9a58dca4e.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-7c6e5ad5a8cdb0ebbcd1e269b2a50fb1",
+      -4180669731508931747
+    ],
+    "mesh_sha256": "bacdc8beaaf4c765591805bccc5114cebede22c16de49c56a81afc708ee604a2"
+  },
+  {
+    "target": {
+      "container": "2e724b78338070e4b872ea0d46613653",
+      "cab": "CAB-0937b8b4a9c519243386f91e9b264bce",
+      "id": -8517003169887266036,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/317c097ff331db504a62d7b0efea3e68.bundle",
+      "offset": 6735659
+    },
+    "node": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003172358674070
+    ],
+    "owner": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173962311111
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Mosinnagant/MosinnagantSR01/Models/c_MosinnagantSR01_slg_cloth2_lod0.mesh",
+    "role_mesh_res": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173731513120
+    ],
+    "role_sha256": "fb1582ef975ed105b458e04d4deda9766925ac07e8f8a27cf95b0d78ad3b2664",
+    "source": {
+      "container": "969c119da4296c244a28051b3b63c63a",
+      "cab": "CAB-12325a48042143a4bb67cd922fa8bc10",
+      "id": 4437121328891773123,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/688bad74ba9b2272f7ee6f619e72fd35.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-12325a48042143a4bb67cd922fa8bc10",
+      4437121328172900049
+    ],
+    "mesh_sha256": "748f9e63df418916249354e0dfd7aacfbb3c01207666cebfef32a1d8e6d422a7"
+  },
+  {
+    "target": {
+      "container": "2e724b78338070e4b872ea0d46613653",
+      "cab": "CAB-0937b8b4a9c519243386f91e9b264bce",
+      "id": -8517003169887266036,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/317c097ff331db504a62d7b0efea3e68.bundle",
+      "offset": 6735659
+    },
+    "node": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003172670928678
+    ],
+    "owner": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173962311111
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Mosinnagant/MosinnagantSR01/Models/c_MosinnagantSR01_slg_cloth2_lod1.mesh",
+    "role_mesh_res": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173731513120
+    ],
+    "role_sha256": "fb1582ef975ed105b458e04d4deda9766925ac07e8f8a27cf95b0d78ad3b2664",
+    "source": {
+      "container": "969c119da4296c244a28051b3b63c63a",
+      "cab": "CAB-12325a48042143a4bb67cd922fa8bc10",
+      "id": 4437121328891773123,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/688bad74ba9b2272f7ee6f619e72fd35.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-12325a48042143a4bb67cd922fa8bc10",
+      4437121326002585713
+    ],
+    "mesh_sha256": "dbeefa1fbb3266c26ea818a31cdcea9d497a5a351e1d7dfced9d46bd624130da"
+  },
+  {
+    "target": {
+      "container": "2e724b78338070e4b872ea0d46613653",
+      "cab": "CAB-0937b8b4a9c519243386f91e9b264bce",
+      "id": -8517003169887266036,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/317c097ff331db504a62d7b0efea3e68.bundle",
+      "offset": 6735659
+    },
+    "node": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003172103588504
+    ],
+    "owner": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173962311111
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Mosinnagant/MosinnagantSR01/Models/c_MosinnagantSR01_slg_plush_lod0.mesh",
+    "role_mesh_res": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173731513120
+    ],
+    "role_sha256": "fb1582ef975ed105b458e04d4deda9766925ac07e8f8a27cf95b0d78ad3b2664",
+    "source": {
+      "container": "969c119da4296c244a28051b3b63c63a",
+      "cab": "CAB-12325a48042143a4bb67cd922fa8bc10",
+      "id": 4437121328891773123,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/688bad74ba9b2272f7ee6f619e72fd35.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-12325a48042143a4bb67cd922fa8bc10",
+      4437121325224021892
+    ],
+    "mesh_sha256": "fb1567803bde2ab6de0f40090c5b0da22f1b77382b4b0127546ba180100c22e0"
+  },
+  {
+    "target": {
+      "container": "2e724b78338070e4b872ea0d46613653",
+      "cab": "CAB-0937b8b4a9c519243386f91e9b264bce",
+      "id": -8517003169887266036,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/317c097ff331db504a62d7b0efea3e68.bundle",
+      "offset": 6735659
+    },
+    "node": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003172164388052
+    ],
+    "owner": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173962311111
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Mosinnagant/MosinnagantSR01/Models/c_MosinnagantSR01_slg_plush_lod1.mesh",
+    "role_mesh_res": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173731513120
+    ],
+    "role_sha256": "fb1582ef975ed105b458e04d4deda9766925ac07e8f8a27cf95b0d78ad3b2664",
+    "source": {
+      "container": "969c119da4296c244a28051b3b63c63a",
+      "cab": "CAB-12325a48042143a4bb67cd922fa8bc10",
+      "id": 4437121328891773123,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/688bad74ba9b2272f7ee6f619e72fd35.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-12325a48042143a4bb67cd922fa8bc10",
+      4437121326618487808
+    ],
+    "mesh_sha256": "7debd675c17e337a539c67409274d67a98aefa8360802df8b768fc7ddac31980"
+  },
+  {
+    "target": {
+      "container": "2e724b78338070e4b872ea0d46613653",
+      "cab": "CAB-0937b8b4a9c519243386f91e9b264bce",
+      "id": -8517003169887266036,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/317c097ff331db504a62d7b0efea3e68.bundle",
+      "offset": 6735659
+    },
+    "node": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003171180339966
+    ],
+    "owner": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003171281234826
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Mosinnagant/MosinnagantSR01/Models/c_MosinnagantSR01_slg_cloth2_lod0.mesh",
+    "role_mesh_res": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003169786113311
+    ],
+    "role_sha256": "d34bcae03503af4d50ec9c04c567c534d1e6a0772106e0dcc53b26e06629acbe",
+    "source": {
+      "container": "969c119da4296c244a28051b3b63c63a",
+      "cab": "CAB-12325a48042143a4bb67cd922fa8bc10",
+      "id": 4437121328891773123,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/688bad74ba9b2272f7ee6f619e72fd35.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-12325a48042143a4bb67cd922fa8bc10",
+      4437121328172900049
+    ],
+    "mesh_sha256": "748f9e63df418916249354e0dfd7aacfbb3c01207666cebfef32a1d8e6d422a7"
+  },
+  {
+    "target": {
+      "container": "2e724b78338070e4b872ea0d46613653",
+      "cab": "CAB-0937b8b4a9c519243386f91e9b264bce",
+      "id": -8517003169887266036,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/317c097ff331db504a62d7b0efea3e68.bundle",
+      "offset": 6735659
+    },
+    "node": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173451291512
+    ],
+    "owner": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003171281234826
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Mosinnagant/MosinnagantSR01/Models/c_MosinnagantSR01_slg_cloth2_lod1.mesh",
+    "role_mesh_res": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003169786113311
+    ],
+    "role_sha256": "d34bcae03503af4d50ec9c04c567c534d1e6a0772106e0dcc53b26e06629acbe",
+    "source": {
+      "container": "969c119da4296c244a28051b3b63c63a",
+      "cab": "CAB-12325a48042143a4bb67cd922fa8bc10",
+      "id": 4437121328891773123,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/688bad74ba9b2272f7ee6f619e72fd35.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-12325a48042143a4bb67cd922fa8bc10",
+      4437121326002585713
+    ],
+    "mesh_sha256": "dbeefa1fbb3266c26ea818a31cdcea9d497a5a351e1d7dfced9d46bd624130da"
+  },
+  {
+    "target": {
+      "container": "2e724b78338070e4b872ea0d46613653",
+      "cab": "CAB-0937b8b4a9c519243386f91e9b264bce",
+      "id": -8517003169887266036,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/317c097ff331db504a62d7b0efea3e68.bundle",
+      "offset": 6735659
+    },
+    "node": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173463571653
+    ],
+    "owner": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003171281234826
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Mosinnagant/MosinnagantSR01/Models/c_MosinnagantSR01_slg_plush_lod0.mesh",
+    "role_mesh_res": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003169786113311
+    ],
+    "role_sha256": "d34bcae03503af4d50ec9c04c567c534d1e6a0772106e0dcc53b26e06629acbe",
+    "source": {
+      "container": "969c119da4296c244a28051b3b63c63a",
+      "cab": "CAB-12325a48042143a4bb67cd922fa8bc10",
+      "id": 4437121328891773123,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/688bad74ba9b2272f7ee6f619e72fd35.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-12325a48042143a4bb67cd922fa8bc10",
+      4437121325224021892
+    ],
+    "mesh_sha256": "fb1567803bde2ab6de0f40090c5b0da22f1b77382b4b0127546ba180100c22e0"
+  },
+  {
+    "target": {
+      "container": "2e724b78338070e4b872ea0d46613653",
+      "cab": "CAB-0937b8b4a9c519243386f91e9b264bce",
+      "id": -8517003169887266036,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/317c097ff331db504a62d7b0efea3e68.bundle",
+      "offset": 6735659
+    },
+    "node": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003173589587693
+    ],
+    "owner": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003171281234826
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Mosinnagant/MosinnagantSR01/Models/c_MosinnagantSR01_slg_plush_lod1.mesh",
+    "role_mesh_res": [
+      "cab-0937b8b4a9c519243386f91e9b264bce",
+      -8517003169786113311
+    ],
+    "role_sha256": "d34bcae03503af4d50ec9c04c567c534d1e6a0772106e0dcc53b26e06629acbe",
+    "source": {
+      "container": "969c119da4296c244a28051b3b63c63a",
+      "cab": "CAB-12325a48042143a4bb67cd922fa8bc10",
+      "id": 4437121328891773123,
+      "type": "GameObject",
+      "name": "c_MosinnagantSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/688bad74ba9b2272f7ee6f619e72fd35.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-12325a48042143a4bb67cd922fa8bc10",
+      4437121326618487808
+    ],
+    "mesh_sha256": "7debd675c17e337a539c67409274d67a98aefa8360802df8b768fc7ddac31980"
+  },
+  {
+    "target": {
+      "container": "ea81e46d556b3e640971c42237e4d287",
+      "cab": "CAB-2761275dd9d21513db11180bc6eb5b77",
+      "id": 7989630956847287212,
+      "type": "GameObject",
+      "name": "c_VectorSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/0128dc286dc3db6023a5d996c8cb2a05.bundle",
+      "offset": 2263004
+    },
+    "node": [
+      "cab-2761275dd9d21513db11180bc6eb5b77",
+      7989630958501746258
+    ],
+    "owner": [
+      "cab-2761275dd9d21513db11180bc6eb5b77",
+      7989630958702639206
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Vector/VectorSSR01/Models/c_VectorSSR01_slg_cloth1_lod0.mesh",
+    "role_mesh_res": [
+      "cab-2761275dd9d21513db11180bc6eb5b77",
+      7989630959322549833
+    ],
+    "role_sha256": "e2de2b4238af6c69eec9c84d539a479675fbf98c8380f57c5c0e3ec64335c1d5",
+    "source": {
+      "container": "7db340971c6dfcd4fa5bfd9b57532f6e",
+      "cab": "CAB-49812c5953a9b3ce7dbb647cca6ad9b1",
+      "id": -2123097585646519949,
+      "type": "GameObject",
+      "name": "c_VectorSSR01_slg_skin",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/b79576313704bf1cc6548daec0944623.bundle",
+      "offset": 0
+    },
+    "source_node": [
+      "cab-49812c5953a9b3ce7dbb647cca6ad9b1",
+      -2123097586941889002
+    ],
+    "mesh_sha256": "00da37910889709cc83d69a1e274cb5a03c5829fc2c402c5475ba98d85b6d92d"
+  }
+]

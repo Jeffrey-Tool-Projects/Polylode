@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    env:
+      # no display and no GPU on the runner: Qt draws off-screen, its OpenGL in software (opengl32sw.dll)
+      QT_QPA_PLATFORM: offscreen
+      QT_OPENGL: software
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install
+        run: python -m pip install -r requirements-dev.txt
+      - name: Lint
+        run: python -m ruff check --select F,E9 polylode tests tools build.py main.py
+      - name: Tests
+        run: python -m pytest tests -q
+      - name: Selftest from the checkout
+        run: |
+          python -m polylode.extractor --selftest selftest.json
+          Get-Content selftest.json
