@@ -22,6 +22,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 dotnet build -c Release (Join-Path $here 'wuwa.csproj') "-p:CUE4ParseRoot=$CUE4Parse" -o $Output -nologo
 if ($LASTEXITCODE -ne 0) { throw "dotnet build exit $LASTEXITCODE" }
+# Detex is a resource inside CUE4Parse-Conversion that the reader would write beside itself on first use
+# (DetexHelper.LoadDll); put there now, so a program folder the user cannot write still decodes textures
+Copy-Item (Join-Path $CUE4Parse 'CUE4Parse-Conversion/Resources/Detex.dll') (Join-Path $Output 'Detex.dll')
 foreach ($name in 'wuwa.exe', 'wuwa.dll', 'Detex.dll') {
     if (-not (Test-Path (Join-Path $Output $name))) { throw "the build wrote no $name" }
 }

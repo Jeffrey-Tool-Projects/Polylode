@@ -20,7 +20,7 @@ The CI and Release workflows build it on every push (`.github/workflows`); to bu
    `2a159ad0702120db30fdd85c1219dff78e5204b8` into `tools/wuwa_cli/CUE4Parse`, with its submodules.
 2. `tools/wuwa_cli/build.ps1 -CUE4Parse tools/wuwa_cli/CUE4Parse -Output tools/WuwaReader` (the .NET 10 SDK
    on `PATH`). It applies `cue4parse_wuthering_waves.patch` (this game's material parameter records carry a
-   4-byte flags field and do not pad scalar parameters to 8 bytes), builds, and puts CUE4Parse's licence
+   4-byte flags field and do not pad scalar parameters to 8 bytes), builds, copies `Detex.dll` out of CUE4Parse and puts its licence
    beside `wuwa.exe`; `build.py` copies that folder into the program.
 
 CUE4Parse fetches its Oodle and zlib-ng libraries on first use, into the folder the reader runs in
