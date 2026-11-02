@@ -1,7 +1,7 @@
 """Build the character model extractor (``polylode.extractor``) as a Windows program folder.
 
-    python build_extractor.py              # compile, copy Blender's source files, run --selftest
-    python build_extractor.py --check-only # only copy the source files and run --selftest again
+    python build.py              # compile, copy Blender's source files, run --selftest
+    python build.py --check-only # only copy the source files and run --selftest again
     python build_extractor.py --jobs 1     # one C compiler: the compile cache keeps what earlier runs finished
 
 Carried beside the program: AnimeStudio (``tools/AnimeStudio``, MIT, with its licence) and the .NET 10

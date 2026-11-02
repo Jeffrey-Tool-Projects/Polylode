@@ -10,8 +10,8 @@ jobs:
   test:
     runs-on: windows-latest
     env:
-      # no display and no GPU on the runner: Qt draws off-screen, its OpenGL in software (opengl32sw.dll)
-      QT_QPA_PLATFORM: offscreen
+      # no GPU on the runner: Qt's OpenGL is the software one (opengl32sw.dll); the tests draw nothing
+      # and run on the offscreen platform, the selftest needs the windows one (offscreen has no OpenGL)
       QT_OPENGL: software
       PYTHONIOENCODING: utf-8
     steps:
@@ -26,8 +26,12 @@ jobs:
       - name: Lint
         run: python -m ruff check --select F,E9 polylode tests tools build.py main.py
       - name: Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: python -m pytest tests -q
       - name: Selftest from the checkout
         run: |
+          # from a checkout Qt looks for opengl32sw.dll on PATH, not in PySide6's folder
+          $env:PATH = "$(python -c 'import PySide6, os; print(os.path.dirname(PySide6.__file__))');$env:PATH"
           python -m polylode.extractor --selftest selftest.json
           Get-Content selftest.json
