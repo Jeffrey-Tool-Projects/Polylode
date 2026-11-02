@@ -1,0 +1,29 @@
+diff --git a/CUE4Parse/UE4/Assets/Exports/Material/MaterialResourceTypes.cs b/CUE4Parse/UE4/Assets/Exports/Material/MaterialResourceTypes.cs
+index fc6e1d8..ba7f58a 100644
+--- a/CUE4Parse/UE4/Assets/Exports/Material/MaterialResourceTypes.cs
++++ b/CUE4Parse/UE4/Assets/Exports/Material/MaterialResourceTypes.cs
+@@ -887,6 +887,7 @@ public class FMemoryImageMaterialParameterInfo
+     public int Index;
+     [JsonConverter(typeof(StringEnumConverter))]
+     public EMaterialParameterAssociation Association;
++    public uint? Flags;
+ 
+     public FMemoryImageMaterialParameterInfo(FMemoryImageArchive Ar)
+     {
+@@ -894,6 +895,7 @@ public FMemoryImageMaterialParameterInfo(FMemoryImageArchive Ar)
+         Index = Ar.Read<int>();
+         Association = Ar.Read<EMaterialParameterAssociation>();
+         Ar.Position = Ar.Position.Align(4);
++        if (Ar.Game == GAME_WutheringWaves) Flags = Ar.Read<uint>();
+     }
+ }
+ 
+@@ -924,7 +926,7 @@ public class FMaterialScalarParameterInfo : FMaterialBaseParameterInfo
+     public FMaterialScalarParameterInfo(FMemoryImageArchive Ar) : base(Ar)
+     {
+         DefaultValue = Ar.Read<float>();
+-        Ar.Position = Ar.Position.Align(8);
++        if (Ar.Game != GAME_WutheringWaves) Ar.Position = Ar.Position.Align(8);
+     }
+ }
+ 

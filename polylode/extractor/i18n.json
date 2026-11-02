@@ -1,0 +1,962 @@
+{
+ "角色模型匯出工具": {
+  "en": "Polylode — Character Model Extractor",
+  "zh-CN": "角色模型导出工具",
+  "ja": "キャラクターモデル書き出しツール",
+  "ko": "캐릭터 모델 내보내기 도구"
+ },
+ "Blender 執行檔": {
+  "en": "Blender executable",
+  "zh-CN": "Blender 可执行文件",
+  "ja": "Blender 実行ファイル",
+  "ko": "Blender 실행 파일"
+ },
+ "blender.exe（4.x 或 5.x）；.blend 需要，.glb／FBX 有它時多做讀回核對": {
+  "en": "blender.exe (4.x or 5.x); needed for .blend, and .glb/FBX are read back in it when set",
+  "zh-CN": "blender.exe（4.x 或 5.x）；.blend 需要，.glb／FBX 有它时多做读回核对",
+  "ja": "blender.exe（4.x または 5.x）。.blend に必要。指定すると .glb／FBX も読み戻して確認します",
+  "ko": "blender.exe(4.x 또는 5.x). .blend에 필요하며, 지정하면 .glb/FBX도 다시 읽어 확인합니다"
+ },
+ "glTF（.glb，貼圖內嵌）": {
+  "en": "glTF (.glb, textures embedded)",
+  "zh-CN": "glTF（.glb，贴图内嵌）",
+  "ja": "glTF（.glb、テクスチャ埋め込み）",
+  "ko": "glTF(.glb, 텍스처 포함)"
+ },
+ "FBX（貼圖內嵌）": {
+  "en": "FBX (textures embedded)",
+  "zh-CN": "FBX（贴图内嵌）",
+  "ja": "FBX（テクスチャ埋め込み）",
+  "ko": "FBX(텍스처 포함)"
+ },
+ "Blender（.blend，貼圖打包在檔內，需 Blender）": {
+  "en": "Blender (.blend, textures packed, needs Blender)",
+  "zh-CN": "Blender（.blend，贴图打包在文件内，需 Blender）",
+  "ja": "Blender（.blend、テクスチャ同梱、Blender が必要）",
+  "ko": "Blender(.blend, 텍스처 포함, Blender 필요)"
+ },
+ "瀏覽…": {
+  "en": "Browse…",
+  "zh-CN": "浏览…",
+  "ja": "参照…",
+  "ko": "찾아보기…"
+ },
+ "路徑設定": {
+  "en": "Paths",
+  "zh-CN": "路径设置",
+  "ja": "パス設定",
+  "ko": "경로 설정"
+ },
+ "指定各遊戲的安裝資料夾與需要的工具；設定存在你的使用者資料夾。": {
+  "en": "Name each game's install folder and the tools it needs; the settings are kept in your user folder.",
+  "zh-CN": "指定各游戏的安装文件夹与需要的工具；设置保存在你的用户文件夹。",
+  "ja": "各ゲームのインストールフォルダと必要なツールを指定します。設定はユーザーフォルダに保存されます。",
+  "ko": "각 게임의 설치 폴더와 필요한 도구를 지정합니다. 설정은 사용자 폴더에 저장됩니다."
+ },
+ "掃描安裝": {
+  "en": "Scan install",
+  "zh-CN": "扫描安装",
+  "ja": "インストールをスキャン",
+  "ko": "설치 스캔"
+ },
+ "尚未掃描": {
+  "en": "Not scanned yet",
+  "zh-CN": "尚未扫描",
+  "ja": "未スキャン",
+  "ko": "아직 스캔하지 않음"
+ },
+ "搜尋角色、衣裝或編號…": {
+  "en": "Search characters, outfits or ids…",
+  "zh-CN": "搜索角色、服装或编号…",
+  "ja": "キャラクター・衣装・ID を検索…",
+  "ko": "캐릭터, 의상, ID 검색…"
+ },
+ "預覽": {
+  "en": "Preview",
+  "zh-CN": "预览",
+  "ja": "プレビュー",
+  "ko": "미리보기"
+ },
+ "轉出選取那一列的 .glb 並在右邊顯示（雙擊一列也可以）": {
+  "en": "Convert the selected row to .glb and show it on the right (or double-click a row)",
+  "zh-CN": "转出选中那一行的 .glb 并在右边显示（双击一行也可以）",
+  "ja": "選択した行を .glb に変換して右に表示します（行のダブルクリックでも可）",
+  "ko": "선택한 행을 .glb로 변환해 오른쪽에 표시합니다(행 더블클릭도 가능)"
+ },
+ "匯出勾選的模型": {
+  "en": "Export ticked models",
+  "zh-CN": "导出勾选的模型",
+  "ja": "チェックしたモデルを書き出す",
+  "ko": "체크한 모델 내보내기"
+ },
+ "掃描中…": {
+  "en": "Scanning…",
+  "zh-CN": "扫描中…",
+  "ja": "スキャン中…",
+  "ko": "스캔 중…"
+ },
+ "轉換 {0}　{1} 以預覽（第一次要幾十秒到幾分鐘）…": {
+  "en": "Converting {0} {1} to preview (the first time takes from seconds to minutes)…",
+  "zh-CN": "转换 {0}　{1} 以预览（第一次要几十秒到几分钟）…",
+  "ja": "{0}　{1} をプレビュー用に変換中（初回は数十秒〜数分）…",
+  "ko": "{0} {1} 미리보기 변환 중(처음에는 수십 초~몇 분)…"
+ },
+ "預覽 {0}": {
+  "en": "Preview {0}",
+  "zh-CN": "预览 {0}",
+  "ja": "プレビュー {0}",
+  "ko": "미리보기 {0}"
+ },
+ "模型檢視器": {
+  "en": "Model viewer",
+  "zh-CN": "模型查看器",
+  "ja": "モデルビューア",
+  "ko": "모델 뷰어"
+ },
+ "設定": {
+  "en": "Settings",
+  "zh-CN": "设置",
+  "ja": "設定",
+  "ko": "설정"
+ },
+ "開始匯出 {0} → {1}": {
+  "en": "Exporting {0} → {1}",
+  "zh-CN": "开始导出 {0} → {1}",
+  "ja": "書き出し開始 {0} → {1}",
+  "ko": "내보내기 시작 {0} → {1}"
+ },
+ "輸出資料夾": {
+  "en": "Output folder",
+  "zh-CN": "输出文件夹",
+  "ja": "出力フォルダ",
+  "ko": "출력 폴더"
+ },
+ "匯出格式": {
+  "en": "Export formats",
+  "zh-CN": "导出格式",
+  "ja": "書き出し形式",
+  "ko": "내보내기 형식"
+ },
+ "全選": {
+  "en": "Select all",
+  "zh-CN": "全选",
+  "ja": "すべて選択",
+  "ko": "모두 선택"
+ },
+ "全不選": {
+  "en": "Select none",
+  "zh-CN": "全不选",
+  "ja": "選択解除",
+  "ko": "모두 해제"
+ },
+ "角色": {
+  "en": "Character",
+  "zh-CN": "角色",
+  "ja": "キャラクター",
+  "ko": "캐릭터"
+ },
+ "衣裝／版本": {
+  "en": "Outfit / version",
+  "zh-CN": "服装／版本",
+  "ja": "衣装／バージョン",
+  "ko": "의상/버전"
+ },
+ "模型編號": {
+  "en": "Model id",
+  "zh-CN": "模型编号",
+  "ja": "モデル ID",
+  "ko": "모델 ID"
+ },
+ "選擇其他資料夾…": {
+  "en": "Choose another folder…",
+  "zh-CN": "选择其他文件夹…",
+  "ja": "別のフォルダを選択…",
+  "ko": "다른 폴더 선택…"
+ },
+ "[{0}] 無法啟動掃描：{1}": {
+  "en": "[{0}] The scan could not start: {1}",
+  "zh-CN": "[{0}] 无法启动扫描：{1}",
+  "ja": "[{0}] スキャンを開始できません：{1}",
+  "ko": "[{0}] 스캔을 시작할 수 없음: {1}"
+ },
+ "找到 {0} 個可匯出的模型": {
+  "en": "Found {0} models to export",
+  "zh-CN": "找到 {0} 个可导出的模型",
+  "ja": "書き出せるモデルが {0} 個見つかりました",
+  "ko": "내보낼 수 있는 모델 {0}개를 찾음"
+ },
+ "掃描失敗，見下方記錄": {
+  "en": "The scan failed; see the log below",
+  "zh-CN": "扫描失败，见下方记录",
+  "ja": "スキャンに失敗しました。下のログを参照",
+  "ko": "스캔 실패, 아래 로그 참조"
+ },
+ "{0}　{1}（之前的預覽）": {
+  "en": "{0} {1} (earlier preview)",
+  "zh-CN": "{0}　{1}（之前的预览）",
+  "ja": "{0}　{1}（以前のプレビュー）",
+  "ko": "{0} {1}(이전 미리보기)"
+ },
+ "先在表格選一列。": {
+  "en": "Select a row in the table first.",
+  "zh-CN": "先在表格选一行。",
+  "ja": "先に表の行を選んでください。",
+  "ko": "먼저 표에서 행을 선택하세요."
+ },
+ "無法啟動預覽：{0}": {
+  "en": "The preview could not start: {0}",
+  "zh-CN": "无法启动预览：{0}",
+  "ja": "プレビューを開始できません：{0}",
+  "ko": "미리보기를 시작할 수 없음: {0}"
+ },
+ "先勾選要匯出的模型。": {
+  "en": "Tick the models to export first.",
+  "zh-CN": "先勾选要导出的模型。",
+  "ja": "先に書き出すモデルをチェックしてください。",
+  "ko": "먼저 내보낼 모델을 체크하세요."
+ },
+ "匯出佇列": {
+  "en": "Export queue",
+  "zh-CN": "导出队列",
+  "ja": "書き出しキュー",
+  "ko": "내보내기 대기열"
+ },
+ "記錄": {
+  "en": "Log",
+  "zh-CN": "记录",
+  "ja": "ログ",
+  "ko": "로그"
+ },
+ "先在「設定」指定存在的輸出資料夾。": {
+  "en": "Name an existing output folder in Settings first.",
+  "zh-CN": "先在「设置」指定存在的输出文件夹。",
+  "ja": "先に「設定」で存在する出力フォルダを指定してください。",
+  "ko": "먼저 「설정」에서 존재하는 출력 폴더를 지정하세요."
+ },
+ "先在「設定」至少勾選一種匯出格式。": {
+  "en": "Tick at least one export format in Settings first.",
+  "zh-CN": "先在「设置」至少勾选一种导出格式。",
+  "ja": "先に「設定」で書き出し形式を一つ以上チェックしてください。",
+  "ko": "먼저 「설정」에서 내보내기 형식을 하나 이상 체크하세요."
+ },
+ "  無法啟動匯出：{0}": {
+  "en": "  The export could not start: {0}",
+  "zh-CN": "  无法启动导出：{0}",
+  "ja": "  書き出しを開始できません：{0}",
+  "ko": "  내보내기를 시작할 수 없음: {0}"
+ },
+ "選擇{0}": {
+  "en": "Choose the {0}",
+  "zh-CN": "选择{0}",
+  "ja": "{0}を選択",
+  "ko": "{0} 선택"
+ },
+ "在 Steam 遊戲庫找到：": {
+  "en": "Found in the Steam libraries:",
+  "zh-CN": "在 Steam 游戏库找到：",
+  "ja": "Steam ライブラリで見つかりました：",
+  "ko": "Steam 라이브러리에서 찾음:"
+ },
+ "選擇{0}（{1}）": {
+  "en": "Choose the {0} ({1})",
+  "zh-CN": "选择{0}（{1}）",
+  "ja": "{0}を選択（{1}）",
+  "ko": "{0} 선택({1})"
+ },
+ "還沒有選{0}，沒有掃描": {
+  "en": "No {0} chosen; not scanned",
+  "zh-CN": "还没有选{0}，没有扫描",
+  "ja": "{0}が選ばれていないため、スキャンしていません",
+  "ko": "{0}을(를) 선택하지 않아 스캔하지 않음"
+ },
+ "預覽失敗：{0}": {
+  "en": "Preview failed: {0}",
+  "zh-CN": "预览失败：{0}",
+  "ja": "プレビュー失敗：{0}",
+  "ko": "미리보기 실패: {0}"
+ },
+ "還有匯出或掃描在進行，關閉會中止它。要關閉嗎？": {
+  "en": "An export or scan is still running and closing stops it. Close anyway?",
+  "zh-CN": "还有导出或扫描在进行，关闭会中止它。要关闭吗？",
+  "ja": "書き出しかスキャンが実行中です。閉じると中止されます。閉じますか？",
+  "ko": "내보내기나 스캔이 진행 중이며 닫으면 중단됩니다. 닫을까요?"
+ },
+ "{0} 裡找不到唯一一份 {1}，沒有掃描": {
+  "en": "No single {1} found in {0}; not scanned",
+  "zh-CN": "{0} 里找不到唯一一份 {1}，没有扫描",
+  "ja": "{0} に {1} が一つだけ見つからないため、スキャンしていません",
+  "ko": "{0}에서 {1}을(를) 하나만 찾을 수 없어 스캔하지 않음"
+ },
+ "  預覽錯誤：{0}": {
+  "en": "  Preview error: {0}",
+  "zh-CN": "  预览错误：{0}",
+  "ja": "  プレビューエラー：{0}",
+  "ko": "  미리보기 오류: {0}"
+ },
+ "  寫出 {0}": {
+  "en": "  Wrote {0}",
+  "zh-CN": "  写出 {0}",
+  "ja": "  書き出し {0}",
+  "ko": "  작성 {0}"
+ },
+ "  錯誤：{0}": {
+  "en": "  Error: {0}",
+  "zh-CN": "  错误：{0}",
+  "ja": "  エラー：{0}",
+  "ko": "  오류: {0}"
+ },
+ "沒有寫出 .glb": {
+  "en": "no .glb was written",
+  "zh-CN": "没有写出 .glb",
+  "ja": ".glb が書き出されませんでした",
+  "ko": ".glb가 작성되지 않음"
+ },
+ "既有轉出物資料夾": {
+  "en": "Existing conversions folder",
+  "zh-CN": "既有转出物文件夹",
+  "ja": "既存の変換物フォルダ",
+  "ko": "기존 변환물 폴더"
+ },
+ "含 Endfield_Converted／GF2_Converted／WutheringWaves_Converted 的資料夾": {
+  "en": "The folder holding Endfield_Converted / GF2_Converted / WutheringWaves_Converted",
+  "zh-CN": "含 Endfield_Converted／GF2_Converted／WutheringWaves_Converted 的文件夹",
+  "ja": "Endfield_Converted／GF2_Converted／WutheringWaves_Converted を含むフォルダ",
+  "ko": "Endfield_Converted/GF2_Converted/WutheringWaves_Converted가 있는 폴더"
+ },
+ "既有轉出物": {
+  "en": "Existing conversions",
+  "zh-CN": "既有转出物",
+  "ja": "既存の変換物",
+  "ko": "기존 변환물"
+ },
+ "終末地": {
+  "en": "Endfield",
+  "zh-CN": "终末地",
+  "ja": "エンドフィールド",
+  "ko": "엔드필드"
+ },
+ "鳴潮": {
+  "en": "Wuthering Waves",
+  "zh-CN": "鸣潮",
+  "ja": "鳴潮",
+  "ko": "명조"
+ },
+ "清單記的路徑不在 {0} 底下：{1}": {
+  "en": "A path the list records is not under {0}: {1}",
+  "zh-CN": "清单记的路径不在 {0} 底下：{1}",
+  "ja": "リストのパスが {0} の下にありません：{1}",
+  "ko": "목록의 경로가 {0} 아래에 없음: {1}"
+ },
+ "{0}：{1} 個": {
+  "en": "{0}: {1}",
+  "zh-CN": "{0}：{1} 个",
+  "ja": "{0}：{1} 個",
+  "ko": "{0}: {1}개"
+ },
+ "{0} 底下沒有任何轉出物清單": {
+  "en": "No conversion list under {0}",
+  "zh-CN": "{0} 底下没有任何转出物清单",
+  "ja": "{0} の下に変換物リストがありません",
+  "ko": "{0} 아래에 변환물 목록이 없음"
+ },
+ "{0} 沒有任何要求的格式（{1}）": {
+  "en": "{0} has none of the requested formats ({1})",
+  "zh-CN": "{0} 没有任何要求的格式（{1}）",
+  "ja": "{0} には要求された形式がありません（{1}）",
+  "ko": "{0}에 요청한 형식이 없음({1})"
+ },
+ "{0}：沒有 {1}/covered_models.json，略過": {
+  "en": "{0}: no {1}/covered_models.json, skipped",
+  "zh-CN": "{0}：没有 {1}/covered_models.json，略过",
+  "ja": "{0}：{1}/covered_models.json がないためスキップ",
+  "ko": "{0}: {1}/covered_models.json 없음, 건너뜀"
+ },
+ "{0} 沒有 .{1}（既有轉出物只有 {2}），略過": {
+  "en": "{0} has no .{1} (only {2}), skipped",
+  "zh-CN": "{0} 没有 .{1}（既有转出物只有 {2}），略过",
+  "ja": "{0} に .{1} がありません（{2} のみ）。スキップ",
+  "ko": "{0}에 .{1} 없음({2}만 있음), 건너뜀"
+ },
+ "清單記的檔案不在：{0}": {
+  "en": "A file the list records is missing: {0}",
+  "zh-CN": "清单记的文件不在：{0}",
+  "ja": "リストのファイルがありません：{0}",
+  "ko": "목록의 파일이 없음: {0}"
+ },
+ "{0} 和清單記的 SHA-256 不同，沒有交出": {
+  "en": "{0} differs from the SHA-256 the list records; not handed out",
+  "zh-CN": "{0} 和清单记的 SHA-256 不同，没有交出",
+  "ja": "{0} はリストの SHA-256 と一致しないため出力しません",
+  "ko": "{0}이(가) 목록의 SHA-256과 달라 내보내지 않음"
+ },
+ "{0}：SHA-256 與清單相同": {
+  "en": "{0}: SHA-256 matches the list",
+  "zh-CN": "{0}：SHA-256 与清单相同",
+  "ja": "{0}：SHA-256 がリストと一致",
+  "ko": "{0}: SHA-256이 목록과 일치"
+ },
+ "{0}：清單沒有記 SHA-256，未核對": {
+  "en": "{0}: the list has no SHA-256, not checked",
+  "zh-CN": "{0}：清单没有记 SHA-256，未核对",
+  "ja": "{0}：リストに SHA-256 がないため未確認",
+  "ko": "{0}: 목록에 SHA-256 없음, 확인 안 함"
+ },
+ "終末地安裝資料夾": {
+  "en": "Endfield install folder",
+  "zh-CN": "终末地安装文件夹",
+  "ja": "エンドフィールドのインストールフォルダ",
+  "ko": "엔드필드 설치 폴더"
+ },
+ "遊戲資料夾或它的上一層（官方啟動器或 Steam）": {
+  "en": "The game's folder or the one above it (official launcher or Steam)",
+  "zh-CN": "游戏文件夹或它的上一层（官方启动器或 Steam）",
+  "ja": "ゲームのフォルダまたはその一つ上（公式ランチャーまたは Steam）",
+  "ko": "게임 폴더 또는 그 상위 폴더(공식 런처 또는 Steam)"
+ },
+ "AnimeStudio.CLI.exe（終末地版）": {
+  "en": "AnimeStudio.CLI.exe (Endfield build)",
+  "zh-CN": "AnimeStudio.CLI.exe（终末地版）",
+  "ja": "AnimeStudio.CLI.exe（エンドフィールド版）",
+  "ko": "AnimeStudio.CLI.exe(엔드필드 빌드)"
+ },
+ "留空：用內建的 AnimeStudio": {
+  "en": "Leave empty for the bundled AnimeStudio",
+  "zh-CN": "留空：用内置的 AnimeStudio",
+  "ja": "空欄なら同梱の AnimeStudio を使用",
+  "ko": "비우면 내장 AnimeStudio 사용"
+ },
+ "明日方舟：終末地": {
+  "en": "Arknights: Endfield",
+  "zh-CN": "明日方舟：终末地",
+  "ja": "アークナイツ：エンドフィールド",
+  "ko": "명일방주: 엔드필드"
+ },
+ "這不是終末地的安裝資料夾（找不到 Endfield_Data/StreamingAssets/VFS）：{0}": {
+  "en": "Not an Endfield install folder (no Endfield_Data/StreamingAssets/VFS): {0}",
+  "zh-CN": "这不是终末地的安装文件夹（找不到 Endfield_Data/StreamingAssets/VFS）：{0}",
+  "ja": "エンドフィールドのインストールフォルダではありません（Endfield_Data/StreamingAssets/VFS がない）：{0}",
+  "ko": "엔드필드 설치 폴더가 아님(Endfield_Data/StreamingAssets/VFS 없음): {0}"
+ },
+ "從遊戲安裝建立資產對照表（第一次或遊戲更新後；分批進行，可中斷續跑）…": {
+  "en": "Building the asset maps from the install (the first time or after a game update; in batches, resumable)…",
+  "zh-CN": "从游戏安装建立资产对照表（第一次或游戏更新后；分批进行，可中断续跑）…",
+  "ja": "インストールから資産対応表を作成中（初回またはゲーム更新後。分割処理、中断再開可）…",
+  "ko": "설치에서 자산 대응표 생성 중(처음 또는 게임 업데이트 후, 분할 처리, 중단 후 재개 가능)…"
+ },
+ "資產對照表完成：{0} 個資料槽、{1} 批": {
+  "en": "Asset maps done: {0} slots, {1} batches",
+  "zh-CN": "资产对照表完成：{0} 个数据槽、{1} 批",
+  "ja": "資産対応表完了：{0} スロット、{1} バッチ",
+  "ko": "자산 대응표 완료: 슬롯 {0}개, {1}배치"
+ },
+ "讀資產對照表（第一次會建索引，要幾分鐘）…": {
+  "en": "Reading the asset maps (indexed the first time, a few minutes)…",
+  "zh-CN": "读资产对照表（第一次会建索引，要几分钟）…",
+  "ja": "資産対応表を読み込み中（初回は索引作成で数分）…",
+  "ko": "자산 대응표 읽는 중(처음에는 색인 생성, 몇 분)…"
+ },
+ "可玩角色預製物 {0} 個": {
+  "en": "{0} playable character prefabs",
+  "zh-CN": "可玩角色预制体 {0} 个",
+  "ja": "プレイアブルキャラクターのプレハブ {0} 個",
+  "ko": "플레이어블 캐릭터 프리팹 {0}개"
+ },
+ "以 Blender 建 .blend 並讀回 {0}（每個模型幾分鐘）…": {
+  "en": "Building the .blend in Blender and reading {0} back (minutes per model)…",
+  "zh-CN": "以 Blender 建 .blend 并读回 {0}（每个模型几分钟）…",
+  "ja": "Blender で .blend を作成し {0} を読み戻し中（1 モデル数分）…",
+  "ko": "Blender로 .blend를 만들고 {0}을(를) 다시 읽는 중(모델당 몇 분)…"
+ },
+ "資產對照表建立失敗：{0}": {
+  "en": "Building the asset maps failed: {0}",
+  "zh-CN": "资产对照表建立失败：{0}",
+  "ja": "資産対応表の作成に失敗：{0}",
+  "ko": "자산 대응표 생성 실패: {0}"
+ },
+ "對照表不是從這個安裝建的：{0} / {1} 個區塊不在 {2} 底下": {
+  "en": "The maps were not built from this install: {0} / {1} chunks are not under {2}",
+  "zh-CN": "对照表不是从这个安装建的：{0} / {1} 个区块不在 {2} 底下",
+  "ja": "対応表はこのインストールから作られていません：{0} / {1} チャンクが {2} の下にありません",
+  "ko": "대응표가 이 설치에서 만들어지지 않음: {0} / {1}개 청크가 {2} 아래에 없음"
+ },
+ "{0} 讀回沒有通過：{1}": {
+  "en": "{0} failed its read-back: {1}",
+  "zh-CN": "{0} 读回没有通过：{1}",
+  "ja": "{0} の読み戻しに失敗：{1}",
+  "ko": "{0} 다시 읽기 실패: {1}"
+ },
+ "資產對照表缺 {0}": {
+  "en": "The asset maps lack {0}",
+  "zh-CN": "资产对照表缺 {0}",
+  "ja": "資産対応表に {0} がありません",
+  "ko": "자산 대응표에 {0} 없음"
+ },
+ "安裝裡沒有 {0}": {
+  "en": "{0} is not in the install",
+  "zh-CN": "安装里没有 {0}",
+  "ja": "インストールに {0} がありません",
+  "ko": "설치에 {0} 없음"
+ },
+ "{0} 轉換失敗：{1}": {
+  "en": "{0} failed to convert: {1}",
+  "zh-CN": "{0} 转换失败：{1}",
+  "ja": "{0} の変換に失敗：{1}",
+  "ko": "{0} 변환 실패: {1}"
+ },
+ "{0} 沒有網格": {
+  "en": "{0} has no mesh",
+  "zh-CN": "{0} 没有网格",
+  "ja": "{0} にメッシュがありません",
+  "ko": "{0}에 메시 없음"
+ },
+ "已轉換": {
+  "en": "converted",
+  "zh-CN": "已转换",
+  "ja": "変換済み",
+  "ko": "변환됨"
+ },
+ "GF2 安裝資料夾": {
+  "en": "GF2 install folder",
+  "zh-CN": "GF2 安装文件夹",
+  "ja": "GF2 のインストールフォルダ",
+  "ko": "GF2 설치 폴더"
+ },
+ "GF2（少女前線 2）": {
+  "en": "GF2 (Girls' Frontline 2)",
+  "zh-CN": "GF2（少女前线 2）",
+  "ja": "GF2（ドールズフロントライン 2）",
+  "ko": "GF2(소녀전선 2)"
+ },
+ "可匯出的模型 {0} 個（沒有自己蒙皮網格的根節點不列）": {
+  "en": "{0} models to export (roots without their own skinned mesh or a whole skeleton are left out)",
+  "zh-CN": "可导出的模型 {0} 个（没有自己蒙皮网格的根节点不列）",
+  "ja": "書き出せるモデル {0} 個（自身のスキンメッシュがないルートは除外）",
+  "ko": "내보낼 수 있는 모델 {0}개(자체 스킨 메시가 없는 루트 제외)"
+ },
+ "建立 bundle 索引（第一次會花很久；之後只讀有變動的檔案）…": {
+  "en": "Indexing the bundles (long the first time; only changed files after)…",
+  "zh-CN": "建立 bundle 索引（第一次会花很久；之后只读有变动的文件）…",
+  "ja": "bundle の索引を作成中（初回は時間がかかります。以降は変更分のみ）…",
+  "ko": "bundle 색인 생성 중(처음에는 오래 걸림, 이후 변경된 파일만)…"
+ },
+ "{0} 個根節點；檢查哪些有自己的蒙皮網格…": {
+  "en": "{0} roots; checking which have their own skinned mesh…",
+  "zh-CN": "{0} 个根节点；检查哪些有自己的蒙皮网格…",
+  "ja": "ルート {0} 個。自身のスキンメッシュを確認中…",
+  "ko": "루트 {0}개, 자체 스킨 메시 확인 중…"
+ },
+ "{0} 沒有轉換：{1}": {
+  "en": "{0} was not converted: {1}",
+  "zh-CN": "{0} 没有转换：{1}",
+  "ja": "{0} は変換されませんでした：{1}",
+  "ko": "{0} 변환되지 않음: {1}"
+ },
+ "這個模型沒有 .blend（只有已核實的女性可玩角色才寫 .blend）": {
+  "en": "This model has no .blend",
+  "zh-CN": "这个模型没有 .blend（只有已核实的女性可玩角色才写 .blend）",
+  "ja": "このモデルには .blend がありません",
+  "ko": "이 모델에는 .blend가 없음"
+ },
+ "GF2 的安裝在掃描之後有變動（或還沒掃描過），請先重新掃描": {
+  "en": "GF2's install changed since the scan (or was never scanned); scan again first",
+  "zh-CN": "GF2 的安装在扫描之后有变动（或还没扫描过），请先重新扫描",
+  "ja": "GF2 のインストールがスキャン後に変わりました（または未スキャン）。先に再スキャンしてください",
+  "ko": "GF2 설치가 스캔 후 바뀌었거나 스캔한 적 없음, 먼저 다시 스캔하세요"
+ },
+ "沒有這個來源：{0}": {
+  "en": "No such source: {0}",
+  "zh-CN": "没有这个来源：{0}",
+  "ja": "そのソースはありません：{0}",
+  "ko": "해당 소스 없음: {0}"
+ },
+ "左鍵拖曳旋轉、右鍵平移、滾輪縮放": {
+  "en": "Left-drag to turn, right-drag to pan, wheel to zoom",
+  "zh-CN": "左键拖动旋转、右键平移、滚轮缩放",
+  "ja": "左ドラッグで回転、右ドラッグで移動、ホイールで拡大縮小",
+  "ko": "왼쪽 드래그 회전, 오른쪽 드래그 이동, 휠 확대·축소"
+ },
+ "{0}\n{1}\n左鍵拖曳旋轉、右鍵平移、滾輪縮放": {
+  "en": "{0}\n{1}\nLeft-drag to turn, right-drag to pan, wheel to zoom",
+  "zh-CN": "{0}\n{1}\n左键拖动旋转、右键平移、滚轮缩放",
+  "ja": "{0}\n{1}\n左ドラッグで回転、右ドラッグで移動、ホイールで拡大縮小",
+  "ko": "{0}\n{1}\n왼쪽 드래그 회전, 오른쪽 드래그 이동, 휠 확대·축소"
+ },
+ "「{0}」還沒有設定": {
+  "en": "“{0}” is not set",
+  "zh-CN": "「{0}」还没有设置",
+  "ja": "「{0}」が未設定です",
+  "ko": "「{0}」이(가) 설정되지 않음"
+ },
+ "「{0}」不存在：{1}": {
+  "en": "“{0}” does not exist: {1}",
+  "zh-CN": "「{0}」不存在：{1}",
+  "ja": "「{0}」が存在しません：{1}",
+  "ko": "「{0}」이(가) 없음: {1}"
+ },
+ "Blender 讀回通過": {
+  "en": "read back in Blender",
+  "zh-CN": "Blender 读回通过",
+  "ja": "Blender で読み戻し済み",
+  "ko": "Blender에서 다시 읽기 통과"
+ },
+ "沒有指定 Blender，未經 Blender 讀回": {
+  "en": "no Blender set, not read back in Blender",
+  "zh-CN": "没有指定 Blender，未经 Blender 读回",
+  "ja": "Blender 未指定のため Blender で読み戻していません",
+  "ko": "Blender 미지정, Blender에서 다시 읽지 않음"
+ },
+ "「{0}」裡找不到唯一一份 {1}：{2}{3}": {
+  "en": "No single {1} found in “{0}”: {2}{3}",
+  "zh-CN": "「{0}」里找不到唯一一份 {1}：{2}{3}",
+  "ja": "「{0}」に {1} が一つだけ見つかりません：{2}{3}",
+  "ko": "「{0}」에서 {1}을(를) 하나만 찾을 수 없음: {2}{3}"
+ },
+ "{0}.{1} 讀回沒有通過：{2}": {
+  "en": "{0}.{1} failed its read-back: {2}",
+  "zh-CN": "{0}.{1} 读回没有通过：{2}",
+  "ja": "{0}.{1} の読み戻しに失敗：{2}",
+  "ko": "{0}.{1} 다시 읽기 실패: {2}"
+ },
+ "；有好幾份：": {
+  "en": "; there are several: ",
+  "zh-CN": "；有好几份：",
+  "ja": "。複数あります：",
+  "ko": "; 여러 개 있음: "
+ },
+ "{0}.{1}：{2}": {
+  "en": "{0}.{1}: {2}",
+  "zh-CN": "{0}.{1}：{2}",
+  "ja": "{0}.{1}：{2}",
+  "ko": "{0}.{1}: {2}"
+ },
+ "檔內骨頭與綁定矩陣核對通過，{0}": {
+  "en": "bones and bind matrices checked in the file, {0}",
+  "zh-CN": "文件内骨骼与绑定矩阵核对通过，{0}",
+  "ja": "ファイル内のボーンとバインド行列を確認済み、{0}",
+  "ko": "파일 내 뼈와 바인드 행렬 확인 통과, {0}"
+ },
+ "⚠ 這個檔案是用舊的規則寫出的（例如眼影、透明部件畫成不透明），顏色會不對：請到該遊戲頁重新匯出。": {
+  "en": "⚠ This file was written by older rules (eye shadows and transparent parts drawn opaque, for instance) and its colours will be wrong: export it again from its game's page.",
+  "zh-CN": "⚠ 这个文件是用旧的规则写出的（例如眼影、透明部件画成不透明），颜色会不对：请到该游戏页重新导出。",
+  "ja": "⚠ このファイルは古い規則で書き出されています（アイシャドウや透明部品が不透明など）。色が正しくないので、そのゲームのページで書き出し直してください。",
+  "ko": "⚠ 이 파일은 이전 규칙으로 작성되어(아이섀도·투명 부품이 불투명 등) 색이 맞지 않습니다. 해당 게임 페이지에서 다시 내보내세요."
+ },
+ "深色背景": {
+  "en": "Dark background",
+  "zh-CN": "深色背景",
+  "ja": "暗い背景",
+  "ko": "어두운 배경"
+ },
+ "淺色背景": {
+  "en": "Light background",
+  "zh-CN": "浅色背景",
+  "ja": "明るい背景",
+  "ko": "밝은 배경"
+ },
+ "正面": {
+  "en": "Front",
+  "zh-CN": "正面",
+  "ja": "正面",
+  "ko": "정면"
+ },
+ "背面": {
+  "en": "Back",
+  "zh-CN": "背面",
+  "ja": "背面",
+  "ko": "후면"
+ },
+ "左側": {
+  "en": "Left",
+  "zh-CN": "左侧",
+  "ja": "左側",
+  "ko": "왼쪽"
+ },
+ "右側": {
+  "en": "Right",
+  "zh-CN": "右侧",
+  "ja": "右側",
+  "ko": "오른쪽"
+ },
+ "上方": {
+  "en": "Top",
+  "zh-CN": "上方",
+  "ja": "上",
+  "ko": "위쪽"
+ },
+ "網格 {0}　頂點 {1}　三角形 {2}": {
+  "en": "Meshes {0}  Vertices {1}  Triangles {2}",
+  "zh-CN": "网格 {0}　顶点 {1}　三角形 {2}",
+  "ja": "メッシュ {0}　頂点 {1}　三角形 {2}",
+  "ko": "메시 {0}  정점 {1}  삼각형 {2}"
+ },
+ "骨頭 {0}　形狀鍵 {1}　動畫 {2}": {
+  "en": "Bones {0}  Shape keys {1}  Animations {2}",
+  "zh-CN": "骨骼 {0}　形状键 {1}　动画 {2}",
+  "ja": "ボーン {0}　シェイプキー {1}　アニメーション {2}",
+  "ko": "뼈 {0}  셰이프 키 {1}  애니메이션 {2}"
+ },
+ "材質 {0}　貼圖 {1}": {
+  "en": "Materials {0}  Textures {1}",
+  "zh-CN": "材质 {0}　贴图 {1}",
+  "ja": "マテリアル {0}　テクスチャ {1}",
+  "ko": "재질 {0}  텍스처 {1}"
+ },
+ "材質：": {
+  "en": "Materials:",
+  "zh-CN": "材质：",
+  "ja": "マテリアル：",
+  "ko": "재질:"
+ },
+ "開啟檔案…": {
+  "en": "Open file…",
+  "zh-CN": "打开文件…",
+  "ja": "ファイルを開く…",
+  "ko": "파일 열기…"
+ },
+ "輸出資料夾裡的模型列在左邊；也可以開啟或拖進任何 .glb／.gltf／.fbx／.obj。": {
+  "en": "The models in the output folder are listed on the left; any .glb / .gltf / .fbx / .obj can also be opened or dropped here.",
+  "zh-CN": "输出文件夹里的模型列在左边；也可以打开或拖进任何 .glb／.gltf／.fbx／.obj。",
+  "ja": "出力フォルダのモデルが左に並びます。任意の .glb／.gltf／.fbx／.obj を開くかドロップすることもできます。",
+  "ko": "출력 폴더의 모델이 왼쪽에 나열됩니다. 어떤 .glb/.gltf/.fbx/.obj든 열거나 끌어다 놓을 수 있습니다."
+ },
+ "搜尋檔名…": {
+  "en": "Search file names…",
+  "zh-CN": "搜索文件名…",
+  "ja": "ファイル名を検索…",
+  "ko": "파일 이름 검색…"
+ },
+ "重新整理": {
+  "en": "Refresh",
+  "zh-CN": "刷新",
+  "ja": "更新",
+  "ko": "새로 고침"
+ },
+ "刪除…": {
+  "en": "Delete…",
+  "zh-CN": "删除…",
+  "ja": "削除…",
+  "ko": "삭제…"
+ },
+ "把選取的模型（同名的 .glb／.fbx／.blend… 與貼圖資料夾）移到資源回收筒": {
+  "en": "Move the selected model (its .glb / .fbx / .blend… of the same name and its texture folder) to the recycle bin",
+  "zh-CN": "把选中的模型（同名的 .glb／.fbx／.blend… 与贴图文件夹）移到回收站",
+  "ja": "選択したモデル（同名の .glb／.fbx／.blend… とテクスチャフォルダ）をごみ箱へ移動",
+  "ko": "선택한 모델(같은 이름의 .glb/.fbx/.blend… 및 텍스처 폴더)을 휴지통으로 이동"
+ },
+ "線框": {
+  "en": "Wireframe",
+  "zh-CN": "线框",
+  "ja": "ワイヤーフレーム",
+  "ko": "와이어프레임"
+ },
+ "檔案內容": {
+  "en": "File contents",
+  "zh-CN": "文件内容",
+  "ja": "ファイルの内容",
+  "ko": "파일 내용"
+ },
+ "開啟模型": {
+  "en": "Open a model",
+  "zh-CN": "打开模型",
+  "ja": "モデルを開く",
+  "ko": "모델 열기"
+ },
+ "模型 (*.glb *.gltf *.fbx *.obj)": {
+  "en": "Models (*.glb *.gltf *.fbx *.obj)",
+  "zh-CN": "模型 (*.glb *.gltf *.fbx *.obj)",
+  "ja": "モデル (*.glb *.gltf *.fbx *.obj)",
+  "ko": "모델 (*.glb *.gltf *.fbx *.obj)"
+ },
+ "從左邊選一個模型，或開啟、拖進一個檔案": {
+  "en": "Pick a model on the left, or open or drop a file",
+  "zh-CN": "从左边选一个模型，或打开、拖进一个文件",
+  "ja": "左からモデルを選ぶか、ファイルを開くかドロップしてください",
+  "ko": "왼쪽에서 모델을 고르거나 파일을 열거나 끌어다 놓으세요"
+ },
+ "光": {
+  "en": "Light",
+  "zh-CN": "光",
+  "ja": "ライト",
+  "ko": "조명"
+ },
+ "（在「設定」指定輸出資料夾後，匯出的模型會列在這裡）": {
+  "en": "(name an output folder in Settings and the exported models are listed here)",
+  "zh-CN": "（在「设置」指定输出文件夹后，导出的模型会列在这里）",
+  "ja": "（「設定」で出力フォルダを指定すると、書き出したモデルがここに並びます）",
+  "ko": "(「설정」에서 출력 폴더를 지정하면 내보낸 모델이 여기에 나열됩니다)"
+ },
+ "刪除模型": {
+  "en": "Delete model",
+  "zh-CN": "删除模型",
+  "ja": "モデルを削除",
+  "ko": "모델 삭제"
+ },
+ "先在左邊的清單選一個輸出資料夾裡的模型。": {
+  "en": "Select a model of the output folder in the list on the left first.",
+  "zh-CN": "先在左边的清单选一个输出文件夹里的模型。",
+  "ja": "先に左のリストで出力フォルダのモデルを選んでください。",
+  "ko": "먼저 왼쪽 목록에서 출력 폴더의 모델을 선택하세요."
+ },
+ "已刪除": {
+  "en": "Deleted",
+  "zh-CN": "已删除",
+  "ja": "削除しました",
+  "ko": "삭제됨"
+ },
+ "找不到 {0}": {
+  "en": "{0} not found",
+  "zh-CN": "找不到 {0}",
+  "ja": "{0} が見つかりません",
+  "ko": "{0}을(를) 찾을 수 없음"
+ },
+ "（只有 glTF 會列出內容；這個格式只顯示）": {
+  "en": "(only glTF lists its contents; this format is only shown)",
+  "zh-CN": "（只有 glTF 会列出内容；这个格式只显示）",
+  "ja": "（内容を一覧するのは glTF のみ。この形式は表示のみ）",
+  "ko": "(glTF만 내용을 나열하며 이 형식은 표시만 함)"
+ },
+ "把這些移到資源回收筒？\n": {
+  "en": "Move these to the recycle bin?\n",
+  "zh-CN": "把这些移到回收站？\n",
+  "ja": "これらをごみ箱へ移動しますか？\n",
+  "ko": "이것들을 휴지통으로 이동할까요?\n"
+ },
+ "這些沒能移到資源回收筒：\n": {
+  "en": "These could not be moved to the recycle bin:\n",
+  "zh-CN": "这些没能移到回收站：\n",
+  "ja": "これらはごみ箱へ移動できませんでした：\n",
+  "ko": "이것들은 휴지통으로 이동하지 못함:\n"
+ },
+ "讀不出 glTF 內容：{0}": {
+  "en": "Could not read the glTF contents: {0}",
+  "zh-CN": "读不出 glTF 内容：{0}",
+  "ja": "glTF の内容を読めません：{0}",
+  "ko": "glTF 내용을 읽을 수 없음: {0}"
+ },
+ "鳴潮安裝資料夾": {
+  "en": "Wuthering Waves install folder",
+  "zh-CN": "鸣潮安装文件夹",
+  "ja": "鳴潮のインストールフォルダ",
+  "ko": "명조 설치 폴더"
+ },
+ "鳴潮讀取器（wuwa.exe 或 wuwa.dll）": {
+  "en": "Wuthering Waves reader (wuwa.exe or wuwa.dll)",
+  "zh-CN": "鸣潮读取器（wuwa.exe 或 wuwa.dll）",
+  "ja": "鳴潮リーダー（wuwa.exe または wuwa.dll）",
+  "ko": "명조 리더(wuwa.exe 또는 wuwa.dll)"
+ },
+ "tools/wuwa_cli 建出的 wuwa.exe": {
+  "en": "wuwa.exe built from tools/wuwa_cli",
+  "zh-CN": "tools/wuwa_cli 构建的 wuwa.exe",
+  "ja": "tools/wuwa_cli からビルドした wuwa.exe",
+  "ko": "tools/wuwa_cli로 빌드한 wuwa.exe"
+ },
+ ".NET 10 執行環境資料夾": {
+  "en": ".NET 10 runtime folder",
+  "zh-CN": ".NET 10 运行环境文件夹",
+  "ja": ".NET 10 ランタイムのフォルダ",
+  "ko": ".NET 10 런타임 폴더"
+ },
+ "含 dotnet.exe 的資料夾；打包版留空用內建的": {
+  "en": "The folder holding dotnet.exe; the packaged program uses its own when empty",
+  "zh-CN": "含 dotnet.exe 的文件夹；打包版留空用内置的",
+  "ja": "dotnet.exe を含むフォルダ。パッケージ版は空欄なら同梱版を使用",
+  "ko": "dotnet.exe가 있는 폴더, 패키지판은 비우면 내장판 사용"
+ },
+ "鳴潮 AES 金鑰檔": {
+  "en": "Wuthering Waves AES keys file",
+  "zh-CN": "鸣潮 AES 密钥文件",
+  "ja": "鳴潮 AES キーファイル",
+  "ko": "명조 AES 키 파일"
+ },
+ "含 mainKey 與 dynamicKeys 的 JSON": {
+  "en": "A JSON with mainKey and dynamicKeys",
+  "zh-CN": "含 mainKey 与 dynamicKeys 的 JSON",
+  "ja": "mainKey と dynamicKeys を含む JSON",
+  "ko": "mainKey와 dynamicKeys가 있는 JSON"
+ },
+ "讀取器沒有寫出：{0}": {
+  "en": "The reader did not write: {0}",
+  "zh-CN": "读取器没有写出：{0}",
+  "ja": "リーダーが書き出しませんでした：{0}",
+  "ko": "리더가 작성하지 않음: {0}"
+ },
+ "{0} 個衣裝的模型編號在預載表裡沒有：{1}": {
+  "en": "{0} outfits' model ids are not in the preload table: {1}",
+  "zh-CN": "{0} 个服装的模型编号在预载表里没有：{1}",
+  "ja": "{0} 個の衣装のモデル ID がプリロード表にありません：{1}",
+  "ko": "의상 {0}개의 모델 ID가 프리로드 표에 없음: {1}"
+ },
+ "可玩角色的顯示模型 {0} 個": {
+  "en": "{0} playable characters' display models",
+  "zh-CN": "可玩角色的显示模型 {0} 个",
+  "ja": "プレイアブルキャラクターの表示モデル {0} 個",
+  "ko": "플레이어블 캐릭터 표시 모델 {0}개"
+ },
+ "組合顯示模型（主網格、子網格、插槽裝飾）…": {
+  "en": "Assembling the display model (main mesh, child meshes, socket decorations)…",
+  "zh-CN": "组合显示模型（主网格、子网格、插槽装饰）…",
+  "ja": "表示モデルを組み立て中（メインメッシュ、子メッシュ、ソケット装飾）…",
+  "ko": "표시 모델 조립 중(주 메시, 하위 메시, 소켓 장식)…"
+ },
+ "Blender {0} exit {1}：{2}": {
+  "en": "Blender {0} exit {1}: {2}",
+  "zh-CN": "Blender {0} exit {1}：{2}",
+  "ja": "Blender {0} exit {1}：{2}",
+  "ko": "Blender {0} exit {1}: {2}"
+ },
+ "這個安裝的角色選單沒有 {0}": {
+  "en": "This install's character menu has no {0}",
+  "zh-CN": "这个安装的角色菜单没有 {0}",
+  "ja": "このインストールのキャラクターメニューに {0} はありません",
+  "ko": "이 설치의 캐릭터 메뉴에 {0} 없음"
+ },
+ "{0} 組合失敗：{1}": {
+  "en": "{0} failed to assemble: {1}",
+  "zh-CN": "{0} 组合失败：{1}",
+  "ja": "{0} の組み立てに失敗：{1}",
+  "ko": "{0} 조립 실패: {1}"
+ },
+ "選一個模型後按「預覽」": {
+  "en": "Select a model and press Preview",
+  "zh-CN": "选一个模型后按「预览」",
+  "ja": "モデルを選んで「プレビュー」を押してください",
+  "ko": "모델을 고른 뒤 「미리보기」를 누르세요"
+ },
+ "讀不進這個檔案：": {
+  "en": "Could not read this file: ",
+  "zh-CN": "读不进这个文件：",
+  "ja": "このファイルを読み込めません：",
+  "ko": "이 파일을 읽을 수 없음: "
+ },
+ "載入中…": {
+  "en": "Loading…",
+  "zh-CN": "加载中…",
+  "ja": "読み込み中…",
+  "ko": "로딩 중…"
+ },
+ "語言": {
+  "en": "Language",
+  "zh-CN": "语言",
+  "ja": "言語",
+  "ko": "언어"
+ },
+ "跟隨系統": {
+  "en": "Follow the system",
+  "zh-CN": "跟随系统",
+  "ja": "システムに従う",
+  "ko": "시스템 따름"
+ },
+ "把這些移到資源回收筒？": {
+  "en": "Move these to the recycle bin?",
+  "zh-CN": "把这些移到回收站？",
+  "ja": "これらをごみ箱へ移動しますか？",
+  "ko": "이것들을 휴지통으로 이동할까요?"
+ },
+ "這些沒能移到資源回收筒：": {
+  "en": "These could not be moved to the recycle bin:",
+  "zh-CN": "这些没能移到回收站：",
+  "ja": "これらはごみ箱へ移動できませんでした：",
+  "ko": "이것들은 휴지통으로 이동하지 못함:"
+ }
+}
