@@ -168,7 +168,9 @@ def test_a_preview_or_export_asks_for_each_required_tool_it_lacks_once(tmp_path,
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication, QFileDialog
     from polylode.extractor import app as A
+    from polylode.extractor import bundled
     monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    monkeypatch.setattr(bundled, "wuwa_reader", lambda: None)   # a checkout without the built reader
     S.save(S.Settings())
     qt = QApplication.instance() or QApplication([])
     window = A.Window()
