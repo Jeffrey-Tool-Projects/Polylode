@@ -153,10 +153,19 @@ class EndfieldSource:
                     raise ExtractorError(f"{model.ident} 轉換失敗：{result.failed[key]}")
                 if key in result.empty:
                     raise ExtractorError(f"{model.ident} 沒有網格")
-            return write_files(model.ident, blender, output, formats, log)
+            return write_files(model.ident, blender, output, formats, log,
+                               shaders=lambda names: self._fetch_shaders(settings, names, log))
+
+    def _fetch_shaders(self, settings, names: list[str], log: Log) -> None:
+        """The shaders *names* taken from the installation into the store's cache (once)."""
+        from ..endfield import shader_code
+        log(f"從安裝取出 shader：{'、'.join(names)}")
+        progress.step("取出 shader")
+        shader_code.fetch(self._pipeline(settings, log), names, log)
 
 
-def write_files(ident: str, blender: Path | None, output: Path, formats: list[str], log: Log) -> list[Path]:
+def write_files(ident: str, blender: Path | None, output: Path, formats: list[str], log: Log,
+                shaders=None) -> list[Path]:
     """Write the stored *ident* in *formats* and read each back; the files, or why not.
 
     ``.glb`` and FBX are written here (``interchange``), the ``.blend`` by Blender; the images are inside
@@ -178,17 +187,18 @@ def write_files(ident: str, blender: Path | None, output: Path, formats: list[st
     if "blend" in formats:
         log(f"以 Blender 建 .blend 並讀回 {folder}（每個模型幾分鐘）…")
         progress.step("以 Blender 建 .blend 並讀回")
-        row, _report = FX.write_one(target, output, blender, None, blend=True)
+        row, _report = FX.write_one(target, output, blender, None, blend=True, shaders=shaders, log=log)
         if not row["success"]:
             raise ExtractorError(f"{ident} 讀回沒有通過：{'; '.join(row['problems'])}")
         Path(row["fbx"]).unlink()           # Blender's FBX was for its read-back; FBX is written below
         written.append(Path(row["fbx"]).with_suffix(".blend"))
     if any(kind in formats for kind in ("glb", "fbx")):
         progress.step("組合場景")
-        _scene, document = FX.scene_document(target, output, None)
+        _scene, document = FX.scene_document(target, output, None, shaders, log)
         try:
             written += write_own(formats, document, output / folder, target.stem, blender, log)
         finally:
             (output / folder / f"{target.stem}.npz").unlink(missing_ok=True)
     shutil.rmtree(output / folder / RS.TEXTURE_DIR, ignore_errors=True)
+    shutil.rmtree(output / folder / "baked", ignore_errors=True)        # vfx_bake's maps: inside every file
     return written

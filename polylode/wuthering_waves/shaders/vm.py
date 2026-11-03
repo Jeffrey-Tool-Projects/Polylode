@@ -98,11 +98,12 @@ def parse(asm: str) -> list[Instruction]:
     program = []
     for line in body.splitlines():
         line = line.strip()
-        if not line or line.startswith("//") or line.startswith("dcl_"):
+        if not line or line.startswith("//") or line.startswith("dcl_") or re.fullmatch(r"[pv]s_\d_\d", line):
             continue
-        head, _, rest = line.partition(" ")
-        head = re.sub(r"\(.*?\)", "", head)               # sample_indexable(texture2d)(float…) → sample_indexable
-        rest = re.sub(r"^\([^)]*\)\s*", "", rest.strip()) if rest.strip().startswith("(") else rest
+        # the opcode and every bracket after it: sample_indexable(texture2d)(float…), and
+        # ld_structured_indexable(structured_buffer, stride=16)(mixed…) with a space inside its first one
+        match = re.match(r"([A-Za-z_0-9]+)((?:\([^)]*\))*)\s*(.*)$", line)
+        head, rest = match[1], match[3]
         saturate = head.endswith("_sat")
         op = head[:-4] if saturate else head
         operands, swizzle = [], (0, 1, 2, 3)
@@ -125,6 +126,8 @@ class Machine:
         self.buffers = {k: np.ascontiguousarray(v, dtype=np.float32).view(np.uint32) for k, v in buffers.items()}
         self.textures = textures
         self.registers: dict[int, np.ndarray] = {}
+        #: what the program writes to its outputs (o#), raw words per lane, as the registers
+        self.outputs: dict[int, np.ndarray] = {}
         self.discarded = np.zeros(n, bool)
 
     # -- operands -----------------------------------------------------------------------------------------
@@ -169,9 +172,9 @@ class Machine:
 
     def write(self, operand: Operand, value: np.ndarray, active: np.ndarray, saturate: bool = False,
               kind: str = "f") -> None:
-        if operand.kind in ("null", "oDepth", "o"):
+        if operand.kind in ("null", "oDepth"):
             return
-        if operand.kind != "r":
+        if operand.kind not in ("r", "o"):
             raise ShaderError(f"a write to {operand.kind}")
         if kind == "f":
             value = np.asarray(value, np.float32)
@@ -180,7 +183,8 @@ class Machine:
             words = value.view(np.uint32)
         else:
             words = (np.asarray(value).astype(np.int64) & 0xFFFFFFFF).astype(np.uint32)
-        target = self.registers.setdefault(operand.index, np.zeros((self.n, 4), np.uint32))
+        store = self.registers if operand.kind == "r" else self.outputs
+        target = store.setdefault(operand.index, np.zeros((self.n, 4), np.uint32))
         words = np.broadcast_to(words, (self.n, 4))
         everyone = active.all()
         for c in operand.mask:

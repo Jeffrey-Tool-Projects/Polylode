@@ -288,7 +288,7 @@ def test_outfits_of_one_endfield_character_are_written_apart(tmp_path, monkeypat
     from polylode.extractor import endfield_source as E
     folders = []
     monkeypatch.setattr(store, "read_extra", lambda kind, ident: {"model": "assets/art/actor/girl/endminf/models/x.prefab"})
-    monkeypatch.setattr(FX, "scene_document", lambda target, output, _: folders.append((target.folder, target.stem)) or (None, None))
+    monkeypatch.setattr(FX, "scene_document", lambda target, output, *_: folders.append((target.folder, target.stem)) or (None, None))
     from polylode.extractor import sources
     monkeypatch.setattr(sources, "write_own", lambda *a: [])
     for ident in ("chr_0003_endminf_postmodel", "chr_0003_endminfink_postmodel"):

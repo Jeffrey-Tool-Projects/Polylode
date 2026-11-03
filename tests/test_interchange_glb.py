@@ -237,3 +237,21 @@ def test_a_part_of_several_materials_splits_into_a_part_per_section_with_its_ver
         by_material(document, {**arrays, "p0_mystery": np.zeros(6)})   # a stream it cannot split: refused
     assert section_name("R2T1ChunMd10011", "MI_R2T1ChunMd1001Eye") == "R2T1ChunMd10011_Eye"
     assert section_name("R2T1ChunMd10011", "MI_5XingStar") == "R2T1ChunMd10011_5XingStar"
+
+
+def test_a_baked_effect_is_its_coverage_with_no_colour_and_its_colour_given_off(tmp_path):
+    """An effect (vfx_bake): the base map's alpha its coverage, black its own colour, the map its emission —
+    over 1 as KHR_materials_emissive_strength."""
+    document, arrays = _scene(tmp_path)
+    document["materials"]["cloth"] = {"maps": {"_Baked": {"file": "textures/base.png", "srgb": True}},
+                                      "base": "_Baked", "tint": [0.0, 0.0, 0.0, 1.0], "blend": "alpha",
+                                      "alpha_from": "a", "emission": {"map": "_Baked", "color": [1, 1, 1],
+                                                                      "strength": 2.5}}
+    glb.write(document, arrays, tmp_path, tmp_path / "out.glb")
+    gltf, _accessor, _view = _read(tmp_path / "out.glb")
+    cloth = next(m for m in gltf["materials"] if m["name"] == "cloth")
+    assert cloth["alphaMode"] == "BLEND" and cloth["pbrMetallicRoughness"]["baseColorFactor"][:3] == [0, 0, 0]
+    assert cloth["emissiveTexture"]["index"] == cloth["pbrMetallicRoughness"]["baseColorTexture"]["index"]
+    assert cloth["emissiveFactor"] == [1, 1, 1]
+    assert cloth["extensions"]["KHR_materials_emissive_strength"]["emissiveStrength"] == 2.5
+    assert "KHR_materials_emissive_strength" in gltf["extensionsUsed"]

@@ -201,6 +201,25 @@ def _material(name: str, record: dict, folder: Path, builder: _Builder, gltf: di
             raise GlbError(f"{name}: a masked material with no cutoff")
         material["alphaMode"] = "MASK"
         material["alphaCutoff"] = float(cutoff)
+    emission = record.get("emission")
+    if emission:
+        # light the surface gives off whatever lights it (an unlit effect, an emission map): its map as
+        # emissiveTexture, its colour as the factor, a strength over 1 as KHR_materials_emissive_strength
+        entry = record["maps"].get(emission.get("map") or "")
+        if entry is not None:
+            path = (folder / entry["file"]).resolve()
+            key = (path, None)
+            if key not in images:
+                data, mime = _image(path, None)
+                gltf["images"].append({"name": path.stem, "bufferView": builder.view(data), "mimeType": mime})
+                gltf["textures"].append({"source": len(gltf["images"]) - 1, "sampler": 0})
+                images[key] = len(gltf["textures"]) - 1
+            material["emissiveTexture"] = {"index": images[key]}
+        material["emissiveFactor"] = [min(1.0, float(v)) for v in emission.get("color", (1.0, 1.0, 1.0))[:3]]
+        strength = float(emission.get("strength", 1.0))
+        if strength > 1.0:
+            material.setdefault("extensions", {})["KHR_materials_emissive_strength"] = {"emissiveStrength": strength}
+            gltf["extensionsUsed"].add("KHR_materials_emissive_strength")
     material["extras"] = json.loads(json.dumps(extras, default=str))
     return material
 

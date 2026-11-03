@@ -243,10 +243,11 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
         counts["Material"] += 1
         base = record["maps"].get(record.get("base") or "")
         alpha_from = record.get("alpha_from") if record.get("alpha_from") in ("r", "g", "b") else None
-        if base is not None:
-            path = (folder / base["file"]).resolve()
-            scale = tuple(float(v) for v in (base.get("scale") or [1, 1]))
-            offset = tuple(float(v) for v in (base.get("offset") or [0, 0]))
+
+        def texture_of(entry: dict, alpha_from) -> int:
+            path = (folder / entry["file"]).resolve()
+            scale = tuple(float(v) for v in (entry.get("scale") or [1, 1]))
+            offset = tuple(float(v) for v in (entry.get("offset") or [0, 0]))
             if (path, alpha_from) not in videos:          # the image bytes once per file (and coverage channel)
                 data, _mime = _image(path, alpha_from)
                 file_name = path.name if data[:4] == b"\x89PNG" or path.suffix.lower() in (".png", ".jpg", ".jpeg") \
@@ -287,10 +288,24 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
                 link(video, texture)
                 counts["Texture"] += 1
                 images[key] = texture
-            link(images[key], ident, "DiffuseColor")
+            return images[key]
+
+        if base is not None:
+            texture = texture_of(base, alpha_from)
+            if any(float(v) for v in colour[:3]):
+                # a black tint is a surface with no colour of its own (an effect drawn as its emission): its map
+                # is only its coverage
+                link(texture, ident, "DiffuseColor")
             if alpha_from or record.get("blend") in ("multiply", "alpha", "add") or record.get("cutoff") is not None:
                 # the coverage is the image's alpha: Unity and Blender read a material as transparent from this
-                link(images[key], ident, "TransparentColor")
+                link(texture, ident, "TransparentColor")
+        emission = record.get("emission")
+        if emission:
+            _p(props, "EmissiveColor", "Color", "", "A", *[float(v) for v in emission.get("color", (1, 1, 1))[:3]])
+            _p(props, "EmissiveFactor", "Number", "", "A", float(emission.get("strength", 1.0)))
+            entry = record["maps"].get(emission.get("map") or "")
+            if entry is not None:
+                link(texture_of(entry, None), ident, "EmissiveColor")
         materials[name] = ident
         return ident
 

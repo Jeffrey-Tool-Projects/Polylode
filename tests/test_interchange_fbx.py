@@ -126,3 +126,13 @@ def test_an_overlays_coverage_image_is_its_transparency_too(tmp_path):
     data = (tmp_path / "out.fbx").read_bytes()
     assert b"base_r_alpha.png" in data and b"TransparentColor" in data
     assert len([o for o in _objects(data) if o[0] == "Video"]) == 2               # the colour map and the coverage
+
+
+def test_an_effect_given_off_is_its_emissive_map_and_its_coverage_not_its_colour(tmp_path):
+    document, arrays = _scene(tmp_path)
+    document["materials"]["cloth"] = {"maps": {"_Baked": {"file": "textures/base.png", "srgb": True}},
+                                      "base": "_Baked", "tint": [0.0, 0.0, 0.0, 1.0], "blend": "alpha",
+                                      "alpha_from": "a", "emission": {"map": "_Baked", "strength": 2.5}}
+    fbx.write(document, arrays, tmp_path, tmp_path / "out.fbx")
+    data = (tmp_path / "out.fbx").read_bytes()
+    assert b"EmissiveColor" in data and b"EmissiveFactor" in data and b"TransparentColor" in data

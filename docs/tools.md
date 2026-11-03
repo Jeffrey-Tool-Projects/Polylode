@@ -63,6 +63,34 @@
 - Blender 用的原始檔：建置把 `polylode/` 與 `tools/` 裡的 Blender 腳本（`blender_files.REQUIRED`）原樣複製到程式旁邊，
   因為 Blender 以 `.py` 執行 worker、GF2 匯出也用它們的位元組簽章；之後跑 `--selftest`。`--check-only` 只做複製與自檢。
 
+## 終末地沒有底色圖的材質：執行遊戲自己的 shader 烘焙（`endfield/vfx_bake.py`、`endfield/shader_code.py`）
+
+寫出器靠底色圖畫材質。沒有底色圖的材質（特效 shader `HGRP/CharacterNPR_VFX`：Si 的翅膀、尾端的光環、潛能特效）以前寫成沒有貼圖的灰白平面。
+現在在 `fbx_export.scene_document` 寫出交換文件後（`.blend`、glb、FBX 三條路都經過這裡）由 `vfx_bake.complete` 補齊：
+
+1. **shader 程式碼**（`shader_code.py`）：匯出器把 `Shader` 物件寫成 JSON；每個 sub-shader 的 D3D11 blob 是 LZ4 分段、開頭一張
+   `(offset, length, segment)` 項目表，項目是程式（各階段的 DXBC）或參數區塊（每個常數緩衝的變數與 byte offset、每個資源在像素／頂點階段的 slot）。
+   依材質的 keyword 挑 pass（`ForwardOnly`／`UniversalForward`／`SRPDefaultUnlit`）裡「包含全部 keyword、多餘的最少」的變體。快取裡沒有的 shader
+   第一次由 `endfield_source._fetch_shaders` 從安裝取出（存在倉庫的 `shaders/`）。
+2. **只烘不打光的 pass**：pass 的 `RenderType` 含 `Unlit` 才烘，它的輸出就是畫出來的顏色；打光的 pass 烘下去會帶進這個程式自己選的燈，拒絕。
+3. **執行**：先在每個三角形角上跑頂點階段（網格的位置、法線、切線、頂點色、各組 UV 照語意餵入；蒙皮在靜止時由 `unity_LODFade` 跳過），
+   輸出照重心座標內插到底色格的每個像素，再跑像素階段（鳴潮的直譯器 `wuthering_waves/shaders/vm.py`，現在也保留 `o#` 輸出）。
+   網格沒有頂點色時讀白色（Unity 對缺少的 COLOR 給白，也是 Si 的翅膀在遊戲裡看得見的唯一值：顏色的 alpha 就是它的覆蓋率）。
+   其他網格沒有的輸入（切線、蒙皮權重、UV 的 zw）各以 0 和 1 試跑，顏色差超過 0.02 就不烘。
+4. **常數**：材質的常數緩衝（`UnityPerMaterial`、`_Globals`）依變數名從材質讀，沒有就用 shader 宣告的預設值，再沒有就是 0（Unity 的材質緩衝初值）。
+   其他緩衝只給 `vfx_bake.FRAME` 列的靜止畫面值：單位矩陣、時間 0、沒有鏡頭淡出與 LOD 交錯、曝光 1、反向深度的 `_ZBufferParams`、頂點動畫關閉
+   （`_DisableAnimateVert` 1：匯出的是靜止姿勢）、沒有霧（指數霧、大氣霧、體積霧的參數全 0；體積霧由 `_VolumetricFogParams0.z > 0` 開關）。
+   霧的值用實驗確認：同一個 `_USE_FOG` 材質拿掉這個 keyword 再烘，結果逐像素相同。畫面貼圖給一個像素：`_CameraDepthTexture` 遠平面 0、
+   `_IntegratedLightScattering` (0,0,0,1)。讀到 `FRAME` 以外、沒有值的變數就不烘。
+5. **混合**：照 pass 宣告的混合因子讀輸出：`One, OneMinusSrcAlpha` 是預乘、`SrcAlpha, OneMinusSrcAlpha` 是一般 alpha；加亮（`One, One`）在 glTF
+   沒有對應，不烘。寫法是 glTF 畫不打光表面的方式：底色係數黑、底色圖的 alpha 是覆蓋率、顏色當發光（超過 1 的部分縮進貼圖，倍數寫成
+   `KHR_materials_emissive_strength`／FBX 的 `EmissiveFactor`／Blender 的 Emission Strength）。
+6. **主體 shader 的發光**（`npr_emission`）：`HGRP/CharacterNPR` 的 ForwardLit 在打光後的顏色上加上 `_EmissionMap`.rgb × `_EmissionColor` ×
+   `_EmissionBrightness`，以及（`_PARALLAX_MAP`）`_ParallaxTex`.r × `_ParallaxColor` × 底色 alpha × `_BaseColor`.a；視差圖照視線步進的位置取樣，
+   正面看就是它自己的平鋪位置。Si 的角就是這樣：一層淡的發光圖，加上底色 alpha 標出的水晶。烘成發光圖寫出。
+7. **烘不了的材質不畫灰白**：標成 `native_surface_unmapped` 並寫下原因（`unmapped_reason`），三種格式都畫成透明，記錄列出原因。
+8. **快取**：結果依規則版本、shader、材質與網格存在倉庫的 `baked/`，同一次匯出的 `.blend` 與 glb／FBX、下一次匯出都重用。
+
 ## 鳴潮的裁切材質：執行遊戲自己的 shader 烘焙覆蓋率（`wuthering_waves/shader_bake.py`、`shaders/`）
 
 鳴潮的裁切材質（`BlendMode` 1）透明度不一定是底色圖的 alpha。例如「心」的狐狸尾巴用毛髮 shader，透明度來自 `TypeMask`.R、

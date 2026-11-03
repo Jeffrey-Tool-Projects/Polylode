@@ -34,7 +34,7 @@ La fenêtre en anglais, prise pendant une vraie analyse et un vrai aperçu avec 
   intégrées, transparence) ; `.blend` nécessite Blender. Si Blender est défini, chaque fichier y est relu pour vérification.
 - **Matériaux tels que les jeux les dessinent.** Découpes, transparence, calques de fard à paupières et de reflets des yeux sont écrits selon les règles
   lues dans les shaders de chaque jeu. Là où glTF/FBX ne peuvent pas mélanger un calque, son effet est cuit dans la texture en dessous ; le `.blend`
-  garde de vrais calques. Pour Wuthering Waves, la couverture des découpes vient de l'exécution du shader compilé du jeu, et la fourrure en parallaxe est construite en couches de mèches.
+  garde de vrais calques. Pour Wuthering Waves, la couverture des découpes vient de l'exécution du shader compilé du jeu, et la fourrure en parallaxe est construite en couches de mèches. Les matériaux d'effet d'Endfield (ailes, lueurs) passent par le shader compilé du jeu et sont cuits, et les cartes d'émission sont écrites comme émission ; un matériau impossible à dessiner est rendu invisible et consigné, jamais dessiné en gris.
 - **Aperçu avant export.** Sélectionnez une ligne et cliquez sur Aperçu (ou double-cliquez) : le modèle est converti en `.glb` dans un cache et
   affiché à côté de la liste — bouton gauche pour tourner, droit pour déplacer, molette pour zoomer. **Convert again** le refait après une mise à jour du programme ou des fichiers du jeu.
 - **Visionneuse de modèles.** Liste tous les modèles du dossier de sortie et ouvre tout `.glb`, `.gltf`, `.fbx` ou `.obj` (déposé, choisi, ou passé

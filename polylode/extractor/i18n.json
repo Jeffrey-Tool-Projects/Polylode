@@ -1432,5 +1432,71 @@
   "zh-CN": "重新转换预览 {0}",
   "ja": "プレビューを再変換：{0}",
   "ko": "미리보기 다시 변환: {0}"
+ },
+ "{0}：以遊戲的 {1} 烘焙": {
+  "en": "{0}: baked with the game's {1}",
+  "zh-CN": "{0}：以游戏的 {1} 烘焙",
+  "ja": "{0}：ゲームの {1} で焼き込み",
+  "ko": "{0}: 게임의 {1}(으)로 굽기"
+ },
+ "{0}：沒辦法畫出，設為不可見（{1}）": {
+  "en": "{0}: cannot be drawn, made invisible ({1})",
+  "zh-CN": "{0}：没办法画出，设为不可见（{1}）",
+  "ja": "{0}：描画できないため非表示にしました（{1}）",
+  "ko": "{0}: 그릴 수 없어 보이지 않게 함({1})"
+ },
+ "從安裝取出 shader：{0}": {
+  "en": "Taking shaders from the installation: {0}",
+  "zh-CN": "从安装取出 shader：{0}",
+  "ja": "インストールからシェーダーを取り出し中：{0}",
+  "ko": "설치에서 셰이더 꺼내는 중: {0}"
+ },
+ "取出 shader": {
+  "en": "Taking shaders",
+  "zh-CN": "取出 shader",
+  "ja": "シェーダーを取り出し中",
+  "ko": "셰이더 꺼내는 중"
+ },
+ "找不到 shader {0}": {
+  "en": "shader {0} not found",
+  "zh-CN": "找不到 shader {0}",
+  "ja": "シェーダー {0} が見つかりません",
+  "ko": "셰이더 {0}을(를) 찾을 수 없음"
+ },
+ "{0} 是打光的 shader，烘下去會帶入這個程式自己的光照": {
+  "en": "{0} is a lit shader; a bake would carry this program's own lighting",
+  "zh-CN": "{0} 是打光的 shader，烘下去会带入这个程序自己的光照",
+  "ja": "{0} はライティングするシェーダーで、焼き込むとこのプログラム自身の光が入ります",
+  "ko": "{0}은(는) 조명을 받는 셰이더라 구우면 이 프로그램의 조명이 들어갑니다"
+ },
+ "混合方式 {0} 在 glTF 裡沒有對應（只烘預乘與一般的 alpha 混合）": {
+  "en": "blend {0} has no glTF form (only premultiplied and straight alpha blends are baked)",
+  "zh-CN": "混合方式 {0} 在 glTF 里没有对应（只烘预乘与一般的 alpha 混合）",
+  "ja": "ブレンド {0} は glTF に対応する形がありません（焼き込むのはプリマルチプライドと通常のアルファブレンドのみ）",
+  "ko": "블렌드 {0}은(는) glTF에 대응하는 형식이 없음(사전 곱셈과 일반 알파 블렌드만 굽기)"
+ },
+ "材質沒有 shader 讀的貼圖 {0}": {
+  "en": "the material lacks the map {0} its shader reads",
+  "zh-CN": "材质没有 shader 读的贴图 {0}",
+  "ja": "マテリアルにシェーダーが読むテクスチャ {0} がありません",
+  "ko": "재질에 셰이더가 읽는 텍스처 {0}이(가) 없음"
+ },
+ "shader 讀了沒有值的變數：{0}": {
+  "en": "the shader reads variables nothing gives a value: {0}",
+  "zh-CN": "shader 读了没有值的变量：{0}",
+  "ja": "シェーダーが値のない変数を読んでいます：{0}",
+  "ko": "셰이더가 값이 없는 변수를 읽음: {0}"
+ },
+ "顏色取決於網格沒有的輸入": {
+  "en": "its colour depends on an input the mesh lacks",
+  "zh-CN": "颜色取决于网格没有的输入",
+  "ja": "色がメッシュにない入力に依存しています",
+  "ko": "색이 메시에 없는 입력에 따라 달라짐"
+ },
+ "變體沒有頂點階段": {
+  "en": "the variant has no vertex stage",
+  "zh-CN": "变体没有顶点阶段",
+  "ja": "バリアントに頂点ステージがありません",
+  "ko": "변형에 정점 단계가 없음"
  }
 }

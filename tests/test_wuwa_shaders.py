@@ -155,3 +155,32 @@ def test_float_to_integer_clamps_to_its_type_as_direct3d_does():
     machine, _ = run("ftoi r0.xyz, v0.xyzx\nftou r1.xyz, v0.xyzx\n", {0: v0})
     assert machine.registers[0].view(np.int32)[0, :3].tolist() == [0, -3, 2 ** 31 - 1]
     assert machine.registers[1][0, :3].tolist() == [0, 0, 3000000000]
+
+
+def test_the_interpreter_keeps_what_a_program_writes_to_its_outputs():
+    v0 = np.array([[0.25, 0.5, 0, 0]], np.float32)
+    machine, _ = run("mul o0.xy, v0.xyxx, l(2.000000, 4.000000, 0, 0)\nmov o1.z, l(3.000000)\n", {0: v0})
+    assert machine.outputs[0].view(np.float32)[0, :2].tolist() == [0.5, 2.0]
+    assert machine.outputs[1].view(np.float32)[0, 2] == 3.0 and 0 not in machine.registers
+
+
+def test_an_opcode_with_brackets_holding_a_space_and_a_vertex_stage_header_are_read():
+    program = vm.parse("vs_5_0\nld_structured_indexable(structured_buffer, stride=16)(mixed,mixed,mixed,mixed) "
+                       "r7.xyzw, r6.y, l(0), t0.xyzw\nmov o1.xyzw, v4.xyzw\n")
+    assert [i.op for i in program] == ["ld_structured_indexable", "mov"]
+    assert [o.kind for o in program[0].operands] == ["r", "r", "l", "t"]
+
+
+def test_scalars_sharing_a_buffer_row_each_keep_their_own_word():
+    from polylode.endfield import shader_code as SC, vfx_bake as VB
+
+    class Variant:
+        params = None
+
+        def registers(self, stage="ps"):
+            return {3: ("UnityPerMaterial", [("_A", 80, 1, 1, 0), ("_B", 84, 1, 1, 0), ("_C", 96, 1, 4, 0)])}, {}, {}
+    asm = "dcl_constantbuffer CB3[7], immediateIndexed\nmov r0.xy, cb3[5].xyxx\nmov r1.xyzw, cb3[6].xyzw\n"
+    record = {"floats": {"_A": 0.25, "_B": 1.0}, "colors": {"_C": [1, 2, 3, 4]}, "maps": {}}
+    buffers = VB._buffers(Variant(), record, {}, asm, "ps")
+    assert buffers[3][5].tolist() == [0.25, 1.0, 0.0, 0.0] and buffers[3][6].tolist() == [1, 2, 3, 4]
+    del SC

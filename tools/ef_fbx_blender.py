@@ -61,6 +61,43 @@ def _render_method(material, method: str) -> None:
 
 
 def _material(name: str, record: dict, folder: Path):
+    """The material (``_surface``): drawn clear when the writers could not map it (``native_surface_unmapped``),
+    and giving off its ``emission`` — a map times a colour times a strength — whatever lights it."""
+    if record.get("native_surface_unmapped"):
+        material = bpy.data.materials.new(name)
+        material.use_nodes = True
+        nodes, links = material.node_tree.nodes, material.node_tree.links
+        output = next(n for n in nodes if n.type == "OUTPUT_MATERIAL")
+        clear = nodes.new("ShaderNodeBsdfTransparent")
+        links.new(clear.outputs["BSDF"], output.inputs["Surface"])
+        _render_method(material, "BLENDED")
+        return material
+    material = _surface(name, record, folder)
+    emission = record.get("emission")
+    entry = record["maps"].get((emission or {}).get("map") or "")
+    shader = next((n for n in material.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if emission and shader is not None:
+        nodes, links = material.node_tree.nodes, material.node_tree.links
+        colour = [float(v) for v in emission.get("color", (1.0, 1.0, 1.0))[:3]] + [1.0]
+        if entry is not None:
+            image = bpy.data.images.load(str(folder / entry["file"]), check_existing=True)
+            image.colorspace_settings.name = "sRGB" if entry.get("srgb", True) else "Non-Color"
+            node = nodes.new("ShaderNodeTexImage")
+            node.image = image
+            tinted = nodes.new("ShaderNodeMix")
+            tinted.data_type = "RGBA"
+            tinted.blend_type = "MULTIPLY"
+            tinted.inputs["Factor"].default_value = 1.0
+            links.new(node.outputs["Color"], tinted.inputs["A"])
+            tinted.inputs["B"].default_value = colour
+            links.new(tinted.outputs["Result"], shader.inputs["Emission Color"])
+        else:
+            shader.inputs["Emission Color"].default_value = colour
+        shader.inputs["Emission Strength"].default_value = float(emission.get("strength", 1.0))
+    return material
+
+
+def _surface(name: str, record: dict, folder: Path):
     """The material's base map, and how it covers (the writers' ``tint``, ``alpha_from``, ``blend``, ``cutoff``,
     §7.1455): a multiplied overlay is a Transparent BSDF filtering what is behind it by mix(white, tint,
     coverage) — the game's multiply, which glTF and FBX can only approximate — a blended one the tint by its

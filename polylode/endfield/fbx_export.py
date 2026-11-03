@@ -150,24 +150,29 @@ def blender_run(blender: Path, mode: str, document: Path, fbx: Path) -> dict:
     return report
 
 
-def scene_document(target: Target, out_dir: Path, pipeline) -> tuple:
-    """*target*'s scene, its maps copied to ``<out_dir>/<folder>/textures``, and its interchange document there."""
+def scene_document(target: Target, out_dir: Path, pipeline, shaders=None, log=print) -> tuple:
+    """*target*'s scene, its maps copied to ``<out_dir>/<folder>/textures``, and its interchange document there,
+    every material drawable: an effect run as the game compiled it, an emission baked (``vfx_bake``; *shaders*
+    fetches a shader the cache lacks)."""
+    from . import vfx_bake
     pieces, nodes, extra = load(target, pipeline)
     scene = RS.scene_of(pieces, nodes, target.stem)
     folder = out_dir / target.folder
     copy_textures(scene, folder)
-    return scene, RS.write(scene, folder, target.stem, extra, target.source)
+    document = RS.write(scene, folder, target.stem, extra, target.source)
+    vfx_bake.complete(document, shaders, log)
+    return scene, document
 
 
 def write_one(target: Target, out_dir: Path, blender: Path, pipeline,
-              keep_scene: bool = False, blend: bool = False) -> tuple[dict, dict]:
+              keep_scene: bool = False, blend: bool = False, shaders=None, log=print) -> tuple[dict, dict]:
     """Write *target* as ``<out_dir>/<folder>/<stem>.fbx`` and read it back; with *blend*, also the ``.blend``.
 
     The ``.blend`` is the scene Blender built for the FBX, saved with its
     images packed and opened again: its meshes and armature must be the
     scene's, and every image inside it.
     """
-    scene, document = scene_document(target, out_dir, pipeline)
+    scene, document = scene_document(target, out_dir, pipeline, shaders, log)
     folder = out_dir / target.folder
     if blend:
         data = json.loads(document.read_text(encoding="utf-8"))
