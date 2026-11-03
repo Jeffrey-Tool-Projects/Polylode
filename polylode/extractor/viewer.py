@@ -326,6 +326,10 @@ class ViewerPage(QWidget):
             elif kind == "LOG":
                 self.window_.log(f"  {text}")
                 self._signed_in()
+            elif raw.strip() and kind not in ("PROGRESS",):
+                # anything else the job printed (a traceback, a library's warning) goes to the log as it is: an
+                # error the job did not word itself still has to be seen somewhere
+                self.window_.log(f"  {raw}")
 
     def _signed_in(self) -> None:
         """The sign-in box closed: the job has gone on (closed this way, it does not stop the share)."""

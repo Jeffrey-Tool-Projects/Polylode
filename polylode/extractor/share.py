@@ -397,8 +397,9 @@ def run_share(model: str, site: str, activity: str = "") -> int:
     try:
         url, live = publish(Path(model), Path(site), log=lambda line: print(f"LOG {line}", flush=True),
                             activity=activity)
-    except (ShareError, ValueError, OSError, RuntimeError) as failure:
-        print(f"ERROR {failure}", flush=True)
+    except Exception as failure:  # noqa: BLE001 - every failure is the window's to show, never a bare traceback
+        print(f"ERROR {failure if isinstance(failure, ShareError) else f'{type(failure).__name__}: {failure}'}",
+              flush=True)
         return 1
     print(f"LIVE {'yes' if live else 'no'}", flush=True)
     print(f"URL {url}", flush=True)

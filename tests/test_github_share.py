@@ -138,3 +138,23 @@ def test_pages_turned_on_by_the_api_leaves_nothing_to_click(fake):
     fake.pages_api = 201
     fake.repos["polylode-models"] = {"head": None, "private": False}
     assert github.pages(TOKEN, "Someone", "main") == ""
+
+
+def test_a_raw_file_comes_back_as_its_bytes_and_an_api_answer_as_json(monkeypatch):
+    # the share's stand-in replaces _request whole, so what the real one makes of an answer is tested here: a raw
+    # models.json parsed as JSON came back as a list, its reader parsed it again, every share after the first failed
+    import io
+
+    class Answer(io.BytesIO):
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+    body = b'[{"name": "a"}]'
+    monkeypatch.setattr(github.urllib.request, "urlopen", lambda request, timeout: Answer(body))
+    assert github._request("GET", "https://api.github.com/x", accept="application/vnd.github.raw+json") == (200, body)
+    assert github._request("GET", "https://api.github.com/x") == (200, [{"name": "a"}])

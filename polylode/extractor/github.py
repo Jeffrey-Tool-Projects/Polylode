@@ -58,7 +58,9 @@ def _request(method: str, url: str, token: str | None = None, body: dict | None 
         status, raw = failure.code, failure.read()
     except urllib.error.URLError as failure:
         raise GitHubError(f"連不上 GitHub：{failure.reason}") from None
-    if "json" in accept:
+    # a raw file asked for (``…raw+json``) is its bytes, not JSON to parse: parsed here, a JSON file came back
+    # as the list it holds and its reader parsed it again — every share after the first stopped there
+    if "json" in accept and "raw" not in accept:
         try:
             return status, json.loads(raw) if raw else {}
         except ValueError:
@@ -281,8 +283,9 @@ def run_share(model: str, activity: str = "") -> int:
     try:
         url, settings_page, live = publish(
             Path(model), lambda code, address: print(f"DEVICE {code} {address}", flush=True), log, activity)
-    except (ShareError, ValueError, OSError, RuntimeError) as failure:
-        print(f"ERROR {failure}", flush=True)
+    except Exception as failure:  # noqa: BLE001 - every failure is the window's to show, never a bare traceback
+        print(f"ERROR {failure if isinstance(failure, ShareError) else f'{type(failure).__name__}: {failure}'}",
+              flush=True)
         return 1
     if settings_page:
         print(f"PAGES {settings_page}", flush=True)
