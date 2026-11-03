@@ -156,6 +156,17 @@ Only `.glb` can be shared, up to 100 MB (GitHub's file limit); sharing a model a
 shared is public: the models come from games, so make sure you may share them. The program's own folder is refused
 as a site.
 
+#### Turning a model inside Discord (Discord Activity)
+
+A link card in Discord is a picture: Discord lets only a few sites put something you can operate in a chat. A Discord
+Activity is the way in: with a Discord application's **Application ID** under **Settings → Discord Activity**, the
+shared site's front page is also that application's Activity — open it from Discord's Activities menu in a voice or
+text channel, pick a model, and turn it, zoom and switch its poses there. Set the application up once in the Discord
+Developer Portal: **Activities → URL Mappings**, root `/` to `<account>.github.io/polylode-models` (no `https://`);
+then **Activities → Settings → Enable Activities**; under **Installation**, tick User Install and Guild Install. Share
+a model once more after setting the ID, so the front page is written for it. The site serves its own copies of the 3D
+viewer and Discord's Embedded App SDK (with their licences): an Activity reaches nothing outside its site.
+
 ### Troubleshooting
 
 - **A dialog or a file picker opens before a scan, preview or export** — a tool the conversion cannot run without is not set, and none was found where the program looks. For Wuthering Waves it is the AES keys file: the dialog says what it is; choose your keys file, or paste the key (`0x` and 64 hexadecimal digits) and it is saved as a keys file. Either way it is remembered.

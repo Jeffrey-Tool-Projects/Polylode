@@ -31,12 +31,12 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) == 2 and argv[0] in ("--discover-wuwa-keys", "--download-wuwa-keys"):
         from .jobs import run_keys
         return run_keys(argv[1], public=argv[0] == "--download-wuwa-keys")
-    if len(argv) == 3 and argv[0] == "--share":
+    if len(argv) in (3, 4) and argv[0] == "--share":
         from .share import run_share
-        return run_share(argv[1], argv[2])
-    if len(argv) == 2 and argv[0] == "--share-github":
+        return run_share(*argv[1:])
+    if len(argv) in (2, 3) and argv[0] == "--share-github":
         from .github import run_share as run_github_share
-        return run_github_share(argv[1])
+        return run_github_share(*argv[1:])
     if len(argv) == 2 and argv[0] == "--selftest":
         return selftest(argv[1])
     from .app import run
@@ -80,6 +80,9 @@ def selftest(path: str) -> int:
     except Exception as failure:
         report["sources"] = "".join(traceback.format_exception(failure, limit=2))
     report["blender_files_missing"] = missing()
+    # what a shared site serves itself (share.VENDORED): a Discord Activity can load nothing from outside it
+    from .share import VENDORED, WEB
+    report["web_missing"] = [name for name in VENDORED if not (WEB / name).is_file()]
     from . import bundled
     from ..core.paths import frozen
     # the packaged program carries AnimeStudio, the Wuthering Waves reader and a .NET runtime (``build.py``)
@@ -115,7 +118,7 @@ def selftest(path: str) -> int:
         report["preview_qml_errors"].append(f"a .glb does not load: {report['preview_load']['state']}")
     ok = (all(v == "ok" for v in report["imports"].values()) and isinstance(report["sources"], list)
           and not report["blender_files_missing"] and not report["bundled_missing"] and report["program_exists"]
-          and not report["preview_qml_errors"] and report["fmod"] == "ok")
+          and not report["preview_qml_errors"] and report["fmod"] == "ok" and not report["web_missing"])
     report["ok"] = ok
     Path(path).write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     return 0 if ok else 1

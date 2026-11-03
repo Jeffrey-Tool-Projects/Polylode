@@ -172,6 +172,21 @@ commits there and pushes with Git instead.</div>
 <code>.glb</code> can be shared, up to 100 MB (GitHub's file limit); sharing a model again replaces its page. The program's own folder is
 refused as a site.</div>
 
+<h3 id="activity">Turning a model inside Discord (Discord Activity)</h3>
+<p>A link card in Discord is a picture. A Discord Activity is how you turn the model inside Discord: with a Discord
+application's <b>Application ID</b> under <span class="ui">Settings → Discord Activity</span>, the shared site's front page is
+also that application's Activity. Open it from Discord's Activities menu in a voice or text channel, pick a model, and turn it,
+zoom and switch its poses there.</p>
+<div class="step"><span class="n">1</span><strong class="title">Map the application to your site</strong>
+  <p>In the Discord Developer Portal, your application: <span class="ui">Activities → URL Mappings</span>, root <code>/</code> to
+  <code>&lt;account&gt;.github.io/polylode-models</code> (no <code>https://</code>), and save.</p></div>
+<div class="step"><span class="n">2</span><strong class="title">Turn Activities on</strong>
+  <p><span class="ui">Activities → Settings → Enable Activities</span> (it asks for the mapping first); under
+  <span class="ui">Installation</span>, tick User Install and Guild Install.</p></div>
+<div class="step"><span class="n">3</span><strong class="title">Give Polylode the ID and share once more</strong>
+  <p>Its <b>Application ID</b> (General Information) under <span class="ui">Settings → Discord Activity</span>, then share any
+  model again so the front page is written for it.</p></div>
+
 <h2 id="trouble">10. Troubleshooting</h2>
 <table>
   <tr><th>What you see</th><th>What to do</th></tr>

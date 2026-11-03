@@ -152,6 +152,18 @@ Solo se puede compartir `.glb`, hasta 100 MB (el límite por archivo de GitHub);
 página. Todo lo compartido es público: los modelos vienen de juegos, así que asegúrate de que puedes compartirlos. La
 carpeta del propio programa se rechaza como sitio.
 
+#### Girar un modelo dentro de Discord (Discord Activity)
+
+Una tarjeta de enlace en Discord es una imagen: Discord solo deja a unos pocos sitios poner algo que se pueda manejar en
+un chat. Una Discord Activity es la forma: con el **Application ID** de una aplicación de Discord en **Settings → Discord
+Activity**, la página principal del sitio compartido es también la Activity de esa aplicación; ábrela desde el menú de
+Activities de Discord en un canal de voz o de texto, elige un modelo y gíralo, acércalo y cambia sus poses allí.
+Configura la aplicación una vez en el Discord Developer Portal: **Activities → URL Mappings**, la raíz `/` a
+`<cuenta>.github.io/polylode-models` (sin `https://`); luego **Activities → Settings → Enable Activities**; en
+**Installation**, marca User Install y Guild Install. Comparte un modelo otra vez tras poner el ID para que se escriba la
+página principal. El sitio sirve sus propias copias del visor 3D y del Embedded App SDK de Discord (con sus licencias):
+una Activity no alcanza nada fuera de su sitio.
+
 ### Solución de problemas
 
 - **Se abre un aviso o un selector de archivos antes de un escaneo, vista previa o exportación** — falta una herramienta sin la que la conversión no puede funcionar y no estaba donde busca el programa. En Wuthering Waves es el archivo de claves AES: el aviso explica qué es; elige tu archivo de claves o pega la clave (`0x` y 64 dígitos hexadecimales) y se guarda como archivo de claves. En ambos casos se recuerda.

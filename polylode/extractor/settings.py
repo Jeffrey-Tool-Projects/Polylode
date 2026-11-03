@@ -40,7 +40,8 @@ def load(path: Path | None = None) -> Settings:
         data = json.loads(Path(path or SETTINGS).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return Settings()
-    known = {key: data[key] for key in ("installs", "tools", "output", "formats", "poses") if key in data}
+    # every field read back, the language too: left out, the window's choice was forgotten at every start
+    known = {key: data[key] for key in ("installs", "tools", "output", "language", "formats", "poses") if key in data}
     return Settings(**known)
 
 

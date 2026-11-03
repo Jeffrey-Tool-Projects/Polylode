@@ -154,6 +154,20 @@
 <div class="warn">分享出去的東西都是公開的，連模型檔也是。模型來自遊戲，請自行確認可以分享。只能分享 <code>.glb</code>，最大 100 MB（GitHub 的單檔上限）；
 同一個模型再分享一次會換掉它的網頁。本程式自己的資料夾不能當網站。</div>
 
+<h3 id="activity">在 Discord 裡轉動模型（Discord Activity）</h3>
+<p>Discord 的連結卡片是一張圖。要在 Discord 裡轉動模型，要用 Discord Activity：在 <span class="ui">設定 → Discord Activity</span>
+填 Discord 應用程式的 <b>Application ID</b>，分享網站的首頁同時就是那個應用程式的 Activity。在語音或文字頻道從 Discord 的
+Activity 選單開啟，點一個模型，就能在 Discord 裡轉動、縮放、切換姿勢。</p>
+<div class="step"><span class="n">1</span><strong class="title">把應用程式對應到你的網站</strong>
+  <p>在 Discord 開發者平台、你的應用程式：<span class="ui">Activities → URL Mappings</span>，根 <code>/</code> 指到
+  <code>&lt;帳號&gt;.github.io/polylode-models</code>（不要加 <code>https://</code>），儲存。</p></div>
+<div class="step"><span class="n">2</span><strong class="title">開啟 Activities</strong>
+  <p><span class="ui">Activities → Settings → Enable Activities</span>（要先有 URL 對應）；<span class="ui">Installation</span>
+  勾 User Install 與 Guild Install。</p></div>
+<div class="step"><span class="n">3</span><strong class="title">把 ID 交給 Polylode，再分享一次</strong>
+  <p>把 <b>Application ID</b>（General Information）填到 <span class="ui">設定 → Discord Activity</span>，再分享任一個模型，
+  首頁才會照它寫出。</p></div>
+
 <h2 id="trouble">10. 疑難排解</h2>
 <table>
   <tr><th>狀況</th><th>處理</th></tr>

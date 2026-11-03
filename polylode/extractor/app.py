@@ -164,6 +164,11 @@ class SettingsPage(QWidget):
         self.sign_out.clicked.connect(self._sign_out)
         account_row.addWidget(self.sign_out)
         form.addRow(_label("GitHub 帳號"), account_row)
+        # an id, not a path: a plain field (the share reads it from the settings, viewer.ACTIVITY)
+        self.activity = QLineEdit(settings.tools.get("discord_activity", ""))
+        self.activity.setPlaceholderText("可留空：填 Discord 應用程式的 Application ID，分享的網站首頁就是它的 Activity")
+        self.activity.textChanged.connect(lambda _text: self._save())
+        form.addRow(_label("Discord Activity"), self.activity)
         self.refresh_account()
         for source in sources.values():
             header = QLabel(source.label)
@@ -231,6 +236,8 @@ class SettingsPage(QWidget):
             self.settings.formats = [key for key, box in self.format_boxes.items() if box.isChecked()]
         if hasattr(self, "poses"):
             self.settings.poses = self.poses.isChecked()
+        if hasattr(self, "activity"):
+            self.settings.tools["discord_activity"] = self.activity.text().strip()
         S.save(self.settings)
 
 

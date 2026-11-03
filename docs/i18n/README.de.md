@@ -157,6 +157,18 @@ Nur `.glb` lässt sich teilen, bis 100 MB (GitHubs Dateigrenze); ein Modell erne
 Geteilte ist öffentlich: Die Modelle stammen aus Spielen, also stelle sicher, dass du sie teilen darfst. Der Ordner des
 Programms selbst wird als Website abgelehnt.
 
+#### Ein Modell in Discord drehen (Discord Activity)
+
+Eine Linkkarte in Discord ist ein Bild: Discord lässt nur wenige Seiten etwas Bedienbares in einen Chat setzen. Eine
+Discord Activity ist der Weg dorthin: Mit der **Application ID** einer Discord-Anwendung unter **Settings → Discord
+Activity** ist die Startseite der geteilten Website auch die Activity dieser Anwendung; öffne sie über das
+Activities-Menü von Discord in einem Sprach- oder Textkanal, wähle ein Modell und drehe, zoome und wechsle dort seine
+Posen. Richte die Anwendung einmal im Discord Developer Portal ein: **Activities → URL Mappings**, Wurzel `/` auf
+`<konto>.github.io/polylode-models` (ohne `https://`); dann **Activities → Settings → Enable Activities**; unter
+**Installation** User Install und Guild Install ankreuzen. Teile danach noch einmal ein Modell, damit die Startseite dafür
+geschrieben wird. Die Website liefert eigene Kopien des 3D-Betrachters und des Embedded App SDK von Discord (mit ihren
+Lizenzen): Eine Activity erreicht nichts außerhalb ihrer Website.
+
 ### Fehlerbehebung
 
 - **Vor einem Scan, einer Vorschau oder einem Export öffnet sich eine Erklärung oder Dateiauswahl** — ein Werkzeug, ohne das die Konvertierung nicht läuft, ist nicht gesetzt und lag nicht dort, wo das Programm sucht. Bei Wuthering Waves ist es die AES-Schlüsseldatei: Das Fenster erklärt sie; wähle deine Schlüsseldatei oder füge den Schlüssel ein (`0x` und 64 Hexadezimalziffern), er wird als Schlüsseldatei gespeichert. So oder so bleibt es gemerkt.

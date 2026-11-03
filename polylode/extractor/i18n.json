@@ -1882,5 +1882,11 @@
   "zh-CN": "如果先贴了而没有卡片，在网址后面加上 ?1 再贴一次：Discord 会记住没有卡片的结果一阵子。",
   "ja": "先に貼ってカードが出なかった場合は、URL の末尾に ?1 を付けて貼り直してください。Discord はカードなしの結果をしばらく覚えています。",
   "ko": "먼저 붙여 넣어 카드가 없었다면 주소 끝에 ?1을 붙여 다시 붙여 넣으세요. Discord는 카드 없는 결과를 한동안 기억합니다."
+ },
+ "可留空：填 Discord 應用程式的 Application ID，分享的網站首頁就是它的 Activity": {
+  "en": "May stay empty: a Discord application's Application ID, whose Activity the shared site's front page becomes",
+  "zh-CN": "可留空：填 Discord 应用程序的 Application ID，分享的网站首页就是它的 Activity",
+  "ja": "空欄でも可：Discord アプリの Application ID。共有サイトのトップページがその Activity になります",
+  "ko": "비워 둬도 됨: Discord 애플리케이션의 Application ID. 공유 사이트의 첫 페이지가 그 Activity가 됩니다"
  }
 }

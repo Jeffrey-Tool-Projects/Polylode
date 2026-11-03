@@ -21,6 +21,9 @@ from PySide6.QtWidgets import (
 from .i18n import tr
 from .preview import PreviewPanel
 
+#: the settings key of the Discord application whose Activity a shared site's front page is (``share.SITE_SCRIPT``)
+ACTIVITY = "discord_activity"
+
 #: what the view opens (assimp reads these; .blend it does not)
 SUFFIXES = (".glb", ".gltf", ".fbx", ".obj")
 #: fixed views as (label, yaw, pitch)
@@ -273,6 +276,7 @@ class ViewerPage(QWidget):
             return
         from . import github, jobs, share
         site = self.window_.settings.tool("pages_site")
+        activity = (self.window_.settings.tools.get(ACTIVITY) or "").strip()
         name = share.slug(Path(path))
         if site is not None:
             try:
@@ -280,12 +284,12 @@ class ViewerPage(QWidget):
             except share.ShareError as failure:
                 QMessageBox.warning(self, tr("分享到 GitHub Pages"), tr(str(failure)))
                 return
-            where, command = str(site), jobs.share_command(Path(path), site)
+            where, command = str(site), jobs.share_command(Path(path), site, activity)
             ask = f"這個模型會推送到 GitHub，公開在 {url}{share.MODELS}/{name}/，任何拿到網址的人都看得到、也下載得到。"
         else:
             login = github.account()
             url = github.pages_url(login) if login else f"https://<帳號>.github.io/{github.REPOSITORY}/"
-            where, command = f"GitHub {login or ''}".rstrip(), jobs.share_github_command(Path(path))
+            where, command = f"GitHub {login or ''}".rstrip(), jobs.share_github_command(Path(path), activity)
             ask = (f"這個模型會上傳到你 GitHub 帳號的公開倉庫 {github.REPOSITORY}，公開在 {url}{share.MODELS}/{name}/，"
                    "任何拿到網址的人都看得到、也下載得到。")
             if not login:

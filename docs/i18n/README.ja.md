@@ -136,6 +136,17 @@ GitHub Pages サイトの 1 ページとして共有します。ページはど�
 共有できるのは `.glb` だけで、最大 100 MB（GitHub の 1 ファイル上限）です。同じモデルを再共有するとページが置き換わります。
 共有したものは公開されます。モデルはゲームのものなので、共有してよいか確認してください。このプログラム自身のフォルダーはサイトにできません。
 
+#### Discord の中でモデルを回す（Discord Activity）
+
+Discord のリンクカードは画像です。チャット内で操作できるものを置けるのは一部のサイトだけです。Discord Activity なら
+操作できます。**設定 → Discord Activity** に Discord アプリの **Application ID** を入れると、共有サイトのトップページが
+そのアプリの Activity にもなります。ボイスまたはテキストチャンネルで Discord の Activity メニューから開き、モデルを選ぶと、
+Discord の中で回転・ズーム・ポーズ切り替えができます。Discord Developer Portal で一度だけ設定します：**Activities → URL
+Mappings** のルート `/` を `<アカウント>.github.io/polylode-models` に（`https://` なし）、**Activities → Settings** で **Enable
+Activities**、**Installation** で User Install と Guild Install にチェック。ID を入れたらモデルをもう一度共有し、トップページを
+書き直します。サイトは 3D ビューアーと Discord Embedded App SDK の複製（ライセンス付き）を自分で配信します。Activity は
+サイトの外に接続できないためです。
+
 ### トラブルシューティング
 
 - **スキャン、プレビュー、書き出しの前に説明やファイル選択が開く**——変換に欠かせないツールが未設定で、探す場所にも見つかりませんでした。鳴潮なら AES キーファイルです。ダイアログが説明するので、キーファイルを選ぶか、キー（`0x` と 16 進数 64 桁）を貼り付けるとキーファイルとして保存します。どちらも以後は記憶されます。

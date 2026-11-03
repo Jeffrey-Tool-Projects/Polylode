@@ -247,7 +247,7 @@ def commit(token: str, login: str, branch: str, files: dict[str, Path], message:
     return made
 
 
-def publish(model: Path, announce, log=print) -> tuple[str, str, bool]:
+def publish(model: Path, announce, log=print, activity: str = "") -> tuple[str, str, bool]:
     """*model* shared through the user's account: ``(page address, settings page left to open or "", served yet)``;
     with Pages off there is nothing to wait for."""
     token, login = signed_in(announce, log)
@@ -255,7 +255,7 @@ def publish(model: Path, announce, log=print) -> tuple[str, str, bool]:
     url = pages_url(login)
     with tempfile.TemporaryDirectory() as folder:
         staging = Path(folder)
-        page_url, written = write_model(Path(model), staging, url, others=read_list(token, login))
+        page_url, written = write_model(Path(model), staging, url, others=read_list(token, login), activity=activity)
         files = {}
         for item in written:
             for local in ([p for p in item.rglob("*") if p.is_file()] if item.is_dir() else [item]):
@@ -267,7 +267,7 @@ def publish(model: Path, announce, log=print) -> tuple[str, str, bool]:
     return page_url, settings_page, False if settings_page else wait_live(page_url, stamp, log)
 
 
-def run_share(model: str) -> int:
+def run_share(model: str, activity: str = "") -> int:
     """``--share-github <model>``: the window's share job through the account; lines as :func:`share.run_share`
     plus ``DEVICE <code> <address>`` while the user signs in and ``PAGES <settings page>`` when Pages is off."""
     from PySide6.QtGui import QGuiApplication
@@ -280,7 +280,7 @@ def run_share(model: str) -> int:
 
     try:
         url, settings_page, live = publish(
-            Path(model), lambda code, address: print(f"DEVICE {code} {address}", flush=True), log)
+            Path(model), lambda code, address: print(f"DEVICE {code} {address}", flush=True), log, activity)
     except (ShareError, ValueError, OSError, RuntimeError) as failure:
         print(f"ERROR {failure}", flush=True)
         return 1

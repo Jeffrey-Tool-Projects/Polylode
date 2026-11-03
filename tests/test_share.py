@@ -62,10 +62,15 @@ def test_a_shared_model_is_written_committed_alone_and_pushed(tmp_path, monkeypa
     assert f'content="{url}card.png"' in page and 'src="model.glb"' in page and share.VIEWER in page
     assert json.loads((folder / "model.json").read_text(encoding="utf-8"))["title"] == "c_X_slg_skin"
     assert 'href="models/c_x_slg_skin/"' in (site / "index.html").read_text(encoding="utf-8")
+    # the site serves its own viewer and Discord's SDK (an Activity reaches nothing else), licences beside them
+    for file in share.VENDORED:
+        assert (site / "vendor" / file).read_bytes() == (share.WEB / file).read_bytes()
+    assert (site / "site.js").read_text(encoding="utf-8") == share.SITE_SCRIPT
     pushed = subprocess.run(["git", "-C", str(remote), "show", "--name-only", "--format=%s", "HEAD"],
                             capture_output=True, text=True, check=True).stdout.split()
     assert pushed[:2] == ["Share", "c_x_slg_skin"]
     assert "notes.txt" not in pushed and "models/c_x_slg_skin/model.glb" in pushed   # only the model's files
+    assert "vendor/model-viewer-4.0.0.min.js" in pushed and "site.js" in pushed
     with pytest.raises(share.ShareError, match="只能分享 .glb"):
         share.publish(tmp_path / "x.fbx", site, push=False)
 
@@ -102,3 +107,15 @@ def test_a_share_is_live_once_the_page_serves_its_own_stamp_not_an_earlier_one()
     assert len(set(asked)) == 3 and slept == [10, 10]                    # each ask past the cache, a pause between
     assert not share.wait_live("https://me.github.io/m/models/x/", "now", log=lambda _l: None,
                                fetch=lambda _u: b'{"shared": "earlier"}', sleep=lambda _s: None, wait=0)
+
+
+def test_the_front_page_is_the_named_discord_activity_and_a_plain_list_without_one():
+    entries = [{"name": "a", "title": "A", "shared": "2026-11-03T00:00:00+00:00"}]
+    plain = share._index(entries, "https://me.github.io/m/")
+    activity = share._index(entries, "https://me.github.io/m/", "636443597507395605")
+    assert 'data-activity=""' in plain and 'data-activity="636443597507395605"' in activity
+    for page in (plain, activity):
+        assert 'src="vendor/model-viewer-4.0.0.min.js"' in page and 'src="site.js"' in page
+        assert 'href="models/a/" data-name="a"' in page and "cdn." not in page        # nothing from outside the site
+    assert "frame_id" in share.SITE_SCRIPT and share.SDK in share.SITE_SCRIPT
+    assert "cdn." not in share._page("x", "https://me.github.io/m/models/x/")

@@ -133,6 +133,17 @@ Discord는 3D 모델을 보여 주지 못하고, 올린 `.glb`는 내려받기 �
 `.glb`만, 최대 100 MB(GitHub 파일당 한도)까지 공유할 수 있고, 같은 모델을 다시 공유하면 페이지가 바뀝니다. 공유한 것은 모두
 공개됩니다. 모델은 게임에서 나온 것이므로 공유해도 되는지 확인하세요. 이 프로그램 자신의 폴더는 사이트로 쓸 수 없습니다.
 
+#### Discord 안에서 모델 돌리기(Discord Activity)
+
+Discord의 링크 카드는 그림입니다. 채팅에서 조작할 수 있는 것을 둘 수 있는 사이트는 일부뿐입니다. Discord Activity로는
+조작할 수 있습니다. **설정 → Discord Activity**에 Discord 애플리케이션의 **Application ID**를 넣으면 공유 사이트의 첫 페이지가
+그 애플리케이션의 Activity가 됩니다. 음성 또는 텍스트 채널에서 Discord의 Activity 메뉴로 열고 모델을 고르면 Discord
+안에서 돌리고, 확대하고, 포즈를 바꿀 수 있습니다. Discord Developer Portal에서 한 번 설정합니다: **Activities → URL
+Mappings**의 루트 `/`를 `<계정>.github.io/polylode-models`로(`https://` 없이), **Activities → Settings**에서 **Enable
+Activities**, **Installation**에서 User Install과 Guild Install 선택. ID를 넣은 뒤 모델을 한 번 더 공유해 첫 페이지를 다시
+쓰세요. 사이트는 3D 뷰어와 Discord Embedded App SDK의 사본(라이선스 포함)을 직접 제공합니다. Activity는 사이트 밖으로
+연결하지 못하기 때문입니다.
+
 ### 문제 해결
 
 - **스캔, 미리보기, 내보내기 전에 설명이나 파일 선택 창이 열림**——변환에 꼭 필요한 도구가 설정되지 않았고 찾는 곳에도 없습니다. 명조라면 AES 키 파일입니다. 창이 무엇인지 설명하니 키 파일을 고르거나 키(`0x`와 16진수 64자리)를 붙여 넣으면 키 파일로 저장합니다. 어느 쪽이든 이후 기억합니다.

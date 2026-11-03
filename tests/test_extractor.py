@@ -537,3 +537,12 @@ def test_the_first_start_moves_the_extractors_data_from_islandlife_once(tmp_path
     assert (new / "extractor" / "settings.json").is_file() and (old / "Charas").is_dir()
     (old / "extractor").mkdir()
     assert from_islandlife(lambda _l: None, old, new) == []               # Polylode has its own now
+
+
+def test_every_setting_is_read_back_as_saved(tmp_path):
+    from dataclasses import asdict
+    from polylode.extractor import settings as S
+    saved = S.Settings(installs={"gf2": "D:/GF2"}, tools={"discord_activity": "1"}, output="D:/out", language="ja",
+                       formats=["glb", "fbx"], poses=False)
+    S.save(saved, tmp_path / "settings.json")
+    assert asdict(S.load(tmp_path / "settings.json")) == asdict(saved)

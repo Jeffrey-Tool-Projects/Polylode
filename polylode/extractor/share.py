@@ -20,8 +20,18 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-#: Google's ``<model-viewer>``, pinned: a new release must not change a page already shared
-VIEWER = "https://cdn.jsdelivr.net/npm/@google/model-viewer@4.0.0/dist/model-viewer.min.js"
+#: what the site serves itself (``web/``, carried by the program): Google's ``<model-viewer>`` and Discord's Embedded
+#: App SDK, pinned and with their licences.  A Discord Activity reaches nothing but the site it is mapped to (its
+#: proxy, ``<app id>.discordsays.com``), so neither can come from a CDN; and a version carried here does not change
+#: under a page already shared.
+WEB = Path(__file__).with_name("web")
+VENDOR = "vendor"
+VIEWER = "model-viewer-4.0.0.min.js"
+SDK = "discord-embedded-app-sdk-2.5.0.js"
+VENDORED = (VIEWER, SDK, "LICENSE-model-viewer.txt", "LICENSE-discord-embedded-app-sdk.txt")
+#: the front page's script: in a Discord Activity (launched with ``frame_id``) the handshake and the models opened
+#: on the page itself — a page loaded in its place would lose the ``frame_id`` the SDK reads
+SCRIPT = "site.js"
 #: the card a chat shows a link with: Open Graph's large image, 1.91:1
 CARD = (1200, 630)
 #: GitHub refuses a pushed file over 100 MB; Pages serves at most 1 GB a site
@@ -97,7 +107,7 @@ def _page(title: str, url: str) -> str:
 <meta property="og:image:height" content="{CARD[1]}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#2f6feb">
-<script type="module" src="{VIEWER}"></script>
+<script type="module" src="../../{VENDOR}/{VIEWER}"></script>
 <style>
   html, body {{ margin: 0; height: 100%; background: #1e2129; color: #e6e8ee;
                font: 15px/1.5 system-ui, "Segoe UI", "Microsoft JhengHei", sans-serif; }}
@@ -107,6 +117,7 @@ def _page(title: str, url: str) -> str:
   header h1 {{ font-size: 17px; margin: 0; font-weight: 600; overflow-wrap: anywhere; }}
   header a {{ color: #8ab4ff; pointer-events: auto; font-size: 13px; }}
   .hint {{ position: fixed; bottom: 10px; left: 0; right: 0; text-align: center; color: #9aa0ad; font-size: 13px; }}
+  [hidden] {{ display: none !important; }}   /* a picker laid out with display: flex shows through hidden otherwise */
   .poses {{ position: fixed; top: 52px; left: 16px; display: flex; gap: 8px; align-items: center; font-size: 14px; }}
   .poses select {{ background: #262a33; color: inherit; border: 1px solid #3a3f4b; border-radius: 6px;
                   padding: 4px 8px; font: inherit; max-width: 70vw; }}
@@ -161,12 +172,13 @@ def entries_in(site: Path) -> list[dict]:
     return found
 
 
-def _index(entries: list[dict], url: str) -> str:
-    """The site's front page: every model shared there, newest first."""
+def _index(entries: list[dict], url: str, activity: str = "") -> str:
+    """The site's front page: every model shared there, newest first.  With *activity* (a Discord application id)
+    it is also that application's Activity (:data:`SCRIPT`)."""
     shared = sorted(((e.get("shared", ""), e.get("title", e["name"]), e["name"]) for e in entries), reverse=True)
     cards = "\n".join(
-        f'  <a class="card" href="{MODELS}/{name}/"><img src="{MODELS}/{name}/card.png" alt="" loading="lazy">'
-        f'<span>{html.escape(title)}</span></a>' for _when, title, name in shared)
+        f'  <a class="card" href="{MODELS}/{name}/" data-name="{name}"><img src="{MODELS}/{name}/card.png" alt="" '
+        f'loading="lazy"><span>{html.escape(title)}</span></a>' for _when, title, name in shared)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -185,15 +197,63 @@ def _index(entries: list[dict], url: str) -> str:
           text-decoration: none; }}
   .card img {{ display: block; width: 100%; aspect-ratio: {CARD[0]} / {CARD[1]}; object-fit: cover; }}
   .card span {{ display: block; padding: 8px 12px; overflow-wrap: anywhere; }}
+  #view {{ position: fixed; inset: 0; background: #1e2129; }}
+  #view model-viewer {{ width: 100%; height: 100%; }}
+  #view .bar {{ position: fixed; top: 10px; left: 12px; display: flex; gap: 10px; align-items: center; z-index: 1; }}
+  #view button, #view select {{ background: #262a33; color: inherit; border: 1px solid #3a3f4b; border-radius: 6px;
+                               padding: 4px 10px; font: inherit; }}
 </style>
+<script type="module" src="{VENDOR}/{VIEWER}"></script>
+<script type="module" src="{SCRIPT}"></script>
 </head>
-<body>
+<body data-activity="{html.escape(activity)}">
 <h1>3D models</h1>
 <div class="grid">
 {cards}
 </div>
+<section id="view" hidden>
+  <div class="bar"><button id="back">← All models</button><label class="poses" hidden>Pose <select id="pose"></select></label></div>
+  <model-viewer camera-controls auto-rotate auto-rotate-delay="0" rotation-per-second="20deg" touch-action="none"
+                interaction-prompt="none" environment-image="neutral" exposure="1" shadow-intensity="0.6"
+                autoplay></model-viewer>
+</section>
 </body>
 </html>
+"""
+
+
+#: the front page's script (:data:`SCRIPT`); it does nothing outside a Discord Activity, where the cards are links
+SITE_SCRIPT = """// Inside a Discord Activity (Discord loads this page with ?frame_id=…): Discord's handshake, then the models open
+// here, turned and posed on this page; navigating to a model's own page would lose the frame_id the SDK reads.
+// Opened anywhere else the cards stay plain links to each model's page.
+const app = document.body.dataset.activity;
+const params = new URLSearchParams(location.search);
+if (app && params.has("frame_id")) {
+  // the handshake is not waited for: the page works the same while (or if) it does not finish
+  import("./vendor/discord-embedded-app-sdk-2.5.0.js")
+    .then(({ DiscordSDK }) => new DiscordSDK(app).ready())
+    .catch((failure) => console.warn("Discord SDK", failure));
+  const view = document.getElementById("view");
+  const viewer = view.querySelector("model-viewer");
+  const box = view.querySelector(".poses");
+  const pick = document.getElementById("pose");
+  viewer.addEventListener("load", () => {
+    pick.replaceChildren();
+    const names = viewer.availableAnimations;
+    box.hidden = !names.length;
+    for (const name of names) pick.add(new Option(name, name));
+    if (names.length) { viewer.animationName = names[0]; viewer.play(); }
+  });
+  pick.addEventListener("change", () => { viewer.animationName = pick.value; viewer.currentTime = 0; viewer.play(); });
+  for (const card of document.querySelectorAll("a.card")) {
+    card.addEventListener("click", (event) => {
+      event.preventDefault();
+      viewer.src = `models/${card.dataset.name}/model.glb`;
+      view.hidden = false;
+    });
+  }
+  document.getElementById("back").addEventListener("click", () => { view.hidden = true; viewer.removeAttribute("src"); });
+}
 """
 
 
@@ -230,11 +290,12 @@ def posed(glb: Path, out: Path, animation: int = 0) -> Path:
 
 
 def write_model(model: Path, site: Path, url: str, title: str = "",
-                others: list[dict] | None = None) -> tuple[str, list[Path]]:
+                others: list[dict] | None = None, activity: str = "") -> tuple[str, list[Path]]:
     """*model* (a ``.glb``) written into *site* as its page, with the site's front page and list; the page's
     address and the files written.  *others* are the models already on the site (read from *site* when not
-    given: a clone has them all, a share through the API only what it writes).  The card is drawn by the
-    preview, so this needs a ``QGuiApplication`` with OpenGL."""
+    given: a clone has them all, a share through the API only what it writes); *activity* a Discord application
+    whose Activity the front page also is.  The card is drawn by the preview, so this needs a
+    ``QGuiApplication`` with OpenGL."""
     from . import preview
     model = Path(model)
     if model.suffix.lower() != ".glb":
@@ -258,8 +319,12 @@ def write_model(model: Path, site: Path, url: str, title: str = "",
     entries = [e for e in (entries_in(site) if others is None else others) if e.get("name") != name] + [entry]
     (site / ".nojekyll").touch()
     (site / LIST).write_text(json.dumps(entries, ensure_ascii=False, indent=1), encoding="utf-8")
-    (site / "index.html").write_text(_index(entries, url), encoding="utf-8")
-    return page_url, [folder, site / "index.html", site / LIST, site / ".nojekyll"]
+    (site / "index.html").write_text(_index(entries, url, activity), encoding="utf-8")
+    (site / SCRIPT).write_text(SITE_SCRIPT, encoding="utf-8")
+    (site / VENDOR).mkdir(exist_ok=True)
+    for file in VENDORED:
+        shutil.copyfile(WEB / file, site / VENDOR / file)
+    return page_url, [folder, site / "index.html", site / LIST, site / ".nojekyll", site / SCRIPT, site / VENDOR]
 
 
 #: how long a share waits for its page to be served, and how often it looks: seconds.  Pages builds a push in about
@@ -304,13 +369,13 @@ def wait_live(page_url: str, stamp: str, log=print, wait: float = LIVE_WAIT, eve
         sleep(every)
 
 
-def publish(model: Path, site: Path, log=print, push: bool = True) -> tuple[str, bool]:
+def publish(model: Path, site: Path, log=print, push: bool = True, activity: str = "") -> tuple[str, bool]:
     """*model* shared on the Pages site cloned at *site*: written, committed (only its files) and pushed.
     Its page's address, and whether the page was being served before the wait ran out (``wait_live``)."""
     site = Path(site)
     url = check_site(site)
     log(f"寫入 {site}")
-    page_url, written = write_model(Path(model), site, url)
+    page_url, written = write_model(Path(model), site, url, activity=activity)
     paths = [str(p.relative_to(site)) for p in written]
     _git(site, "add", "--", *paths)
     if _git(site, "status", "--porcelain", "--", *paths):
@@ -322,7 +387,7 @@ def publish(model: Path, site: Path, log=print, push: bool = True) -> tuple[str,
     return page_url, wait_live(page_url, shared_stamp(written[0]), log)
 
 
-def run_share(model: str, site: str) -> int:
+def run_share(model: str, site: str, activity: str = "") -> int:
     """``--share <model> <site>``: the window's share job, its lines as a job's (``LOG``, ``ERROR``), whether
     the page is served yet as ``LIVE yes|no`` and its address as ``URL <address>``."""
     from PySide6.QtGui import QGuiApplication
@@ -330,7 +395,8 @@ def run_share(model: str, site: str) -> int:
     use_opengl()
     QGuiApplication.instance() or QGuiApplication([])
     try:
-        url, live = publish(Path(model), Path(site), log=lambda line: print(f"LOG {line}", flush=True))
+        url, live = publish(Path(model), Path(site), log=lambda line: print(f"LOG {line}", flush=True),
+                            activity=activity)
     except (ShareError, ValueError, OSError, RuntimeError) as failure:
         print(f"ERROR {failure}", flush=True)
         return 1

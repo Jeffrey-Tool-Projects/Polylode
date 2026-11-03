@@ -122,6 +122,15 @@ Discord 不能顯示 3D 模型，貼上去的 `.glb` 只是一個下載檔。Pol
 只能分享 `.glb`，最大 100 MB（GitHub 的單檔上限）；同一個模型再分享一次會換掉它的網頁。分享出去的東西都是公開的：
 模型來自遊戲，請自行確認可以分享。本程式自己的資料夾不能當網站。
 
+#### 在 Discord 裡轉動模型（Discord Activity）
+
+Discord 的連結卡片是一張圖：Discord 只讓少數網站在聊天裡放可以操作的東西。Discord Activity 是能操作的做法：在
+**設定 → Discord Activity** 填 Discord 應用程式的 **Application ID**，分享網站的首頁同時就是那個應用程式的 Activity——
+在語音或文字頻道從 Discord 的 Activity 選單開啟，點一個模型，就能在 Discord 裡轉動、縮放、切換姿勢。在 Discord
+開發者平台設定一次：**Activities → URL Mappings** 的根 `/` 指到 `<帳號>.github.io/polylode-models`（不要加 `https://`），
+再到 **Activities → Settings** 打開 **Enable Activities**，**Installation** 勾 User Install 與 Guild Install。填好 ID 後再分享
+一次模型，首頁才會照它寫出。網站自己帶 3D 檢視器與 Discord Embedded App SDK 的副本（附授權）：Activity 連不到網站以外的地方。
+
 ### 疑難排解
 
 - **掃描、預覽或匯出前跳出說明或選檔視窗**——轉換少了一個非有不可的工具，程式會找的地方也沒有。鳴潮的話就是 AES 金鑰檔：視窗會說明它是什麼；選你的金鑰檔，或貼上金鑰（`0x` 加 64 位十六進位），程式會存成金鑰檔。之後都會記住。

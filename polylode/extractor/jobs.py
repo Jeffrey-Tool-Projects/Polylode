@@ -66,14 +66,15 @@ def scan_command(source: str, settings_file: Path) -> list[str]:
     return _start("--scan", source, str(settings_file))
 
 
-def share_command(model: Path, site: Path) -> list[str]:
-    """The model shared on the GitHub Pages site cloned at *site* (``share.run_share``)."""
-    return _start("--share", str(model), str(site))
+def share_command(model: Path, site: Path, activity: str = "") -> list[str]:
+    """The model shared on the GitHub Pages site cloned at *site* (``share.run_share``); with *activity*, a Discord
+    application whose Activity the site's front page is."""
+    return _start("--share", str(model), str(site), *([activity] if activity else []))
 
 
-def share_github_command(model: Path) -> list[str]:
+def share_github_command(model: Path, activity: str = "") -> list[str]:
     """The model shared through the user's own GitHub account (``github.run_share``)."""
-    return _start("--share-github", str(model))
+    return _start("--share-github", str(model), *([activity] if activity else []))
 
 
 def keys_command(settings_file: Path, public: bool = False) -> list[str]:
