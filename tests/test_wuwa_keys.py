@@ -178,3 +178,86 @@ def test_discovery_button_runs_background_process_and_preserves_settings(tmp_pat
     assert page.keys_button.isEnabled()
     assert not commands[0].exists()
     window.close()
+
+
+@pytest.mark.parametrize('payload', [b'<html>', b'{}',
+    json.dumps({'mainKey': '11' * 32, 'dynamicKeys': [{'guid': 'bad', 'key': '22' * 32}]}).encode(),
+    json.dumps({'mainKey': 'bad', 'dynamicKeys': []}).encode()])
+def test_public_rejects_invalid_payload(payload):
+    with pytest.raises(keys.DiscoveryError):
+        keys._parse_public(payload)
+
+
+def test_public_download_verifies_and_preserves_on_failure(tmp_path, monkeypatch):
+    import io
+    from types import SimpleNamespace
+    output = tmp_path / 'keys.json'
+    output.write_text('old')
+    data = json.dumps({'mainKey': '11' * 32, 'dynamicKeys': []}).encode()
+    monkeypatch.setattr(keys.urllib.request, 'build_opener', lambda *a: SimpleNamespace(open=lambda *a, **k: io.BytesIO(data)))
+    def index(reader, dotnet, install, folder, value):
+        folder.mkdir(parents=True)
+        (folder / 'keys.json').write_text(json.dumps(value))
+        return ({'plain'}, {'encrypted': '0' * 32}) if folder.name == 'baseline' else ({'plain', 'encrypted'}, {})
+    def run(reader, dotnet, install, keyfile, folder, mode, argument=None):
+        from polylode.wuthering_waves import scope
+        target = folder / ('package.json' if mode == 'json' else scope.FILES[0])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('content')
+    monkeypatch.setattr(keys, '_index', index)
+    monkeypatch.setattr(keys, '_run', run)
+    keys.download_keys(tmp_path, tmp_path, tmp_path, output, lambda _: None)
+    assert json.loads(output.read_text())['mainKey'] == '0x' + '11' * 32
+    for bad in (b'x' * (keys.MAX_DOWNLOAD + 1), b'<html>'):
+        monkeypatch.setattr(keys.urllib.request, 'build_opener', lambda *a: SimpleNamespace(open=lambda *a, **k: io.BytesIO(bad)))
+        output.write_text('old')
+        with pytest.raises(keys.DiscoveryError):
+            keys.download_keys(tmp_path, tmp_path, tmp_path, output, lambda _: None)
+        assert output.read_text() == 'old'
+    def fail(*args, **kwargs):
+        raise OSError('offline')
+    monkeypatch.setattr(keys.urllib.request, 'build_opener', lambda *a: SimpleNamespace(open=fail))
+    with pytest.raises(keys.DiscoveryError):
+        keys.download_keys(tmp_path, tmp_path, tmp_path, output, lambda _: None)
+    assert output.read_text() == 'old'
+
+
+def test_download_requires_consent(tmp_path, monkeypatch):
+    monkeypatch.setenv('QT_QPA_PLATFORM', 'offscreen')
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from polylode.extractor import app as A, settings as S
+    monkeypatch.setattr(S, 'SETTINGS', tmp_path / 'settings.json')
+    S.save(S.Settings())
+    qt = QApplication.instance() or QApplication([])
+    window = A.Window()
+    page = next(window.pages.widget(i) for i in range(window.pages.count())
+                if getattr(getattr(window.pages.widget(i), 'source', None), 'id', '') == 'wuwa')
+    calls = []
+    monkeypatch.setattr(page, '_start_keys', lambda public: calls.append(public))
+    monkeypatch.setattr(QMessageBox, 'question', lambda *args: QMessageBox.StandardButton.No)
+    page.download_keys_button.click()
+    assert not calls
+    monkeypatch.setattr(QMessageBox, 'question', lambda *args: QMessageBox.StandardButton.Yes)
+    page.download_keys_button.click()
+    assert calls == [True]
+    window.close()
+    del qt
+
+
+def test_public_stale_and_conflicting_keys_are_rejected(tmp_path, monkeypatch):
+    import io
+    from types import SimpleNamespace
+    guid = 'ab' * 16
+    conflict = {'mainKey': '11' * 32, 'dynamicKeys': [
+        {'guid': guid, 'key': '22' * 32}, {'guid': guid.upper(), 'key': '33' * 32}]}
+    with pytest.raises(keys.DiscoveryError):
+        keys._parse_public(json.dumps(conflict))
+    payload = json.dumps({'mainKey': '11' * 32, 'dynamicKeys': []}).encode()
+    monkeypatch.setattr(keys.urllib.request, 'build_opener', lambda *a: SimpleNamespace(open=lambda *a, **k: io.BytesIO(payload)))
+    monkeypatch.setattr(keys, '_index', lambda reader, dotnet, install, folder, value:
+                        ({'plain'}, {'encrypted': guid}))
+    output = tmp_path / 'keys.json'
+    output.write_text('old')
+    with pytest.raises(keys.DiscoveryError, match='過期'):
+        keys.download_keys(tmp_path, tmp_path, tmp_path, output, lambda _: None)
+    assert output.read_text() == 'old'

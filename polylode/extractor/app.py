@@ -220,10 +220,14 @@ class SourcePage(QWidget):
         self.scan_button.clicked.connect(self.scan)
         top.addWidget(self.scan_button)
         self.keys_button = None
+        self.download_keys_button = None
         if source.id == "wuwa":
             self.keys_button = QPushButton(tr("自動取得 AES 金鑰"))
             self.keys_button.clicked.connect(self.discover_keys)
             top.addWidget(self.keys_button)
+            self.download_keys_button = QPushButton(tr("下載公開 AES 金鑰…"))
+            self.download_keys_button.clicked.connect(self.download_keys)
+            top.addWidget(self.download_keys_button)
         layout.addLayout(top)
         self.status = QLabel("尚未掃描")
         self.status.setObjectName("muted")
@@ -387,6 +391,7 @@ class SourcePage(QWidget):
         self.scan_button.setEnabled(False)
         if self.keys_button is not None:
             self.keys_button.setEnabled(False)
+            self.download_keys_button.setEnabled(False)
         self.process = QProcess(self)
         self.lines = Lines()
         self.process.setProcessChannelMode(QProcess.MergedChannels)
@@ -430,9 +435,26 @@ class SourcePage(QWidget):
         self.scan_button.setEnabled(True)
         if self.keys_button is not None:
             self.keys_button.setEnabled(True)
+            self.download_keys_button.setEnabled(True)
         self.process = None
 
+    def download_keys(self) -> None:
+        if self.process is not None or self.preview_process is not None:
+            return
+        if self.window_.process is not None or self.window_.pending:
+            self.status.setText(tr("請等待匯出完成再取得 AES 金鑰"))
+            return
+        message = tr("從第三方公開來源下載 AES 金鑰？\n\n來源：https://yarik0chka.github.io/wuwa-keys/keys.json\n專案：https://github.com/yarik0chka/wuwa-keys\n儲存位置：%LOCALAPPDATA%/Polylode/wuwa_aes_key.json\n\n程式會以選定的本機遊戲驗證金鑰；失敗時保留原有檔案。")
+        answer = QMessageBox.question(self, tr("下載公開 AES 金鑰…"), message,
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                      QMessageBox.StandardButton.No)
+        if answer == QMessageBox.StandardButton.Yes:
+            self._start_keys(public=True)
+
     def discover_keys(self) -> None:
+        self._start_keys(public=False)
+
+    def _start_keys(self, public: bool) -> None:
         if self.process is not None or self.preview_process is not None:
             return
         if self.window_.process is not None or self.window_.pending:
@@ -450,6 +472,7 @@ class SourcePage(QWidget):
         self.status.setText(tr("正在取得 AES 金鑰…"))
         self.scan_button.setEnabled(False)
         self.keys_button.setEnabled(False)
+        self.download_keys_button.setEnabled(False)
         self.preview_button.setEnabled(False)
         self.export_button.setEnabled(False)
         self.process = QProcess(self)
@@ -458,7 +481,8 @@ class SourcePage(QWidget):
         self.process.readyReadStandardOutput.connect(self._keys_output)
         self.process.finished.connect(self._keys_done)
         self.process.errorOccurred.connect(lambda _error: failed_start(self.process) and self._keys_done(-1, None))
-        program, *arguments = jobs.keys_command(self.keys_settings_file)
+        program, *arguments = (jobs.keys_command(self.keys_settings_file, public=True) if public
+                               else jobs.keys_command(self.keys_settings_file))
         self.process.start(program, arguments)
 
     def _keys_output(self) -> None:
@@ -470,7 +494,7 @@ class SourcePage(QWidget):
             if kind == "OUTPUT":
                 self.keys_written = Path(text)
             else:
-                self.window_.log(f"[{self.source.label}] {text}")
+                self.window_.log(f"[{self.source.label}] {tr(text)}")
 
     def _keys_done(self, code: int, status) -> None:
         if self.process is None:
@@ -490,7 +514,7 @@ class SourcePage(QWidget):
         self.status.setText(tr("AES 金鑰已取得" if ok else "取得 AES 金鑰失敗，見下方記錄"))
         self.process.deleteLater()
         self.process = None
-        for button in (self.scan_button, self.keys_button, self.preview_button, self.export_button):
+        for button in (self.scan_button, self.keys_button, self.download_keys_button, self.preview_button, self.export_button):
             button.setEnabled(True)
 
     def stop_key_discovery(self) -> None:

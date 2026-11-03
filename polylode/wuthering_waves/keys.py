@@ -6,10 +6,14 @@ import re
 import subprocess
 import tempfile
 import time
+import urllib.request
+import urllib.error
 from pathlib import Path
 
 from . import extract
 
+PUBLIC_URL = 'https://yarik0chka.github.io/wuwa-keys/keys.json'
+MAX_DOWNLOAD = 256 * 1024
 _LIMIT = 256
 _HEX = re.compile(rb'(?<![0-9A-Fa-f])[0-9A-Fa-f]{64}(?![0-9A-Fa-f])')
 _WIDE = re.compile(rb'(?<![0-9A-Fa-f]\x00)(?:[0-9A-Fa-f]\x00){64}(?![0-9A-Fa-f]\x00)')
@@ -117,7 +121,7 @@ def discover_keys(install: Path, reader: Path, dotnet: Path, output: Path, log=p
             break
     log(f'找到 {len(candidates)} 個本機候選金鑰，正在驗證')
     if not candidates:
-        raise DiscoveryError('本機程式中沒有找到可驗證所有加密封存檔的金鑰，此版本可能尚不支援')
+        raise DiscoveryError('本機程式中沒有找到可驗證所有加密封存檔的金鑰，此版本可能尚不支援；可使用「下載公開 AES 金鑰…」')
     zero = '0x' + '00' * 32
     with tempfile.TemporaryDirectory(prefix='polylode-wuwa-keys-') as temp:
         root = Path(temp)
@@ -148,28 +152,87 @@ def discover_keys(install: Path, reader: Path, dotnet: Path, output: Path, log=p
             if not remaining:
                 break
         if remaining:
-            raise DiscoveryError('本機程式中沒有找到可驗證所有加密封存檔的金鑰，此版本可能尚不支援')
+            raise DiscoveryError('本機程式中沒有找到可驗證所有加密封存檔的金鑰，此版本可能尚不支援；可使用「下載公開 AES 金鑰…」')
         result = {'mainKey': main, 'dynamicKeys': [{'guid': guid, 'key': key} for guid, key in dynamic.items()]}
-        final = root / 'final'
-        mounted, _ = _index(reader, dotnet, install, final, result)
-        if not set(pending).issubset(mounted - baseline):
-            raise DiscoveryError('完整金鑰組合未能通過掛載驗證')
-        from . import assembly, scope
-        _run(reader, dotnet, install, final / 'keys.json', final / 'model', 'json', assembly.MODEL_TABLE)
-        if not (final / 'model' / 'package.json').is_file() or not (final / 'model' / 'package.json').stat().st_size:
-            raise DiscoveryError('模型設定讀取驗證失敗')
-        wanted = final / 'wanted.txt'
-        wanted.write_text(scope.FILES[0] + '\n', encoding='utf-8')
-        _run(reader, dotnet, install, final / 'keys.json', final / 'role', 'raw-list', str(wanted))
-        if not (final / 'role' / scope.FILES[0]).is_file() or not (final / 'role' / scope.FILES[0]).stat().st_size:
-            raise DiscoveryError('角色設定讀取驗證失敗')
-        output.parent.mkdir(parents=True, exist_ok=True)
-        fd, name = tempfile.mkstemp(prefix='.wuwa-keys-', dir=output.parent)
-        try:
-            with os.fdopen(fd, 'w', encoding='utf-8') as stream:
-                json.dump(result, stream, indent=2)
-            os.replace(name, output)
-        finally:
-            if os.path.exists(name):
-                os.unlink(name)
+        _verify_and_publish(reader, dotnet, install, output, root, baseline, pending, result)
+    return output
+
+
+def _verify_and_publish(reader, dotnet, install, output, root, baseline, pending, result):
+    final = root / 'final'
+    mounted, _ = _index(reader, dotnet, install, final, result)
+    if not set(pending).issubset(mounted - baseline):
+        raise DiscoveryError('金鑰未能解鎖目前遊戲的所有加密封存檔，可能已過期；請稍後再試或選擇已有的金鑰檔')
+    from . import assembly, scope
+    _run(reader, dotnet, install, final / 'keys.json', final / 'model', 'json', assembly.MODEL_TABLE)
+    if not (final / 'model' / 'package.json').is_file() or not (final / 'model' / 'package.json').stat().st_size:
+        raise DiscoveryError('模型設定讀取驗證失敗')
+    wanted = final / 'wanted.txt'
+    wanted.write_text(scope.FILES[0] + '\n', encoding='utf-8')
+    _run(reader, dotnet, install, final / 'keys.json', final / 'role', 'raw-list', str(wanted))
+    if not (final / 'role' / scope.FILES[0]).is_file() or not (final / 'role' / scope.FILES[0]).stat().st_size:
+        raise DiscoveryError('角色設定讀取驗證失敗')
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix='.wuwa-keys-', dir=output.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            json.dump(result, stream, indent=2)
+        os.replace(name, output)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def _parse_public(data):
+    try:
+        obj = json.loads(data)
+        def hex_value(value, length):
+            if not isinstance(value, str):
+                raise ValueError()
+            value = value.removeprefix('0x').removeprefix('0X')
+            if not re.fullmatch(r'[0-9a-fA-F]{%d}' % length, value):
+                raise ValueError()
+            return value.upper()
+        main = '0x' + hex_value(obj['mainKey'], 64)
+        if not isinstance(obj['dynamicKeys'], list):
+            raise ValueError()
+        dynamic = {}
+        for entry in obj['dynamicKeys']:
+            guid = hex_value(entry['guid'], 32)
+            key = '0x' + hex_value(entry['key'], 64)
+            if guid in dynamic and dynamic[guid] != key:
+                raise ValueError()
+            dynamic[guid] = key
+        return {'mainKey': main, 'dynamicKeys': [{'guid': guid, 'key': key} for guid, key in dynamic.items()]}
+    except (ValueError, TypeError, KeyError, UnicodeDecodeError):
+        raise DiscoveryError('公開金鑰資料格式無效，請稍後再試或選擇已有的金鑰檔') from None
+
+
+class _SameOriginRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        from urllib.parse import urlsplit
+        source, target = urlsplit(PUBLIC_URL), urlsplit(newurl)
+        if (target.scheme, target.netloc) != (source.scheme, source.netloc):
+            raise DiscoveryError('公開金鑰來源重新導向至其他網站，已停止下載')
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def download_keys(install: Path, reader: Path, dotnet: Path, output: Path, log=print) -> Path:
+    log('正在下載公開金鑰並驗證本機遊戲版本')
+    try:
+        opener = urllib.request.build_opener(_SameOriginRedirect())
+        with opener.open(PUBLIC_URL, timeout=30) as response:
+            data = response.read(MAX_DOWNLOAD + 1)
+        if len(data) > MAX_DOWNLOAD:
+            raise DiscoveryError('公開金鑰資料超過大小限制，請稍後再試')
+    except (OSError, urllib.error.URLError, TimeoutError) as failure:
+        raise DiscoveryError('無法下載公開金鑰，請檢查網路後再試') from failure
+    result = _parse_public(data)
+    with tempfile.TemporaryDirectory(prefix='polylode-wuwa-keys-') as temp:
+        root = Path(temp)
+        baseline, pending = _index(reader, dotnet, install, root / 'baseline',
+                                   {'mainKey': '0x' + '00' * 32, 'dynamicKeys': []})
+        if not pending:
+            raise DiscoveryError('沒有可供驗證的加密封存檔')
+        _verify_and_publish(reader, dotnet, install, output, root, baseline, pending, result)
     return output

@@ -66,18 +66,18 @@ def scan_command(source: str, settings_file: Path) -> list[str]:
     return _start("--scan", source, str(settings_file))
 
 
-def keys_command(settings_file: Path) -> list[str]:
-    return _start("--discover-wuwa-keys", str(settings_file))
+def keys_command(settings_file: Path, public: bool = False) -> list[str]:
+    return _start("--download-wuwa-keys" if public else "--discover-wuwa-keys", str(settings_file))
 
 
-def run_keys(settings_file: Path) -> int:
+def run_keys(settings_file: Path, public: bool = False) -> int:
     from ..core.paths import _platform_user_root
-    from ..wuthering_waves.keys import discover_keys
+    from ..wuthering_waves.keys import discover_keys, download_keys
     from . import bundled, wuwa_source as W
     from .sources import require
     try:
         settings = S.load(Path(settings_file))
-        output = discover_keys(require(settings, W.INSTALL),
+        output = (download_keys if public else discover_keys)(require(settings, W.INSTALL),
                                require(settings, W.READER, bundled.wuwa_reader() or W.find_reader()),
                                require(settings, W.DOTNET, bundled.dotnet() or W.find_dotnet()),
                                _platform_user_root() / "wuwa_aes_key.json",

@@ -17,7 +17,7 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="strict")
     from .blender_files import load_source_modules
     load_source_modules()
-    if not argv or argv[0] not in ("--run-job", "--scan", "--selftest", "--discover-wuwa-keys"):
+    if not argv or argv[0] not in ("--run-job", "--scan", "--selftest", "--discover-wuwa-keys", "--download-wuwa-keys"):
         from .migrate import from_islandlife
         from_islandlife(lambda _line: None)      # the window's first start: the old folder's data, once
     if len(argv) == 2 and argv[0] == "--run-job":
@@ -26,9 +26,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) == 3 and argv[0] == "--scan":
         from .jobs import run_scan
         return run_scan(argv[1], argv[2])
-    if len(argv) == 2 and argv[0] == "--discover-wuwa-keys":
+    if len(argv) == 2 and argv[0] in ("--discover-wuwa-keys", "--download-wuwa-keys"):
         from .jobs import run_keys
-        return run_keys(argv[1])
+        return run_keys(argv[1], public=argv[0] == "--download-wuwa-keys")
     if len(argv) == 2 and argv[0] == "--selftest":
         return selftest(argv[1])
     from .app import run
