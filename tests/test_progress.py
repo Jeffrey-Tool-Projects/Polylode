@@ -171,6 +171,7 @@ def test_a_preview_or_export_asks_for_each_required_tool_it_lacks_once(tmp_path,
     from polylode.extractor import bundled
     monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
     monkeypatch.setattr(bundled, "wuwa_reader", lambda: None)   # a checkout without the built reader
+    monkeypatch.setattr(bundled, "dotnet", lambda: tmp_path)          # .NET is there: not what this asks about
     from polylode.extractor import wuwa_source
     monkeypatch.setattr(wuwa_source, "find_keys", lambda settings: None)   # no keys file on this computer
     S.save(S.Settings())
@@ -203,6 +204,7 @@ def test_a_tool_the_program_carries_is_not_asked_for(tmp_path, monkeypatch):
     reader, keys = tmp_path / "wuwa.exe", tmp_path / "keys.json"
     reader.write_bytes(b""), keys.write_text("{}")
     monkeypatch.setattr(bundled, "wuwa_reader", lambda: reader)
+    monkeypatch.setattr(bundled, "dotnet", lambda: tmp_path)          # .NET is there: not what this asks about
     from polylode.extractor import wuwa_source
     monkeypatch.setattr(wuwa_source, "find_keys", lambda settings: None)
     qt = QApplication.instance() or QApplication([])
@@ -236,6 +238,7 @@ def test_a_keys_file_the_user_has_is_found_by_its_content_and_used_without_askin
 
     monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
     monkeypatch.setattr(bundled, "wuwa_reader", lambda: tmp_path / "wuwa.exe")
+    monkeypatch.setattr(bundled, "dotnet", lambda: tmp_path)          # .NET is there: not what this asks about
     S.save(S.Settings())
     qt = QApplication.instance() or QApplication([])
     window = A.Window()
@@ -246,3 +249,49 @@ def test_a_keys_file_the_user_has_is_found_by_its_content_and_used_without_askin
     assert S.load().tools["wuwa_keys"] == str(keys)
     window.close()
     del qt
+
+
+def test_a_dotnet_10_runtime_on_this_computer_is_found_and_a_9_one_is_not(tmp_path, monkeypatch):
+    from polylode.extractor import wuwa_source as W
+
+    def install(folder, version):
+        (folder / "shared" / "Microsoft.NETCore.App" / version).mkdir(parents=True)
+        (folder / "dotnet.exe").write_bytes(b"")
+        return folder
+
+    old, new = install(tmp_path / "old", "9.0.14"), install(tmp_path / "new", "10.0.13")
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    monkeypatch.setenv("ProgramFiles", str(tmp_path / "none"))
+    monkeypatch.setenv("DOTNET_ROOT", str(old))
+    assert not W.has_runtime(old) and W.find_dotnet() is None
+    monkeypatch.setenv("DOTNET_ROOT", str(new))
+    assert W.find_dotnet() == new
+
+
+def test_a_scan_asks_for_the_tools_first_and_does_not_start_without_them(tmp_path, monkeypatch):
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    from polylode.extractor import app as A
+    monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    S.save(S.Settings())
+    qt = QApplication.instance() or QApplication([])
+    window = A.Window()
+    page = next(window.pages.widget(i) for i in range(window.pages.count())
+                if getattr(getattr(window.pages.widget(i), "source", None), "id", "") == "wuwa")
+    monkeypatch.setattr(page, "ask_install", lambda: True)
+    monkeypatch.setattr(page, "ask_tools", lambda: False)
+    page.scan()
+    assert page.process is None                               # no reader, .NET or keys: no scan job
+    window.close()
+    del qt
+
+
+def test_a_reader_built_in_the_checkout_is_found(tmp_path, monkeypatch):
+    from polylode.extractor import wuwa_source as W
+    import polylode.extractor.blender_files as B
+    monkeypatch.setattr(B, "root", lambda: tmp_path)
+    assert W.find_reader() is None
+    built = tmp_path / "tools" / "wuwa_cli" / "bin" / "Release" / "net10.0" / "wuwa.exe"
+    built.parent.mkdir(parents=True)
+    built.write_bytes(b"")
+    assert W.find_reader() == built

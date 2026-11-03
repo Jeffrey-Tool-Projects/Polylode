@@ -299,8 +299,9 @@ class SourcePage(QWidget):
         return True
 
     def ask_tools(self) -> bool:
-        """Before a preview or an export: each tool the source cannot convert without (``PathSpec.required``),
-        asked for when unset or gone.  False when one was not given."""
+        """Before a scan, a preview or an export: each tool the source cannot convert without
+        (``PathSpec.required``), when unset or gone, is the one the program carries, one already on this
+        computer (``find_tool``), or asked for.  False when one was not given."""
         from . import bundled
         settings = self.window_.settings
         for spec in (spec for spec in self.source.paths if spec.required and not spec.install):
@@ -330,7 +331,7 @@ class SourcePage(QWidget):
         if self.process is not None:
             return
         self.window_.settings_page._save()
-        if not self.ask_install():
+        if not self.ask_install() or not self.ask_tools():
             return
         settings_file = Path(tempfile.gettempdir()) / f"extractor_scan_{self.source.id}.json"
         S.save(self.window_.settings, settings_file)

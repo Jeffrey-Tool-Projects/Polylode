@@ -26,7 +26,8 @@ INSTALL = PathSpec("wuwa", "鳴潮安裝資料夾", "dir", "遊戲資料夾或�
                    marker="Client/Content/Paks")
 READER = PathSpec("wuwa_reader", "鳴潮讀取器（wuwa.exe 或 wuwa.dll）", "file", "留空：用內建的讀取器",
                   required=True, bundled="wuwa_reader")
-DOTNET = PathSpec("dotnet", ".NET 10 執行環境資料夾", "dir", "含 dotnet.exe 的資料夾；打包版留空用內建的")
+DOTNET = PathSpec("dotnet", ".NET 10 執行環境資料夾", "dir", "含 dotnet.exe 的資料夾；打包版留空用內建的",
+                  required=True, bundled="dotnet")
 KEYS = PathSpec("wuwa_keys", "鳴潮 AES 金鑰檔", "file", "含 mainKey 與 dynamicKeys 的 JSON", required=True)
 BLENDER = PathSpec("blender", "Blender 執行檔", "file")
 MODEL_TABLE_JSON = "model_config/package.json"
@@ -55,17 +56,51 @@ def is_keys_file(path: Path) -> bool:
 
 
 def keys_places(settings) -> list[Path]:
-    """Where a keys file the user already has is looked for: beside the program, in its data folder, the
-    install folder named and the one above it, and the user's Downloads, Documents and Desktop."""
-    from ..core.paths import derived_root
+    """Where a keys file the user already has is looked for: beside the program, in its data folder (the
+    packaged program's, which a checkout run from an IDE shares), the install folder named and the one above
+    it, and the user's Downloads, Documents and Desktop."""
+    from ..core.paths import _platform_user_root, derived_root
     from .blender_files import root
-    places = [root(), derived_root()]
+    places = [root(), derived_root(), _platform_user_root()]
     install = settings.install(INSTALL.key)
     if install is not None:
         places += [install, install.parent]
     home = Path.home()
     places += [home / "Downloads", home / "Documents", home / "Desktop"]
     return list(dict.fromkeys(p for p in places if p.is_dir()))
+
+
+#: the .NET runtime the reader is built for
+DOTNET_MAJOR = "10."
+
+
+def has_runtime(folder: Path) -> bool:
+    """Whether *folder* is a .NET install with a .NET 10 runtime (``shared/Microsoft.NETCore.App/10.*``)."""
+    shared = folder / "shared" / "Microsoft.NETCore.App"
+    return (folder / "dotnet.exe").is_file() and shared.is_dir() and any(
+        p.name.startswith(DOTNET_MAJOR) for p in shared.iterdir() if p.is_dir())
+
+
+def find_dotnet() -> Path | None:
+    """A .NET 10 runtime installed on this computer — ``DOTNET_ROOT``, the ``dotnet`` on ``PATH``, or the
+    usual ``Program Files\\dotnet`` — for a checkout, which carries none."""
+    import os
+    import shutil
+    places = [os.environ.get("DOTNET_ROOT")]
+    on_path = shutil.which("dotnet")
+    places.append(str(Path(on_path).resolve().parent) if on_path else None)
+    places.append(str(Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "dotnet"))
+    return next((Path(p) for p in places if p and has_runtime(Path(p))), None)
+
+
+def find_reader() -> Path | None:
+    """A reader built in this checkout: ``tools/wuwa_cli/build.ps1``'s usual output, or ``dotnet build``'s own."""
+    from .blender_files import root
+    for path in (root() / "tools" / "WuwaReader" / "wuwa.exe",
+                 root() / "tools" / "wuwa_cli" / "bin" / "Release" / "net10.0" / "wuwa.exe"):
+        if path.is_file():
+            return path
+    return None
 
 
 def find_keys(settings) -> Path | None:
@@ -89,7 +124,8 @@ def _reader(settings, mode: str, output: Path, argument: str, log: Log) -> None:
     from ..wuthering_waves import extract
     try:
         from . import bundled
-        extract.run(require(settings, READER, bundled.wuwa_reader()), require(settings, DOTNET, bundled.dotnet()),
+        extract.run(require(settings, READER, bundled.wuwa_reader() or find_reader()),
+                    require(settings, DOTNET, bundled.dotnet() or find_dotnet()),
                     require(settings, INSTALL),
                     require(settings, KEYS), output, mode, argument, log)
     except extract.ReaderError as failure:
@@ -151,7 +187,13 @@ class WuwaSource:
 
     def find_tool(self, key: str, settings) -> Path | None:
         """A tool the user already has on this computer, found before they are asked for it."""
-        return find_keys(settings) if key == KEYS.key else None
+        if key == KEYS.key:
+            return find_keys(settings)
+        if key == DOTNET.key:
+            return find_dotnet()
+        if key == READER.key:
+            return find_reader()
+        return None
 
     def scan(self, settings, log: Log) -> list[Model]:
         root = extract_config(settings, log)
