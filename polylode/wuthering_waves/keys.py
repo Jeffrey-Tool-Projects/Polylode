@@ -198,7 +198,10 @@ def _parse_public(data):
             raise ValueError()
         dynamic = {}
         for entry in obj['dynamicKeys']:
-            guid = hex_value(entry['guid'], 32)
+            guid = entry['guid']
+            if isinstance(guid, str) and re.fullmatch(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}', guid):
+                guid = guid.replace('-', '')
+            guid = hex_value(guid, 32)
             key = '0x' + hex_value(entry['key'], 64)
             if guid in dynamic and dynamic[guid] != key:
                 raise ValueError()
@@ -221,8 +224,16 @@ def download_keys(install: Path, reader: Path, dotnet: Path, output: Path, log=p
     log('正在下載公開金鑰並驗證本機遊戲版本')
     try:
         opener = urllib.request.build_opener(_SameOriginRedirect())
+        deadline = time.monotonic() + 30
         with opener.open(PUBLIC_URL, timeout=30) as response:
-            data = response.read(MAX_DOWNLOAD + 1)
+            data = bytearray()
+            while len(data) <= MAX_DOWNLOAD:
+                if time.monotonic() > deadline:
+                    raise TimeoutError()
+                chunk = response.read1(min(65536, MAX_DOWNLOAD + 1 - len(data)))
+                if not chunk:
+                    break
+                data.extend(chunk)
         if len(data) > MAX_DOWNLOAD:
             raise DiscoveryError('公開金鑰資料超過大小限制，請稍後再試')
     except (OSError, urllib.error.URLError, TimeoutError) as failure:

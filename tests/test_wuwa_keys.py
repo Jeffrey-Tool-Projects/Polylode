@@ -141,11 +141,12 @@ def test_key_discovery_result_persists_only_on_success(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize('success', [True, False])
-def test_discovery_button_runs_background_process_and_preserves_settings(tmp_path, monkeypatch, success):
+@pytest.mark.parametrize('public', [True, False])
+def test_discovery_button_runs_background_process_and_preserves_settings(tmp_path, monkeypatch, success, public):
     import sys
     import time
     monkeypatch.setenv('QT_QPA_PLATFORM', 'offscreen')
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QMessageBox
     from polylode.extractor import app as A, settings as S
     monkeypatch.setattr(S, 'SETTINGS', tmp_path / 'settings.json')
     S.save(S.Settings(tools={'wuwa_keys': 'previous.json'}))
@@ -158,14 +159,16 @@ def test_discovery_button_runs_background_process_and_preserves_settings(tmp_pat
     worker = tmp_path / 'worker.py'
     worker.write_text('import sys\nprint("OUTPUT " + sys.argv[1], flush=True)\nsys.exit(int(sys.argv[2]))\n')
     commands = []
-    def command(snapshot):
+    def command(snapshot, **options):
+        assert options.get('public', False) == public
         commands.append(snapshot)
         assert S.load(snapshot).tools['wuwa_keys'] == 'previous.json'
         return [sys.executable, str(worker), str(valid), '0' if success else '1']
     monkeypatch.setattr(A.jobs, 'keys_command', command)
     monkeypatch.setattr(page, 'ask_install', lambda: True)
     monkeypatch.setattr(page, 'ask_tools', lambda skip_keys: skip_keys)
-    page.keys_button.click()
+    monkeypatch.setattr(QMessageBox, 'question', lambda *a: QMessageBox.StandardButton.Yes)
+    (page.download_keys_button if public else page.keys_button).click()
     page.discover_keys()
     assert len(commands) == 1
     assert not page.scan_button.isEnabled() and not page.export_button.isEnabled()
@@ -234,7 +237,13 @@ def test_download_requires_consent(tmp_path, monkeypatch):
                 if getattr(getattr(window.pages.widget(i), 'source', None), 'id', '') == 'wuwa')
     calls = []
     monkeypatch.setattr(page, '_start_keys', lambda public: calls.append(public))
-    monkeypatch.setattr(QMessageBox, 'question', lambda *args: QMessageBox.StandardButton.No)
+    def decline(*args):
+        from polylode.core.paths import _platform_user_root
+        assert keys.PUBLIC_URL in args[2]
+        assert str(_platform_user_root() / 'wuwa_aes_key.json') in args[2]
+        assert args[4] == QMessageBox.StandardButton.No
+        return QMessageBox.StandardButton.No
+    monkeypatch.setattr(QMessageBox, 'question', decline)
     page.download_keys_button.click()
     assert not calls
     monkeypatch.setattr(QMessageBox, 'question', lambda *args: QMessageBox.StandardButton.Yes)
@@ -261,3 +270,38 @@ def test_public_stale_and_conflicting_keys_are_rejected(tmp_path, monkeypatch):
     with pytest.raises(keys.DiscoveryError, match='過期'):
         keys.download_keys(tmp_path, tmp_path, tmp_path, output, lambda _: None)
     assert output.read_text() == 'old'
+
+
+def test_public_normalizes_guid_formats_before_deduplication():
+    guid = '12345678-1234-1234-1234-123456789abc'
+    payload = {'mainKey': '11' * 32, 'dynamicKeys': [
+        {'guid': guid, 'key': '22' * 32}, {'guid': guid.replace('-', '').upper(), 'key': '22' * 32}]}
+    result = keys._parse_public(json.dumps(payload))
+    assert result['dynamicKeys'] == [{'guid': guid.replace('-', '').upper(), 'key': '0x' + '22' * 32}]
+    payload['dynamicKeys'][1]['key'] = '33' * 32
+    with pytest.raises(keys.DiscoveryError):
+        keys._parse_public(json.dumps(payload))
+
+
+def test_public_rejects_trickling_response_without_writing(tmp_path, monkeypatch):
+    import io
+    from types import SimpleNamespace
+    now = [0]
+    class Slow(io.BytesIO):
+        def read1(self, amount):
+            now[0] += 16
+            return b'a'
+    monkeypatch.setattr(keys.time, 'monotonic', lambda: now[0])
+    monkeypatch.setattr(keys.urllib.request, 'build_opener', lambda *a: SimpleNamespace(open=lambda *a, **k: Slow()))
+    output = tmp_path / 'keys.json'
+    output.write_text('old')
+    with pytest.raises(keys.DiscoveryError, match='下載'):
+        keys.download_keys(tmp_path, tmp_path, tmp_path, output, lambda _: None)
+    assert output.read_text() == 'old'
+
+
+@pytest.mark.parametrize('destination', ['http://yarik0chka.github.io/wuwa-keys/keys.json', 'https://example.com/keys.json'])
+def test_public_rejects_redirect_outside_approved_origin(destination):
+    request = keys.urllib.request.Request(keys.PUBLIC_URL)
+    with pytest.raises(keys.DiscoveryError, match='重新導向'):
+        keys._SameOriginRedirect().redirect_request(request, None, 302, '', {}, destination)

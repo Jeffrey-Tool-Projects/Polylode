@@ -1283,12 +1283,6 @@
   "ja": "公開 AES キーをダウンロード…",
   "ko": "공개 AES 키 다운로드…"
  },
- "從第三方公開來源下載 AES 金鑰？\n\n來源：https://yarik0chka.github.io/wuwa-keys/keys.json\n專案：https://github.com/yarik0chka/wuwa-keys\n儲存位置：%LOCALAPPDATA%/Polylode/wuwa_aes_key.json\n\n程式會以選定的本機遊戲驗證金鑰；失敗時保留原有檔案。": {
-  "en": "Download AES keys from a public third-party source?\n\nSource: https://yarik0chka.github.io/wuwa-keys/keys.json\nProject: https://github.com/yarik0chka/wuwa-keys\nDestination: %LOCALAPPDATA%/Polylode/wuwa_aes_key.json\n\nKeys will be verified against the selected local install. The existing file is preserved on failure.",
-  "zh-CN": "从第三方公开来源下载 AES 密钥？\n\n来源：https://yarik0chka.github.io/wuwa-keys/keys.json\n项目：https://github.com/yarik0chka/wuwa-keys\n保存位置：%LOCALAPPDATA%/Polylode/wuwa_aes_key.json\n\n程序将使用选定的本地游戏验证密钥；失败时保留原文件。",
-  "ja": "第三者の公開ソースから AES キーをダウンロードしますか？\n\nソース：https://yarik0chka.github.io/wuwa-keys/keys.json\nプロジェクト：https://github.com/yarik0chka/wuwa-keys\n保存先：%LOCALAPPDATA%/Polylode/wuwa_aes_key.json\n\n選択したローカルゲームで検証し、失敗時は既存ファイルを保持します。",
-  "ko": "제3자 공개 출처에서 AES 키를 다운로드할까요?\n\n출처: https://yarik0chka.github.io/wuwa-keys/keys.json\n프로젝트: https://github.com/yarik0chka/wuwa-keys\n저장 위치: %LOCALAPPDATA%/Polylode/wuwa_aes_key.json\n\n선택한 로컬 게임으로 키를 검증하며 실패하면 기존 파일을 보존합니다."
- },
  "公開金鑰資料格式無效，請稍後再試或選擇已有的金鑰檔": {
   "en": "Public key data is invalid. Try again later or select an existing keys file.",
   "zh-CN": "公开密钥数据格式无效，请稍后重试或选择已有密钥文件",
@@ -1330,5 +1324,11 @@
   "zh-CN": "本地程序中没有找到能验证所有加密文件的密钥，此版本可能尚不支持；可使用“下载公开 AES 密钥…”。",
   "ja": "すべての暗号化アーカイブを開けるキーがローカルに見つかりません。このバージョンは未対応の可能性があります。公開キーのダウンロードを利用できます。",
   "ko": "모든 암호화 파일을 열 수 있는 로컬 키를 찾지 못했습니다. 이 버전은 지원되지 않을 수 있습니다. 공개 키 다운로드를 사용할 수 있습니다."
+ },
+ "從第三方公開來源下載 AES 金鑰？\n\n來源：{0}\n專案：https://github.com/yarik0chka/wuwa-keys\n儲存位置：{1}\n\n程式會以選定的本機遊戲驗證金鑰；失敗時保留原有檔案。": {
+  "en": "Download AES keys from a public third-party source?\n\nSource: {0}\nProject: https://github.com/yarik0chka/wuwa-keys\nDestination: {1}\n\nKeys will be verified against the selected local install. The existing file is preserved on failure.",
+  "zh-CN": "从第三方公开来源下载 AES 密钥？\n\n来源：{0}\n项目：https://github.com/yarik0chka/wuwa-keys\n保存位置：{1}\n\n程序将使用选定的本地游戏验证密钥；失败时保留原文件。",
+  "ja": "第三者の公開ソースから AES キーをダウンロードしますか？\n\nソース：{0}\nプロジェクト：https://github.com/yarik0chka/wuwa-keys\n保存先：{1}\n\n選択したローカルゲームで検証し、失敗時は既存ファイルを保持します。",
+  "ko": "제3자 공개 출처에서 AES 키를 다운로드할까요?\n\n출처: {0}\n프로젝트: https://github.com/yarik0chka/wuwa-keys\n저장 위치: {1}\n\n선택한 로컬 게임으로 키를 검증하며 실패하면 기존 파일을 보존합니다."
  }
 }

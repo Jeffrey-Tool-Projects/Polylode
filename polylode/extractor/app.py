@@ -222,10 +222,10 @@ class SourcePage(QWidget):
         self.keys_button = None
         self.download_keys_button = None
         if source.id == "wuwa":
-            self.keys_button = QPushButton(tr("自動取得 AES 金鑰"))
+            self.keys_button = QPushButton("自動取得 AES 金鑰")
             self.keys_button.clicked.connect(self.discover_keys)
             top.addWidget(self.keys_button)
-            self.download_keys_button = QPushButton(tr("下載公開 AES 金鑰…"))
+            self.download_keys_button = QPushButton("下載公開 AES 金鑰…")
             self.download_keys_button.clicked.connect(self.download_keys)
             top.addWidget(self.download_keys_button)
         layout.addLayout(top)
@@ -444,7 +444,10 @@ class SourcePage(QWidget):
         if self.window_.process is not None or self.window_.pending:
             self.status.setText(tr("請等待匯出完成再取得 AES 金鑰"))
             return
-        message = tr("從第三方公開來源下載 AES 金鑰？\n\n來源：https://yarik0chka.github.io/wuwa-keys/keys.json\n專案：https://github.com/yarik0chka/wuwa-keys\n儲存位置：%LOCALAPPDATA%/Polylode/wuwa_aes_key.json\n\n程式會以選定的本機遊戲驗證金鑰；失敗時保留原有檔案。")
+        from ..core.paths import _platform_user_root
+        from ..wuthering_waves.keys import PUBLIC_URL
+        message = tr("從第三方公開來源下載 AES 金鑰？\n\n來源：{0}\n專案：https://github.com/yarik0chka/wuwa-keys\n儲存位置：{1}\n\n程式會以選定的本機遊戲驗證金鑰；失敗時保留原有檔案。").format(
+            PUBLIC_URL, _platform_user_root() / "wuwa_aes_key.json")
         answer = QMessageBox.question(self, tr("下載公開 AES 金鑰…"), message,
                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                       QMessageBox.StandardButton.No)
