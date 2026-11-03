@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     from .blender_files import load_source_modules
     load_source_modules()
     if not argv or argv[0] not in ("--run-job", "--scan", "--selftest", "--discover-wuwa-keys", "--download-wuwa-keys",
-                                       "--share", "--share-github"):
+                                       "--share", "--share-github", "--view-host"):
         from .migrate import from_islandlife
         from_islandlife(lambda _line: None)      # the window's first start: the old folder's data, once
     if len(argv) == 2 and argv[0] == "--run-job":
@@ -37,6 +37,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) in (2, 3) and argv[0] == "--share-github":
         from .github import run_share as run_github_share
         return run_github_share(*argv[1:])
+    if argv == ["--view-host"]:
+        from .view_host import run as run_view_host
+        return run_view_host()
     if len(argv) == 2 and argv[0] == "--selftest":
         return selftest(argv[1])
     from .app import run
@@ -67,7 +70,7 @@ def selftest(path: str) -> int:
                  "polylode.gf2.bundles", "polylode.gf2.catalog", "polylode.gf2.selection",
                  "polylode.wuthering_waves.assembly", "polylode.wuthering_waves.source_scene",
                  "polylode.wuthering_waves.extract", "polylode.wuthering_waves.keys", "polylode.converted.names", "polylode.converted.scope",
-                 "polylode.interchange.glb", "polylode.interchange.fbx", "polylode.extractor.share", "polylode.extractor.github",
+                 "polylode.interchange.glb", "polylode.interchange.fbx", "polylode.extractor.share", "polylode.extractor.github", "polylode.extractor.view_host",
                  "polylode.extractor.app"):
         try:
             __import__(name)

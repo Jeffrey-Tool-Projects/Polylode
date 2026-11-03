@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from .i18n import tr
-from .preview import PreviewPanel
+from .preview import PreviewPanel, background
 
 #: the settings key of the Discord application whose Activity a shared site's front page is (``share.SITE_SCRIPT``)
 ACTIVITY = "discord_activity"
@@ -226,19 +226,35 @@ class ViewerPage(QWidget):
         self._set("backdrop", BACKDROPS[now])
 
     def refresh(self) -> None:
-        """The model files under the output folder, newest first."""
+        """The model files under the output folder, newest first, listed on a thread (a large output folder is
+        thousands of files to walk) and shown when found."""
         self.files.clear()
         output = Path(self.window_.settings.output) if self.window_.settings.output else None
         if output is None or not output.is_dir():
             self.files.addItem("（在「設定」指定輸出資料夾後，匯出的模型會列在這裡）")
             return
-        found = sorted((p for p in output.rglob("*") if p.suffix.lower() in SUFFIXES and p.is_file()),
-                       key=lambda p: p.stat().st_mtime, reverse=True)
-        for path in found:
-            item = QListWidgetItem(str(path.relative_to(output)))
-            item.setData(Qt.UserRole, path)
-            self.files.addItem(item)
-        self._filter(self.search.text())
+        self._listing = getattr(self, "_listing", 0) + 1
+        listing = self._listing
+        self.files.addItem("讀取輸出資料夾…")
+
+        def find():
+            return sorted((p for p in output.rglob("*") if p.suffix.lower() in SUFFIXES and p.is_file()),
+                          key=lambda p: p.stat().st_mtime, reverse=True)
+
+        def found(paths, error) -> None:
+            if listing != self._listing:
+                return
+            self.files.clear()
+            if error is not None:
+                self.files.addItem(f"讀不了輸出資料夾：{error}")
+                return
+            for path in paths:
+                item = QListWidgetItem(str(path.relative_to(output)))
+                item.setData(Qt.UserRole, path)
+                self.files.addItem(item)
+            self._filter(self.search.text())
+
+        background(self, find, found)
 
     def delete_selected(self) -> None:
         """The selected exported model's files to the recycle bin, after saying which; only a model listed from
@@ -401,15 +417,29 @@ class ViewerPage(QWidget):
         if not path.is_file():
             self.panel.show_message(f"找不到 {path}")
             return
-        caption = path.name
-        if path.suffix.lower() in (".glb", ".gltf"):
-            try:
-                if stale(_gltf(path)):
-                    caption = STALE + "\n" + path.name
-            except (OSError, ValueError, struct.error):
-                pass
-        self.panel.show_file(path, caption)
-        self.info.setPlainText(tr(model_info(path)))
+        # what the file holds and whether older rules wrote it are read on a thread, then the view is given the
+        # file: reading them here held the window as long as they took
+        self._reading = getattr(self, "_reading", 0) + 1
+        reading = self._reading
+        self.info.setPlainText(tr("讀取檔案內容…"))
+
+        def read():
+            older = False
+            if path.suffix.lower() in (".glb", ".gltf"):
+                try:
+                    older = stale(_gltf(path))
+                except (OSError, ValueError, struct.error):
+                    pass
+            return older, model_info(path)
+
+        def done(result, error) -> None:
+            if reading != self._reading:
+                return
+            older, info = result if error is None else (False, f"{path.name}\n{error}")
+            self.panel.show_file(path, STALE + "\n" + path.name if older else path.name)
+            self.info.setPlainText(tr(info))
+
+        background(self, read, done)
 
     def dragEnterEvent(self, event) -> None:
         if any(Path(url.toLocalFile()).suffix.lower() in SUFFIXES for url in event.mimeData().urls()):

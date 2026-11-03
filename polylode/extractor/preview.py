@@ -13,14 +13,16 @@ import re
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import QUrl
-from PySide6.QtGui import QVector3D
-from PySide6.QtQuickWidgets import QQuickWidget
+import json
+
+from PySide6.QtCore import QObject, QProcess, Qt, QUrl, Signal
+from PySide6.QtGui import QVector3D, QWindow
 from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from ..core.paths import derived_root
 from . import settings as S
 from .sources import Model
+from .view_host import encode
 
 QML = Path(__file__).with_name("preview.qml")
 #: the writers' rules a cached preview was made with: raised when what a .glb holds changes, so an earlier
@@ -453,18 +455,92 @@ def load_errors() -> list[str]:
     return errors
 
 
+class _Done(QObject):
+    """Carries a background step's result back to the window's thread."""
+    finished = Signal(object, object)
+
+
+def background(owner: QObject, work, done) -> None:
+    """*work* () run on a thread of its own, then *done* (result, error) on *owner*'s thread: file reading the
+    window must not wait for (a model's display copy and box, a viewer's listing and file summary)."""
+    import threading
+    carrier = _Done(owner)
+    carrier.finished.connect(lambda result, error: (done(result, error), carrier.deleteLater()), Qt.QueuedConnection)
+
+    def run():
+        try:
+            result, error = work(), None
+        except Exception as failure:  # noqa: BLE001 - handed to *done*, which says what went wrong
+            result, error = None, failure
+        carrier.finished.emit(result, error)
+
+    threading.Thread(target=run, daemon=True, name="polylode-background").start()
+
+
+class _RemoteRoot:
+    """Where ``preview.qml``'s root object stood, now in the view's own process (:mod:`view_host`): a property set is
+    sent there and remembered here (read back from here, and set again in a view that has to be started anew),
+    ``look`` is sent."""
+
+    DEFAULTS = {"hint": "選一個模型後按「預覽」", "hintSource": "", "loadingText": "載入中…",
+                "errorText": "讀不進這個檔案："}
+
+    def __init__(self, panel: "PreviewPanel"):
+        self.panel = panel
+        self.values: dict = {}
+        #: every command sent, in order (what a test reads; a running view has applied them)
+        self.sent: list = []
+
+    def setProperty(self, name: str, value) -> None:
+        self.values[name] = value
+        self.panel._send({"op": "set", "name": name, "value": encode(value)})
+        if name == "hint":
+            self.panel.placeholder.setText(str(value))
+
+    def property(self, name: str):
+        return self.values.get(name, self.DEFAULTS.get(name))
+
+    def look(self, yaw: float, pitch: float) -> None:
+        self.panel._send({"op": "look", "yaw": float(yaw), "pitch": float(pitch)})
+
+
+class _HostedView:
+    """``rootObject()`` as ``QQuickWidget`` had it, for the pages that turn and style the view."""
+
+    def __init__(self, root: _RemoteRoot):
+        self._root = root
+
+    def rootObject(self) -> _RemoteRoot:
+        return self._root
+
+
 class PreviewPanel(QWidget):
-    """The turnable view of one ``.glb`` and a line saying what is shown."""
+    """The turnable view of one model and a line saying what is shown.
+
+    The view runs in a process of its own (:mod:`view_host`), started the first time a model is shown, and its
+    window is shown inside this one: Qt Quick 3D reads a model on the thread that renders it, in one go, and a large
+    one held the whole window for seconds.  What is read before the view is given a file (its display copy and box)
+    is read on a thread (:func:`background`); a result for a file no longer asked for is dropped.
+    """
 
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.view = QQuickWidget()
-        self.view.setResizeMode(QQuickWidget.SizeRootObjectToView)
-        self.view.setSource(QUrl.fromLocalFile(str(QML)))
-        self.view.setMinimumSize(200, 200)
-        layout.addWidget(self.view, 1)
+        self.root = _RemoteRoot(self)
+        self.view = _HostedView(self.root)
+        #: stands where the view's window goes until its process has given it
+        self.placeholder = QLabel(self.root.property("hint"))
+        self.placeholder.setAlignment(Qt.AlignCenter)
+        self.placeholder.setObjectName("muted")
+        self.placeholder.setWordWrap(True)
+        self.placeholder.setMinimumSize(200, 200)
+        self.placeholder.setStyleSheet("background: #1e2129;")
+        layout.addWidget(self.placeholder, 1)
+        self.container: QWidget | None = None
+        self.host: QProcess | None = None
+        self._host_lines = b""
+        self._asked = 0
         from .stepbar import StepBar
         # the conversion a preview waits for (the file's own load is the view's bar)
         self.steps = StepBar()
@@ -479,42 +555,101 @@ class PreviewPanel(QWidget):
         self.caption.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         layout.addWidget(self.caption)
 
+    # -- the view's process -----------------------------------------------------------------------------------
+    def _ensure_host(self) -> None:
+        if self.host is not None:
+            return
+        from . import jobs
+        self.host = QProcess(self)
+        self.host.setProcessChannelMode(QProcess.SeparateChannels)
+        self.host.readyReadStandardOutput.connect(self._host_output)
+        self.host.finished.connect(self._host_ended)
+        program, *arguments = jobs.view_host_command()
+        self.host.start(program, arguments)
+        # a view started anew (its process ended) takes up where the last one was
+        for name, value in self.root.values.items():
+            self._write({"op": "set", "name": name, "value": encode(value)})
+
+    def _write(self, command: dict) -> None:
+        if self.host is not None:
+            self.host.write((json.dumps(command) + "\n").encode("utf-8"))
+
+    def _send(self, command: dict) -> None:
+        self.root.sent.append(command)
+        self._write(command)
+
+    def _host_output(self) -> None:
+        self._host_lines += bytes(self.host.readAllStandardOutput())
+        *lines, self._host_lines = self._host_lines.split(b"\n")
+        for raw in lines:
+            kind, _, text = raw.decode("utf-8", "replace").strip().partition(" ")
+            if kind == "WINID" and self.container is None:
+                window = QWindow.fromWinId(int(text))
+                self.container = QWidget.createWindowContainer(window, self)
+                self.container.setMinimumSize(200, 200)
+                self.layout().replaceWidget(self.placeholder, self.container)
+                self.placeholder.hide()
+                self._write({"op": "show"})
+            elif kind == "ERROR":
+                self.placeholder.setText(text)
+
+    def _host_ended(self, *_status) -> None:
+        if self.container is not None:
+            self.layout().replaceWidget(self.container, self.placeholder)
+            self.container.deleteLater()
+            self.container = None
+        self.placeholder.show()
+        self.host = None
+
+    # -- what is shown -----------------------------------------------------------------------------------------
     def apply_texts(self) -> None:
         """The view's own texts (the hint, loading, a load error) in the chosen language."""
         from .i18n import tr
-        root = self.view.rootObject()
-        if root is not None:
-            root.setProperty("loadingText", tr("載入中…"))
-            root.setProperty("errorText", tr("讀不進這個檔案："))
-            hint = root.property("hintSource") or root.property("hint")
-            root.setProperty("hintSource", hint)
-            root.setProperty("hint", tr(hint))
+        root = self.root
+        root.setProperty("loadingText", tr("載入中…"))
+        root.setProperty("errorText", tr("讀不進這個檔案："))
+        hint = root.property("hintSource") or root.property("hint")
+        root.setProperty("hintSource", hint)
+        root.setProperty("hint", tr(hint))
 
     def show_file(self, path: Path, caption: str) -> None:
-        self.current = Path(path)
-        root = self.view.rootObject()
-        if root is not None:
-            # what a viewer honouring hidden parts shows, framed before it is given: the view looks at
-            # the box of the parts it draws as soon as the load is done
-            shown = shown_copy(path)
-            box = model_bounds(shown)
-            root.setProperty("framed", box is not None)
-            if box is not None:
-                root.setProperty("frameLow", QVector3D(*box[0]))
-                root.setProperty("frameHigh", QVector3D(*box[1]))
-            root.setProperty("source", QUrl.fromLocalFile(str(shown)))
+        """*path* shown: its display copy and box read on a thread, then given to the view (framed by the box of
+        the parts it draws as soon as the load is done)."""
         from .i18n import tr
-        unmeasured = "" if root is None or box is not None else "\n" + tr("量不到這個檔案的大小，視角放在原點；用滾輪縮放")
-        # the file's name; its whole path on the caption's tooltip
+        self.current = Path(path)
+        self._asked += 1
+        asked = self._asked
+        self._ensure_host()
         named = caption if Path(path).name in caption else f"{caption}\n{Path(path).name}"
-        self.caption.setText(tr(f"{named}\n左鍵拖曳旋轉、右鍵平移、滾輪縮放") + unmeasured)
+        self.caption.setText(tr(f"{named}\n載入中…"))
         self.caption.setToolTip(str(path))
+
+        def prepare():
+            shown = shown_copy(path)
+            return shown, model_bounds(shown)
+
+        def ready(result, error) -> None:
+            if asked != self._asked:
+                return                                   # another file was asked for meanwhile
+            if error is not None:
+                self.caption.setText(tr(f"{named}\n讀不進這個檔案：") + str(error))
+                return
+            shown, box = result
+            self.root.setProperty("framed", box is not None)
+            if box is not None:
+                self.root.setProperty("frameLow", QVector3D(*box[0]))
+                self.root.setProperty("frameHigh", QVector3D(*box[1]))
+            self.root.setProperty("source", QUrl.fromLocalFile(str(shown)))
+            unmeasured = "" if box is not None else "\n" + tr("量不到這個檔案的大小，視角放在原點；用滾輪縮放")
+            self.caption.setText(tr(f"{named}\n左鍵拖曳旋轉、右鍵平移、滾輪縮放") + unmeasured)
+
+        background(self, prepare, ready)
 
     def show_message(self, text: str) -> None:
         self.current = None
+        self._asked += 1
         self.caption.setToolTip("")
-        root = self.view.rootObject()
-        if root is not None:
-            root.setProperty("source", QUrl())
+        if self.root.values.get("source"):
+            self.root.setProperty("source", QUrl())
         from .i18n import tr
         self.caption.setText(tr(text))

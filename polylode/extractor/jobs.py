@@ -77,6 +77,11 @@ def share_github_command(model: Path, activity: str = "") -> list[str]:
     return _start("--share-github", str(model), *([activity] if activity else []))
 
 
+def view_host_command() -> list[str]:
+    """The 3D view in a process of its own (``view_host.run``), its window shown in the program's."""
+    return _start("--view-host")
+
+
 def keys_command(settings_file: Path, public: bool = False) -> list[str]:
     return _start("--download-wuwa-keys" if public else "--discover-wuwa-keys", str(settings_file))
 

@@ -358,16 +358,16 @@ def test_a_preview_is_a_glb_only_job_shown_in_the_panel_and_kept_for_next_time(t
     page.table.setCurrentIndex(page.proxy.index(0, 0))
     page.preview()
     assert page.preview_process.waitForFinished(30000)
-    for _ in range(20):
-        QApplication.processEvents()
-    assert asked["formats"] == ["glb"] and "blender" not in asked["settings"]["tools"]       # no Blender read-back
     root = page.preview_panel.view.rootObject()
+    _until(lambda: root.property("source"))
+    assert asked["formats"] == ["glb"] and "blender" not in asked["settings"]["tools"]       # no Blender read-back
     shown = Path(root.property("source").toLocalFile())
     assert shown.name == "x.glb" and shown.is_relative_to(tmp_path)
     assert PV.cached(page.models[0]) == shown
     monkeypatch.setattr(A.jobs, "command", lambda job: (_ for _ in ()).throw(AssertionError("converted again")))
     root.setProperty("source", QUrl())
     page.preview()                                                    # from the cache: no second job
+    _until(lambda: root.property("source").toLocalFile())
     assert Path(root.property("source").toLocalFile()) == shown
     window.close()
 
@@ -425,18 +425,76 @@ def test_the_viewer_lists_the_outputs_shows_a_file_and_says_what_it_holds(tmp_pa
     page = window.viewer_page
     assert window.nav.item(window.pages.indexOf(page)).text() == "模型檢視器"
     page.refresh()
+    _until(lambda: page.files.count() and page.files.item(0).data(A.Qt.UserRole))           # listed on a thread
     assert [page.files.item(i).text() for i in range(page.files.count())] == [str(Path("gf2/x/x.glb"))]
     page.show_file(glb)
     root = page.panel.view.rootObject()
+    _until(lambda: root.property("source"))                                                 # read on a thread
     assert Path(root.property("source").toLocalFile()) == glb and "頂點 3" in page.info.toPlainText()
     page.wireframe.setChecked(True)
     page.light.setValue(250)
     page._toggle_backdrop()
     assert root.property("wireframe") is True and abs(root.property("light") - 2.5) < 1e-9
-    assert root.property("backdrop").name() == "#e9ecf2"
+    assert root.property("backdrop") == "#e9ecf2"
     page.look(180, 0)
-    assert root.findChild(object, "origin").property("eulerRotation").y() == 180
+    assert root.sent[-1] == {"op": "look", "yaw": 180.0, "pitch": 0.0}                    # sent to the view's process
+    assert {"op": "set", "name": "backdrop", "value": "#e9ecf2"} in root.sent
     window.close()
+
+
+def _until(ready, seconds: float = 30.0):
+    """Events handled until *ready*() holds: what a background step hands back arrives through them."""
+    import time
+    from PySide6.QtWidgets import QApplication
+    end = time.monotonic() + seconds
+    while not ready():
+        assert time.monotonic() < end, "never ready"
+        QApplication.processEvents()
+        time.sleep(0.01)
+
+
+def test_the_view_process_applies_what_the_window_sends(tmp_path, monkeypatch):
+    """The 3D view runs in a process of its own: a model's load there holds nothing of the window's."""
+    import json
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import QProcess, QUrl
+    from PySide6.QtGui import QColor, QGuiApplication, QVector3D
+    from polylode.extractor import jobs, preview as PV, view_host as H
+    QGuiApplication.instance() or QGuiApplication([])
+    glb = PV.triangle_glb(tmp_path / "x.glb")
+
+    class Root:
+        def __init__(self):
+            self.set, self.looked = {}, []
+
+        def setProperty(self, name, value):
+            self.set[name] = value
+
+        def look(self, yaw, pitch):
+            self.looked.append((yaw, pitch))
+    root = Root()
+    shown = []
+    for value in (QUrl.fromLocalFile(str(glb)), QVector3D(1, 2, 3), True, 2.5):
+        line = json.dumps({"op": "set", "name": "x", "value": H.encode(value)})
+        shown.append(H.decode(json.loads(line)["value"]))
+    assert shown == [QUrl.fromLocalFile(str(glb)), QVector3D(1, 2, 3), True, 2.5]
+    assert H.encode(QColor("#e9ecf2")) == "#ffe9ecf2"
+    H.apply(root, None, json.dumps({"op": "set", "name": "source", "value": H.encode(QUrl.fromLocalFile(str(glb)))}))
+    H.apply(root, None, json.dumps({"op": "look", "yaw": 180, "pitch": 0}))
+    for junk in ("not a command", "[1]", "{}"):
+        H.apply(root, None, junk)
+    assert root.set == {"source": QUrl.fromLocalFile(str(glb))} and root.looked == [(180.0, 0.0)]
+    # the process itself: it gives its window and ends with its input
+    host = QProcess()
+    program, *arguments = jobs.view_host_command()
+    host.start(program, arguments)
+    assert host.waitForStarted(30000)
+    said = b""
+    while b"\n" not in said and host.waitForReadyRead(60000):
+        said += bytes(host.readAllStandardOutput())
+    assert said.startswith(b"WINID "), said + bytes(host.readAllStandardError())
+    host.closeWriteChannel()
+    assert host.waitForFinished(30000) and host.exitCode() == 0
 
 
 def test_the_window_fits_a_small_screen(tmp_path, monkeypatch):
@@ -511,6 +569,7 @@ def test_the_viewer_deletes_a_listed_model_and_what_was_exported_with_it(tmp_pat
     window = A.Window()
     page = window.viewer_page
     page.refresh()
+    _until(lambda: page.files.count() and page.files.item(0).data(A.Qt.UserRole))           # listed on a thread
     row = next(i for i in range(page.files.count()) if page.files.item(i).text().endswith("x.glb"))
     page.files.setCurrentRow(row)
     page.delete_selected()
@@ -520,6 +579,7 @@ def test_the_viewer_deletes_a_listed_model_and_what_was_exported_with_it(tmp_pat
     outside = triangle_glb(tmp_path / "elsewhere.glb")                       # opened, not listed: not deleted
     page.files.clear()
     page.show_file(outside)
+    _until(lambda: page.panel.current == outside)
     page.delete_selected()
     assert not thrown and outside.is_file()
     window.close()
