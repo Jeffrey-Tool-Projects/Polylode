@@ -141,7 +141,9 @@ en bucle del juego, decodificados de la instalación la primera vez, en medio mi
 **Pose** para cambiar entre ellas, y su tarjeta muestra la primera. **Settings → Poses** lo desactiva; las vistas previas
 nunca las incluyen. Un atuendo de Girls' Frontline 2 lleva
 las poses de espera en que se muestra fuera del combate (cuartel, vestuario, dormitorio, final: los clips en bucle); la
-primera exportación nombra una vez los clips del juego, unos minutos. Los personajes de Wuthering Waves aún no tienen.
+primera exportación nombra una vez los clips del juego, unos minutos. Un personaje de Wuthering Waves lleva las poses
+que sus pantallas repiten en bucle (`CommonAnim/UiAnim`: los clips de su propio esqueleto que terminan donde empiezan),
+decodificadas con el lector de esta versión (uno anterior las omite).
 
 ¿Ya tienes un sitio de Pages? Pon su clon local en **Settings → GitHub Pages site folder**: entonces compartir confirma allí
 y sube con Git.

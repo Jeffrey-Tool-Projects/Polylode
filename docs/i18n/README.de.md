@@ -146,7 +146,9 @@ geloopten `ui`-Clips, beim ersten Mal aus der Installation dekodiert, etwa eine 
 Menü **Pose** zum Wechseln, und ihre Karte zeigt die erste. **Settings → Poses** schaltet das ab; Vorschauen enthalten sie
 nie. Ein Outfit aus Girls' Frontline 2 enthält die
 Ruheposen, in denen es abseits des Kampfes gezeigt wird (Kaserne, Garderobe, Schlafzimmer, Abspann: die geloopten Clips);
-der erste Export benennt die Clips des Spiels einmal, ein paar Minuten. Figuren aus Wuthering Waves haben noch keine.
+der erste Export benennt die Clips des Spiels einmal, ein paar Minuten. Eine Figur aus Wuthering Waves enthält die Posen,
+die ihre Charakterbildschirme loopen (`CommonAnim/UiAnim`: die Clips auf ihrem eigenen Skelett, die enden, wo sie
+beginnen), dekodiert mit dem Lesegerät dieser Version (ein älteres lässt sie weg).
 
 Schon eine eigene Pages-Website? Trage ihren lokalen Klon unter **Settings → GitHub Pages site folder** ein: Teilen committet
 dann dort und pusht mit Git.

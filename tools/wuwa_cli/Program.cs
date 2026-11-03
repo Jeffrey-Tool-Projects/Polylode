@@ -7,7 +7,9 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using CUE4Parse.UE4.Assets.Exports.Engine;
 using CUE4Parse_Conversion;
+using CUE4Parse_Conversion.Animations;
 using CUE4Parse_Conversion.Options;
+using CUE4Parse.UE4.Assets.Exports.Animation;
 using CUE4Parse.UE4.Assets.Exports.Material;
 using Serilog;
 using CUE4Parse.UE4.Assets.Exports.Texture;
@@ -145,6 +147,68 @@ if (args[3] == "metadata")
         File.WriteAllText(Path.Combine(directory, "source_provenance.json"), JsonConvert.SerializeObject(sources, Formatting.Indented));
         Console.WriteLine($"METADATA_COMPLETED {ident} textures={records.Count}");
         GC.Collect();
+    }
+    return;
+}
+if (args[3] == "anim")
+{
+    // each AnimSequence package listed in args[4] as its skeleton bones' local transforms on every frame, sampled
+    // by CUE4Parse's own decoder (ConvertAnims, CAnimTrack.GetBoneTransform), in Unreal's space and units:
+    // <k>.json (the sequence, its skeleton, rate, frames, bone names, which bones have keys) and <k>.bin
+    // (float32 frames × bones × [qx qy qz qw px py pz sx sy sz]); a bone without keys holds the skeleton's ref pose
+    var listed = File.ReadAllLines(args[4]).Where(line => line.Trim().Length > 0).ToArray();
+    for (var k = 0; k < listed.Length; k++)
+    {
+        var package = listed[k].Trim();
+        var sequence = provider.LoadPackage(package).GetExports().OfType<UAnimSequence>().FirstOrDefault();
+        if (sequence == null) { Console.WriteLine($"ANIM_SKIPPED {package} no AnimSequence"); continue; }
+        var skeleton = sequence.Skeleton.Load<USkeleton>();
+        if (skeleton == null) { Console.WriteLine($"ANIM_SKIPPED {package} no skeleton"); continue; }
+        var reference = skeleton.ReferenceSkeleton;
+        var count = reference.FinalRefBoneInfo.Length;
+        if (sequence.CompressedDataStructure == null && sequence.SerializedBoneByteStream is { Length: > 0 } stream)
+        {
+            // a codec this parser cannot decode (the game's ACL one): its buffer as serialized, which track drives
+            // which skeleton bone, and the skeleton's ref pose for the bones no track drives; decoded by the caller
+            File.WriteAllBytes(Path.Combine(output, $"{k}.acl"), stream);
+            File.WriteAllText(Path.Combine(output, $"{k}.json"), JsonConvert.SerializeObject(new
+            {
+                package, name = sequence.Name, skeleton = skeleton.GetPathName(), codec = sequence.BoneCodecDDCHandle,
+                frames = sequence.NumFrames, length = sequence.SequenceLength, rate_scale = sequence.RateScale,
+                additive = sequence.AdditiveAnimType != EAdditiveAnimationType.AAT_None,
+                bones = reference.FinalRefBoneInfo.Select(info => info.Name.Text),
+                tracks = sequence.CompressedTrackToSkeletonMapTable.Select(map => map.BoneTreeIndex),
+                reference = reference.FinalRefBonePose.Select(rest => new[] { rest.Rotation.X, rest.Rotation.Y,
+                    rest.Rotation.Z, rest.Rotation.W, rest.Translation.X, rest.Translation.Y, rest.Translation.Z,
+                    rest.Scale3D.X, rest.Scale3D.Y, rest.Scale3D.Z })
+            }, Formatting.Indented));
+            Console.WriteLine($"ANIM_RAW {package} codec={sequence.BoneCodecDDCHandle} bytes={stream.Length}");
+            continue;
+        }
+        var converted = skeleton.ConvertAnims(sequence).Sequences[0];
+        var frames = Math.Max(converted.NumFrames, 1);
+        using (var bin = new BinaryWriter(File.Create(Path.Combine(output, $"{k}.bin"))))
+            for (var frame = 0; frame < frames; frame++)
+            for (var bone = 0; bone < count; bone++)
+            {
+                var rest = reference.FinalRefBonePose[bone];
+                var quat = rest.Rotation;
+                var position = rest.Translation;
+                var scale = rest.Scale3D;
+                if (bone < converted.Tracks.Count)
+                    converted.Tracks[bone].GetBoneTransform(frame, frames, ref quat, ref position, ref scale);
+                foreach (var value in new[] { quat.X, quat.Y, quat.Z, quat.W, position.X, position.Y, position.Z,
+                             scale.X, scale.Y, scale.Z })
+                    bin.Write(value);
+            }
+        File.WriteAllText(Path.Combine(output, $"{k}.json"), JsonConvert.SerializeObject(new
+        {
+            package, name = sequence.Name, skeleton = skeleton.GetPathName(), rate = converted.FramesPerSecond,
+            frames, additive = converted.IsAdditive,
+            bones = reference.FinalRefBoneInfo.Select(info => info.Name.Text),
+            keyed = Enumerable.Range(0, count).Select(bone => bone < converted.Tracks.Count && converted.Tracks[bone].HasKeys())
+        }, Formatting.Indented));
+        Console.WriteLine($"ANIM_WRITTEN {package} frames={frames} bones={count}");
     }
     return;
 }

@@ -145,7 +145,9 @@ boucle du jeu, décodés depuis l'installation la première fois, en une demi-mi
 pour passer de l'une à l'autre, et sa carte montre la première. **Settings → Poses** le désactive ; les aperçus ne les
 contiennent jamais. Une tenue de Girls' Frontline 2 porte
 les poses d'attente où elle est montrée hors combat (caserne, garde-robe, chambre, fin : les clips en boucle) ; le premier
-export nomme une fois les clips du jeu, quelques minutes. Les personnages de Wuthering Waves n'en ont pas encore.
+export nomme une fois les clips du jeu, quelques minutes. Un personnage de Wuthering Waves porte les
+poses que ses écrans jouent en boucle (`CommonAnim/UiAnim` : les clips sur son propre squelette qui finissent où ils
+commencent), décodées avec le lecteur de cette version (un lecteur plus ancien les omet).
 
 Vous avez déjà un site Pages ? Indiquez son clone local dans **Settings → GitHub Pages site folder** : le partage y commite
 alors et pousse avec Git.

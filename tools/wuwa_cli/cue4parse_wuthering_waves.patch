@@ -1,5 +1,26 @@
+diff --git a/CUE4Parse/UE4/Assets/Exports/Animation/UAnimSequence.cs b/CUE4Parse/UE4/Assets/Exports/Animation/UAnimSequence.cs
+index 18dd7717..c288c05b 100644
+--- a/CUE4Parse/UE4/Assets/Exports/Animation/UAnimSequence.cs
++++ b/CUE4Parse/UE4/Assets/Exports/Animation/UAnimSequence.cs
+@@ -31,6 +31,8 @@ public class UAnimSequence : UAnimSequenceBase
+         public string? BoneCodecDDCHandle;
+         public string? CurveCodecPath;
+         public byte[]? CompressedCurveByteStream;
++        // the bone stream as serialized, kept for a codec this parser does not know (Wuthering Waves' ACL one)
++        public byte[]? SerializedBoneByteStream;
+         public FRawCurveTracks? CompressedCurveData; // disappeared in 4.23
+         public ICompressedAnimData? CompressedDataStructure;
+         public int CompressedRawDataSize;
+@@ -320,6 +322,7 @@ private void SerializeCompressedData3(FAssetArchive Ar)
+             CompressedCurveNames = Ar.ReadArray(() => new FSmartName(Ar));
+ 
+             var serializedByteStream = ReadSerializedByteStream(Ar);
++            SerializedBoneByteStream = serializedByteStream;
+ 
+             BoneCodecDDCHandle = Ar.ReadFString();
+             CurveCodecPath = Ar.ReadFString();
 diff --git a/CUE4Parse/UE4/Assets/Exports/Material/MaterialResourceTypes.cs b/CUE4Parse/UE4/Assets/Exports/Material/MaterialResourceTypes.cs
-index fc6e1d8..ba7f58a 100644
+index fc6e1d8a..ba7f58a5 100644
 --- a/CUE4Parse/UE4/Assets/Exports/Material/MaterialResourceTypes.cs
 +++ b/CUE4Parse/UE4/Assets/Exports/Material/MaterialResourceTypes.cs
 @@ -887,6 +887,7 @@ public class FMemoryImageMaterialParameterInfo

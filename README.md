@@ -145,7 +145,9 @@ as a card with the model's picture. Nothing else needs installing: no Git, no cl
 switch between them, and its card shows the first one. **Settings → Poses** turns this off; previews never include
 them. A Girls' Frontline 2 outfit carries the idles
 it is shown in off the battlefield (barracks, wardrobe, bedroom, ending: the clips the game loops); the first export
-names the game's clips once, a few minutes. Wuthering Waves characters carry none yet.
+names the game's clips once, a few minutes. A Wuthering Waves character carries the
+poses its character screens loop (`CommonAnim/UiAnim`: the clips on its own skeleton that end where they start),
+decoded with the reader built from this version (an older reader leaves them out).
 
 Already have a Pages site? Set **Settings → GitHub Pages site folder** to its local clone: sharing then commits there
 and pushes with Git instead.

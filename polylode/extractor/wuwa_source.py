@@ -247,6 +247,9 @@ class WuwaSource:
         log(f"可玩角色的顯示模型 {len(models)} 個")
         return models
 
+    def _poses(self, settings, package: str, case: Path, folder: Path, log: Log) -> int:
+        return _poses_of(settings, package, case, folder, log)
+
     def export(self, model: Model, settings, output: Path, formats: list[str], log: Log) -> list[Path]:
         """Dump each part with the reader, assemble the display model, have Blender build and read it back."""
         from ..wuthering_waves.source_scene import assemble
@@ -288,6 +291,9 @@ class WuwaSource:
         from ..wuthering_waves.fur_shells import apply as fur_layers
         progress.step("把毛髮視差做成毛絲層")
         fur_layers(case, log)
+        if settings.poses and "glb" in formats:
+            progress.step("寫入姿勢")
+            self._poses(settings, row["parts"][0]["package"], case, sources / f"{model.ident}.anim", log)
         written = []
         if "blend" in formats:
             log(f"以 Blender 建 .blend 並讀回 {model.ident}（每個模型幾分鐘）…")
@@ -296,6 +302,55 @@ class WuwaSource:
                 blender_run(blender, mode, case, model.ident)
             written.append(Path(shutil.copy2(case / f"{model.ident}.blend", output / f"{model.ident}.blend")))
         return written + write_own(formats, case / "source_document.json", output, model.ident, blender, log)
+
+
+def _poses_of(settings, package: str, case: Path, folder: Path, log: Log) -> int:
+    """The model's display poses (``wuthering_waves.poses``) decoded by the reader and added to *case*; a reader
+    without the ``anim`` mode (one built before it) leaves them out and says so, the export goes on."""
+    from ..wuthering_waves import poses
+    ui = poses.ui_folder(package)
+    if not ui:
+        return 0
+    listed = [line[:-len(".uasset")] for line in archive_index(settings, log).read_text(encoding="utf-8").splitlines()
+              if line.startswith(ui) and line.endswith(".uasset") and "/" not in line[len(ui):]]
+    if not listed:
+        return 0
+    shutil.rmtree(folder, ignore_errors=True)
+    folder.mkdir(parents=True)
+    (folder / "list.txt").write_text("\n".join(listed) + "\n", encoding="utf-8")
+    try:
+        _reader(settings, "anim", folder, str(folder / "list.txt"), log)
+    except ExtractorError as failure:
+        if "Unknown mode" in str(failure):
+            log("讀取器沒有解碼動作的功能（舊版），這次不寫姿勢")
+            return 0
+        raise
+    decoder = None
+    if any(folder.glob("*.acl")):
+        # the game's ACL buffers, decoded with the library the bundled AnimeStudio carries (endfield.acl)
+        from ..endfield import acl
+        from . import bundled
+        from .endfield_source import EXPORTER
+        try:
+            decoder = acl.Decoder(require(settings, EXPORTER, bundled.animestudio()))
+        except (acl.AclError, ExtractorError) as missing:
+            log(f"沒有解碼動作用的 ACL 程式庫（{missing}），這次不寫姿勢")
+            return 0
+    records = [poses.read(folder, k, decoder) for k in range(len(listed)) if (folder / f"{k}.json").is_file()]
+    return poses.add(case, records, package, log)
+
+
+def archive_index(settings, log: Log) -> Path:
+    """Every file in the install's archives (the reader's ``index``), listed once per version of the archives."""
+    from ..wuthering_waves import extract
+    root = config_root().parent / "index"
+    stamp = json.dumps(extract.install_stamp(require(settings, INSTALL)))
+    marker, listing = root / "install.json", root / "files.txt"
+    if not (listing.is_file() and marker.is_file() and marker.read_text(encoding="utf-8") == stamp):
+        shutil.rmtree(root, ignore_errors=True)
+        _reader(settings, "index", root, None, log)
+        marker.write_text(stamp, encoding="utf-8")
+    return listing
 
 
 class GameFiles:

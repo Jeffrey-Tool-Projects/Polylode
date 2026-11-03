@@ -9,6 +9,8 @@ Polylode reads a Wuthering Waves install through this small .NET 10 program (`po
     wuwa.exe <install> <keys.json> <output> blueprints <scope.json>
     wuwa.exe <install> <keys.json> <output> mesh <package>        # one skeletal mesh, its materials and textures
     wuwa.exe <install> <keys.json> <output> metadata <scope.json> # each exported texture's colour space
+    wuwa.exe <install> <keys.json> <output> anim <list.txt>       # each listed AnimSequence: <k>.json with <k>.acl
+                                                                  # (its ACL bone stream as serialized) or <k>.bin
 
 `<keys.json>` holds `mainKey` and `dynamicKeys` (`[{guid, key}]`) for your client version.
 
@@ -20,7 +22,9 @@ The CI and Release workflows build it on every push (`.github/workflows`); to bu
    `2a159ad0702120db30fdd85c1219dff78e5204b8` into `tools/wuwa_cli/CUE4Parse`, with its submodules.
 2. `tools/wuwa_cli/build.ps1 -CUE4Parse tools/wuwa_cli/CUE4Parse -Output tools/WuwaReader` (the .NET 10 SDK
    on `PATH`). It applies `cue4parse_wuthering_waves.patch` (this game's material parameter records carry a
-   4-byte flags field and do not pad scalar parameters to 8 bytes), builds, copies `Detex.dll` out of CUE4Parse and puts its licence
+   4-byte flags field and do not pad scalar parameters to 8 bytes; and an animation's bone stream is kept as
+   serialized, for this game's ACL codec, which CUE4Parse decodes only through its CMake-built native library —
+   Polylode decodes it with the ACL library AnimeStudio carries), builds, copies `Detex.dll` out of CUE4Parse and puts its licence
    beside `wuwa.exe`; `build.py` copies that folder into the program.
 
 CUE4Parse fetches its Oodle and zlib-ng libraries on first use, into the folder the reader runs in

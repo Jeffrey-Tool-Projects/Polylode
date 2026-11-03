@@ -1,0 +1,74 @@
+"""A Wuthering Waves character's display poses from the reader's decoded sequences (``wuthering_waves/poses``)."""
+import json
+
+import numpy as np
+from scipy.spatial.transform import Rotation
+
+from polylode.wuthering_waves import poses as W
+
+
+def test_a_held_wuwa_pose_ends_where_it_starts_on_the_models_own_skeleton():
+    package = "Client/Content/Aki/Character/Role/FemaleXL/Xin/R2T1XinMd10011/Model/R2T1XinMd10011.uasset"
+    assert W.ui_folder(package) == "Client/Content/Aki/Character/Role/FemaleXL/Xin/CommonAnim/UiAnim/"
+    rest = np.array([0, 0, 0, 1, 0, 0, 10, 1, 1, 1], dtype=np.float64)
+    loop = np.stack([rest, rest + [0, 0, 0, 0, 0, 0, 3, 0, 0, 0], rest])[:, None, :]
+    start = np.stack([rest, rest + [0, 0, 0, 0, 0, 0, 3, 0, 0, 0]])[:, None, :]
+    own = {"bones": ["Hips"], "keyed": [True], "additive": False,
+           "skeleton": "Client/Content/Aki/Character/Role/FemaleXL/Xin/R2T1XinMd10011/Model/R2T1XinMd10011_Skeleton"}
+    other = dict(own, skeleton="Client/Content/Aki/Character/Role/FemaleXL/BaiLian/R2T1BaiLianMd10011/Model/S")
+    picked = W.chosen([(own, loop), (own, start), (other, loop), (dict(own, additive=True), loop)], package)
+    assert len(picked) == 1 and picked[0][1] is loop
+
+
+def test_a_wuwa_frame_is_made_as_the_cases_rest_is(tmp_path):
+    # one bone 1 m up (Unreal: 100 cm on Z), turned 90° about Z; its own keys give the case's rest back
+    rest_q = Rotation.from_euler("z", 90, degrees=True).as_quat()
+    record = {"bones": ["Hips"], "keyed": [True]}
+    native = np.eye(4)
+    native[:3, :3] = W.C @ Rotation.from_quat(rest_q).as_matrix() @ W.C.T
+    native[:3, 3] = [0, 0, 1]
+    values = np.array([[[*rest_q, 0, 0, 100, 1, 1, 1]]])
+    frames = W.frames(record, values, [{"name": "Hips", "parent": -1}], native[None])
+    assert np.allclose(frames[0, 0], native, atol=1e-6)
+    # a second bone the clip does not key keeps its native local under the moved parent
+    child = native @ np.array([[1, 0, 0, 0], [0, 1, 0, .2], [0, 0, 1, 0], [0, 0, 0, 1.]])
+    moved = np.array([[[*rest_q, 0, 0, 150, 1, 1, 1]]])
+    frames = W.frames(record, moved, [{"name": "Hips", "parent": -1}, {"name": "Spine", "parent": 0}],
+                      np.stack([native, child]))
+    assert np.allclose(frames[0, 1, :3, 3], child[:3, 3] + [0, 0, .5], atol=1e-6)
+
+
+def test_the_readers_frames_are_read_back_as_written(tmp_path):
+    record = {"name": "Ui_Weapon_Loop", "bones": ["A", "B"], "keyed": [True, False], "frames": 3}
+    (tmp_path / "0.json").write_text(json.dumps(record), encoding="utf-8")
+    values = np.arange(3 * 2 * 10, dtype="<f4")
+    values.tofile(tmp_path / "0.bin")
+    back, frames = W.read(tmp_path, 0)
+    assert back["name"] == "Ui_Weapon_Loop" and frames.shape == (3, 2, 10) and frames[2, 1, 9] == values[-1]
+
+
+def test_an_acl_buffer_is_decoded_onto_the_bones_its_tracks_drive(tmp_path):
+    import struct
+    from polylode.endfield import acl
+    # a compressed_tracks header: 2 tracks, 3 samples at 30 a second (the rest of the buffer is the decoder's)
+    header = struct.pack("<IIIHBBIIf", 64, 0, acl.TAG, 10, 0, 0, 2, 3, 30.0)
+    (tmp_path / "0.acl").write_bytes(header + bytes(32))
+    reference = [[0, 0, 0, 1, 1, 2, 3, 1, 1, 1], [0, 0, 0, 1, 4, 5, 6, 1, 1, 1], [0, 0, 0, 1, 7, 8, 9, 1, 1, 1]]
+    record = {"name": "Ui_Weapon_Loop", "bones": ["Root", "Hips", "Spine"], "tracks": [2, 0], "reference": reference,
+              "rate_scale": 1.0}
+    (tmp_path / "0.json").write_text(json.dumps(record), encoding="utf-8")
+
+    class Decoder:
+        def decode(self, buffer, width):
+            assert width == acl.TRANSFORM
+            values = np.zeros((3, 2, 10), dtype=np.float32)
+            values[..., 3] = 1
+            values[:, 0, 4:7] = [[10, 0, 0], [11, 0, 0], [12, 0, 0]]          # track 0 drives Spine
+            values[:, 1, 4:7] = [20, 0, 0]                                     # track 1 drives Root
+            values[..., 7:] = 1
+            return values
+
+    back, frames = W.read(tmp_path, 0, Decoder())
+    assert back["frames"] == 3 and back["rate"] == 30.0 and back["keyed"] == [True, False, True]
+    assert np.allclose(frames[:, 2, 4], [10, 11, 12]) and np.allclose(frames[:, 0, 4], 20)
+    assert np.allclose(frames[:, 1, 4:7], [4, 5, 6])                           # Hips: no track, its ref pose

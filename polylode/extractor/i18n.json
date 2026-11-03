@@ -1835,10 +1835,16 @@
   "ja": "リーダーがモーションをデコードできません（旧版）。今回はポーズを書き込みません",
   "ko": "리더가 동작을 디코딩하지 못합니다(구버전). 이번에는 포즈를 쓰지 않습니다"
  },
- "角色有姿勢時一起寫進 .glb（終末地與少女前線 2；分享的網頁可以切換）": {
-  "en": "Write a character's poses into the .glb when it has them (Endfield, Girls' Frontline 2; the shared page switches between them)",
-  "zh-CN": "角色有姿势时一起写进 .glb（终末地与少女前线 2；分享的网页可以切换）",
-  "ja": "キャラクターにポーズがあれば .glb に書き込む（終末地・ドールズフロントライン2。共有ページで切り替え可能）",
-  "ko": "캐릭터에 포즈가 있으면 .glb에 함께 쓰기(종말지, 소녀전선 2; 공유 페이지에서 전환 가능)"
+ "角色有姿勢時一起寫進 .glb（終末地、少女前線 2、鳴潮；分享的網頁可以切換）": {
+  "en": "Write a character's poses into the .glb when it has them (Endfield, Girls' Frontline 2, Wuthering Waves; the shared page switches between them)",
+  "zh-CN": "角色有姿势时一起写进 .glb（终末地、少女前线 2、鸣潮；分享的网页可以切换）",
+  "ja": "キャラクターにポーズがあれば .glb に書き込む（終末地・ドールズフロントライン2・鳴潮。共有ページで切り替え可能）",
+  "ko": "캐릭터에 포즈가 있으면 .glb에 함께 쓰기(종말지, 소녀전선 2, 명조; 공유 페이지에서 전환 가능)"
+ },
+ "沒有解碼動作用的 ACL 程式庫（{0}），這次不寫姿勢": {
+  "en": "No ACL library to decode the animations ({0}); no poses this time",
+  "zh-CN": "没有解码动作用的 ACL 程序库（{0}），这次不写姿势",
+  "ja": "モーションをデコードする ACL ライブラリがありません（{0}）。今回はポーズを書き込みません",
+  "ko": "동작을 디코딩할 ACL 라이브러리가 없습니다({0}). 이번에는 포즈를 쓰지 않습니다"
  }
 }
