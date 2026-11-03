@@ -66,6 +66,29 @@ def scan_command(source: str, settings_file: Path) -> list[str]:
     return _start("--scan", source, str(settings_file))
 
 
+
+def keys_command(settings_file: Path) -> list[str]:
+    return _start("--discover-wuwa-keys", str(settings_file))
+
+
+def run_keys(settings_file: Path) -> int:
+    from ..core.paths import _platform_user_root
+    from ..wuthering_waves.keys import discover_keys
+    from . import bundled, wuwa_source as W
+    from .sources import require
+    try:
+        settings = S.load(Path(settings_file))
+        output = discover_keys(require(settings, W.INSTALL),
+                               require(settings, W.READER, bundled.wuwa_reader() or W.find_reader()),
+                               require(settings, W.DOTNET, bundled.dotnet() or W.find_dotnet()),
+                               _platform_user_root() / "wuwa_aes_key.json",
+                               lambda line: _emit("LOG", line))
+        _emit("OUTPUT", str(output))
+        return 0
+    except Exception as failure:
+        _emit("ERROR", str(failure))
+        return 1
+
 def run_scan(source_id: str, settings_file: Path) -> int:
     """Print the models *source_id*'s install has, one ``MODEL`` line each; 1 with ``ERROR`` when it cannot."""
     settings = S.load(Path(settings_file))

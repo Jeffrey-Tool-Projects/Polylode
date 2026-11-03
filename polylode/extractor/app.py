@@ -219,6 +219,11 @@ class SourcePage(QWidget):
         self.scan_button = QPushButton("掃描安裝")
         self.scan_button.clicked.connect(self.scan)
         top.addWidget(self.scan_button)
+        self.keys_button = None
+        if source.id == "wuwa":
+            self.keys_button = QPushButton(tr("自動取得 AES 金鑰"))
+            self.keys_button.clicked.connect(self.discover_keys)
+            top.addWidget(self.keys_button)
         layout.addLayout(top)
         self.status = QLabel("尚未掃描")
         self.status.setObjectName("muted")
@@ -298,13 +303,14 @@ class SourcePage(QWidget):
             self.window_.settings_page.set_path(spec.key, chosen)
         return True
 
-    def ask_tools(self) -> bool:
+    def ask_tools(self, skip_keys: bool = False) -> bool:
         """Before a scan, a preview or an export: each tool the source cannot convert without
         (``PathSpec.required``), when unset or gone, is the one the program carries, one already on this
         computer (``find_tool``), or asked for.  False when one was not given."""
         from . import bundled
         settings = self.window_.settings
-        for spec in (spec for spec in self.source.paths if spec.required and not spec.install):
+        for spec in (spec for spec in self.source.paths if spec.required and not spec.install
+                     and not (skip_keys and spec.key == "wuwa_keys")):
             current = settings.tool(spec.key)
             if current is not None and (current.is_dir() if spec.kind == "dir" else current.is_file()):
                 continue
@@ -367,7 +373,7 @@ class SourcePage(QWidget):
             QMessageBox.warning(self, tr(spec.label), tr(problem))
 
     def scan(self) -> None:
-        if self.process is not None:
+        if self.process is not None or self.preview_process is not None:
             return
         self.window_.settings_page._save()
         if not self.ask_install() or not self.ask_tools():
@@ -379,6 +385,8 @@ class SourcePage(QWidget):
         self.status.setText(tr("掃描中…"))
         self.scan_bar.start("掃描中")
         self.scan_button.setEnabled(False)
+        if self.keys_button is not None:
+            self.keys_button.setEnabled(False)
         self.process = QProcess(self)
         self.lines = Lines()
         self.process.setProcessChannelMode(QProcess.MergedChannels)
@@ -420,7 +428,63 @@ class SourcePage(QWidget):
         self.status.setText(tr(f"找到 {len(self.models)} 個可匯出的模型" if ok else "掃描失敗，見下方記錄"))
         self.scan_bar.stop()
         self.scan_button.setEnabled(True)
+        if self.keys_button is not None:
+            self.keys_button.setEnabled(True)
         self.process = None
+
+    def discover_keys(self) -> None:
+        if self.process is not None or self.preview_process is not None:
+            return
+        if not self.ask_install() or not self.ask_tools(skip_keys=True):
+            return
+        fd, name = tempfile.mkstemp(prefix="extractor_wuwa_keys_", suffix=".json")
+        import os
+        os.close(fd)
+        self.keys_settings_file = Path(name)
+        S.save(self.window_.settings, self.keys_settings_file)
+        self.keys_written = None
+        self.status.setText(tr("正在取得 AES 金鑰…"))
+        self.scan_button.setEnabled(False)
+        self.keys_button.setEnabled(False)
+        self.preview_button.setEnabled(False)
+        self.export_button.setEnabled(False)
+        self.process = QProcess(self)
+        self.lines = Lines()
+        self.process.setProcessChannelMode(QProcess.MergedChannels)
+        self.process.readyReadStandardOutput.connect(self._keys_output)
+        self.process.finished.connect(self._keys_done)
+        self.process.errorOccurred.connect(lambda _error: failed_start(self.process) and self._keys_done(-1, None))
+        program, *arguments = jobs.keys_command(self.keys_settings_file)
+        self.process.start(program, arguments)
+
+    def _keys_output(self) -> None:
+        self._keys_lines(self.lines.feed(self.process.readAllStandardOutput()))
+
+    def _keys_lines(self, lines: list[str]) -> None:
+        for line in lines:
+            kind, _, text = line.partition(" ")
+            if kind == "OUTPUT":
+                self.keys_written = Path(text)
+            else:
+                self.window_.log(f"[{self.source.label}] {text}")
+
+    def _keys_done(self, code: int, status) -> None:
+        if self.process is None:
+            return
+        self._keys_lines(self.lines.rest())
+        self.keys_settings_file.unlink(missing_ok=True)
+        from .wuwa_source import is_keys_file
+        ok = (code == 0 and status != QProcess.ExitStatus.CrashExit and self.keys_written is not None
+              and is_keys_file(self.keys_written))
+        if ok:
+            self.window_.settings_page.set_path("wuwa_keys", str(self.keys_written))
+            self.window_.settings_page._save()
+        elif code == -1:
+            self.window_.log(f"[{self.source.label}] {self.process.errorString()}")
+        self.status.setText(tr("AES 金鑰已取得" if ok else "取得 AES 金鑰失敗，見下方記錄"))
+        self.process = None
+        for button in (self.scan_button, self.keys_button, self.preview_button, self.export_button):
+            button.setEnabled(True)
 
     def _selected(self) -> Model | None:
         index = self.table.currentIndex()
@@ -446,7 +510,7 @@ class SourcePage(QWidget):
         if path is not None:
             self.preview_panel.show_file(path, f"{model.character}　{model.outfit}（之前的預覽）")
             return
-        if self.preview_process is not None:
+        if self.preview_process is not None or self.process is not None:
             return
         self.window_.settings_page._save()
         if not self.ask_tools():
@@ -507,6 +571,8 @@ class SourcePage(QWidget):
             item.setCheckState(state)
 
     def export(self) -> None:
+        if self.process is not None:
+            return
         chosen = [self.models[self.table_model.item(row, 0).data(Qt.UserRole)]
                   for row in range(self.table_model.rowCount())
                   if self.table_model.item(row, 0).checkState() == Qt.Checked]

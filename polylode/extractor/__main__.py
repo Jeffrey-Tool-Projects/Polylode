@@ -17,7 +17,7 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="strict")
     from .blender_files import load_source_modules
     load_source_modules()
-    if not argv or argv[0] not in ("--run-job", "--scan", "--selftest"):
+    if not argv or argv[0] not in ("--run-job", "--scan", "--selftest", "--discover-wuwa-keys"):
         from .migrate import from_islandlife
         from_islandlife(lambda _line: None)      # the window's first start: the old folder's data, once
     if len(argv) == 2 and argv[0] == "--run-job":
@@ -26,6 +26,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) == 3 and argv[0] == "--scan":
         from .jobs import run_scan
         return run_scan(argv[1], argv[2])
+    if len(argv) == 2 and argv[0] == "--discover-wuwa-keys":
+        from .jobs import run_keys
+        return run_keys(argv[1])
     if len(argv) == 2 and argv[0] == "--selftest":
         return selftest(argv[1])
     from .app import run
@@ -55,7 +58,7 @@ def selftest(path: str) -> int:
                  "polylode.endfield.hscope", "polylode.endfield.body_scope", "polylode.gf2.convert",
                  "polylode.gf2.bundles", "polylode.gf2.catalog", "polylode.gf2.selection",
                  "polylode.wuthering_waves.assembly", "polylode.wuthering_waves.source_scene",
-                 "polylode.wuthering_waves.extract", "polylode.converted.names", "polylode.converted.scope",
+                 "polylode.wuthering_waves.extract", "polylode.wuthering_waves.keys", "polylode.converted.names", "polylode.converted.scope",
                  "polylode.interchange.glb", "polylode.interchange.fbx",
                  "polylode.extractor.app"):
         try:

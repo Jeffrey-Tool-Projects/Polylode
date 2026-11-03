@@ -29,7 +29,7 @@ READER = PathSpec("wuwa_reader", "鳴潮讀取器（wuwa.exe 或 wuwa.dll）", "
 DOTNET = PathSpec("dotnet", ".NET 10 執行環境資料夾", "dir", "含 dotnet.exe 的資料夾；打包版留空用內建的",
                   required=True, bundled="dotnet")
 KEYS = PathSpec("wuwa_keys", "鳴潮 AES 金鑰檔", "file", "含 mainKey 與 dynamicKeys 的 JSON", required=True,
-                pasted=True, explain='鳴潮的遊戲檔是加密的，讀取需要你這個用戶端版本的 AES 金鑰（mainKey：0x 加 64 位十六進位數字）。程式不附帶金鑰，也不會從遊戲裡取出金鑰。\n\n你可以選擇你已有的金鑰檔（含 mainKey 與 dynamicKeys 的 JSON），或直接貼上金鑰字串，程式會替你存成金鑰檔。\n\n之後把金鑰檔放在 %LOCALAPPDATA%\\Polylode、程式旁、安裝資料夾、下載、文件或桌面，程式就會自動找到。遊戲更新後金鑰可能會變，到時換上新版本的金鑰即可。')
+                pasted=True, explain='鳴潮的遊戲檔是加密的，讀取需要你這個用戶端版本的 AES 金鑰（mainKey：0x 加 64 位十六進位數字）。程式不附帶金鑰。可以在鳴潮頁面按「自動取得 AES 金鑰」，從本機遊戲程式尋找並驗證；部分遊戲版本可能不支援。\n\n你可以選擇你已有的金鑰檔（含 mainKey 與 dynamicKeys 的 JSON），或直接貼上金鑰字串，程式會替你存成金鑰檔。\n\n之後把金鑰檔放在 %LOCALAPPDATA%\\Polylode、程式旁、安裝資料夾、下載、文件或桌面，程式就會自動找到。遊戲更新後金鑰可能會變，到時換上新版本的金鑰即可。')
 BLENDER = PathSpec("blender", "Blender 執行檔", "file")
 MODEL_TABLE_JSON = "model_config/package.json"
 
@@ -137,7 +137,7 @@ def paste_keys(text: str) -> Path:
 
 def find_keys(settings) -> Path | None:
     """A keys file the user already has (``is_keys_file``) in one of ``keys_places``, the files directly in
-    each; the newest when there are several.  The key itself is never derived from the game: it is the user's."""
+    each; the newest when there are several.  This search only finds existing files; automatic discovery is a separate action."""
     found = []
     for place in keys_places(settings):
         try:

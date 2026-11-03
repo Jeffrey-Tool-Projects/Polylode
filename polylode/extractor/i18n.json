@@ -1115,12 +1115,6 @@
   "ja": "{0}が見つかりました：{1}",
   "ko": "{0}을(를) 찾았습니다: {1}"
  },
- "鳴潮的遊戲檔是加密的，讀取需要你這個用戶端版本的 AES 金鑰（mainKey：0x 加 64 位十六進位數字）。程式不附帶金鑰，也不會從遊戲裡取出金鑰。\n\n你可以選擇你已有的金鑰檔（含 mainKey 與 dynamicKeys 的 JSON），或直接貼上金鑰字串，程式會替你存成金鑰檔。\n\n之後把金鑰檔放在 %LOCALAPPDATA%\\Polylode、程式旁、安裝資料夾、下載、文件或桌面，程式就會自動找到。遊戲更新後金鑰可能會變，到時換上新版本的金鑰即可。": {
-  "en": "Wuthering Waves' game files are encrypted: reading them needs the AES key of your client version (mainKey: 0x and 64 hexadecimal digits). The program carries no key and does not take one out of the game.\n\nChoose a keys file you already have (a JSON with mainKey and dynamicKeys), or paste the key itself and the program saves it as a keys file for you.\n\nA keys file in %LOCALAPPDATA%\\Polylode, beside the program, in the install folder, Downloads, Documents or Desktop is found by itself from then on. A game update may change the key: put the new version's key in then.",
-  "zh-CN": "鸣潮的游戏文件是加密的，读取需要你这个客户端版本的 AES 密钥（mainKey：0x 加 64 位十六进制数字）。程序不附带密钥，也不会从游戏里取出密钥。\n\n你可以选择你已有的密钥文件（含 mainKey 与 dynamicKeys 的 JSON），或直接粘贴密钥字符串，程序会替你存成密钥文件。\n\n之后把密钥文件放在 %LOCALAPPDATA%\\Polylode、程序旁、安装文件夹、下载、文档或桌面，程序就会自动找到。游戏更新后密钥可能会变，到时换上新版本的密钥即可。",
-  "ja": "鳴潮のゲームファイルは暗号化されており、読むにはお使いのクライアントバージョンの AES キー（mainKey：0x と 16 進数 64 桁）が必要です。プログラムはキーを同梱せず、ゲームから取り出すこともしません。\n\n手元のキーファイル（mainKey と dynamicKeys を含む JSON）を選ぶか、キーの文字列を貼り付けてください。貼り付けたキーはキーファイルとして保存します。\n\nキーファイルを %LOCALAPPDATA%\\Polylode、プログラムの横、インストールフォルダ、ダウンロード、ドキュメント、デスクトップに置けば、以後は自動で見つかります。ゲームの更新でキーが変わることがあり、その場合は新しいバージョンのキーに差し替えてください。",
-  "ko": "명조의 게임 파일은 암호화되어 있어 읽으려면 사용 중인 클라이언트 버전의 AES 키(mainKey: 0x와 16진수 64자리)가 필요합니다. 프로그램은 키를 포함하지 않으며 게임에서 꺼내지도 않습니다.\n\n가지고 있는 키 파일(mainKey와 dynamicKeys가 있는 JSON)을 고르거나 키 문자열을 붙여 넣으세요. 붙여 넣은 키는 키 파일로 저장합니다.\n\n키 파일을 %LOCALAPPDATA%\\Polylode, 프로그램 옆, 설치 폴더, 다운로드, 문서, 바탕 화면에 두면 이후 자동으로 찾습니다. 게임 업데이트로 키가 바뀔 수 있으니 그때는 새 버전의 키로 바꾸세요."
- },
  "選擇檔案…": {
   "en": "Choose a file…",
   "zh-CN": "选择文件…",
@@ -1162,5 +1156,35 @@
   "zh-CN": "这不是密钥文件：需要含 mainKey（0x 加 64 位十六进制）与 dynamicKeys 的 JSON",
   "ja": "キーファイルではありません：mainKey（0x と 16 進数 64 桁）と dynamicKeys を含む JSON が必要です",
   "ko": "키 파일이 아닙니다: mainKey(0x와 16진수 64자리)와 dynamicKeys가 있는 JSON이 필요합니다"
+ },
+ "自動取得 AES 金鑰": {
+  "en": "Discover AES keys",
+  "zh-CN": "自动获取 AES 密钥",
+  "ja": "AES キーを自動取得",
+  "ko": "AES 키 자동 가져오기"
+ },
+ "正在取得 AES 金鑰…": {
+  "en": "Discovering AES keys…",
+  "zh-CN": "正在获取 AES 密钥…",
+  "ja": "AES キーを取得中…",
+  "ko": "AES 키를 가져오는 중…"
+ },
+ "AES 金鑰已取得": {
+  "en": "AES keys discovered",
+  "zh-CN": "已获取 AES 密钥",
+  "ja": "AES キーを取得しました",
+  "ko": "AES 키를 가져왔습니다"
+ },
+ "取得 AES 金鑰失敗，見下方記錄": {
+  "en": "AES key discovery failed. See the log.",
+  "zh-CN": "获取 AES 密钥失败，请查看下方记录",
+  "ja": "AES キーの取得に失敗しました。ログを確認してください",
+  "ko": "AES 키를 가져오지 못했습니다. 로그를 확인하세요"
+ },
+ "鳴潮的遊戲檔是加密的，讀取需要你這個用戶端版本的 AES 金鑰（mainKey：0x 加 64 位十六進位數字）。程式不附帶金鑰。可以在鳴潮頁面按「自動取得 AES 金鑰」，從本機遊戲程式尋找並驗證；部分遊戲版本可能不支援。\n\n你可以選擇你已有的金鑰檔（含 mainKey 與 dynamicKeys 的 JSON），或直接貼上金鑰字串，程式會替你存成金鑰檔。\n\n之後把金鑰檔放在 %LOCALAPPDATA%\\Polylode、程式旁、安裝資料夾、下載、文件或桌面，程式就會自動找到。遊戲更新後金鑰可能會變，到時換上新版本的金鑰即可。": {
+  "en": "Game archives require AES keys for your client version. On the Wuthering Waves page, use Discover AES keys to search your local game files and verify candidates. Some versions may not be supported.\n\nYou may also select an existing JSON keys file or paste keys. Game updates may change the keys.",
+  "zh-CN": "游戏文件需要当前客户端版本的 AES 密钥。可在鸣潮页面点击“自动获取 AES 密钥”，从本地游戏程序寻找并验证；部分版本可能不受支持。\n\n也可选择已有的 JSON 密钥文件或粘贴密钥。游戏更新后密钥可能变化。",
+  "ja": "ゲームファイルには現在のクライアントの AES キーが必要です。鳴潮ページの「AES キーを自動取得」でローカルのゲームファイルを検索して検証できます。一部のバージョンは対応していない場合があります。\n\n既存の JSON ファイルを選択するか、キーを貼り付けることもできます。更新後にキーが変わる場合があります。",
+  "ko": "게임 파일에는 현재 클라이언트 버전의 AES 키가 필요합니다. 명조 페이지에서 AES 키 자동 가져오기를 눌러 로컬 게임 파일을 검색하고 검증할 수 있습니다. 일부 버전은 지원되지 않을 수 있습니다.\n\n기존 JSON 키 파일을 선택하거나 키를 붙여 넣을 수도 있습니다. 게임 업데이트 후 키가 바뀔 수 있습니다."
  }
 }
