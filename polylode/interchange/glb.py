@@ -194,7 +194,8 @@ def _material(name: str, record: dict, folder: Path, builder: _Builder, gltf: di
     if record.get("native_surface_unmapped"):
         material["pbrMetallicRoughness"]["baseColorFactor"] = [0.0, 0.0, 0.0, 0.0]
         material["alphaMode"] = "BLEND"
-    elif base is not None and native.get("BlendMode") == 1:
+    elif base is not None and native.get("BlendMode") == 1 and record.get("blend") is None \
+            and record.get("cutoff") is None:
         cutoff = native.get("Properties", {}).get("BasePropertyOverrides", {}).get("OpacityMaskClipValue")
         if cutoff is None:
             raise GlbError(f"{name}: a masked material with no cutoff")

@@ -1330,5 +1330,53 @@
   "zh-CN": "从第三方公开来源下载 AES 密钥？\n\n来源：{0}\n项目：https://github.com/yarik0chka/wuwa-keys\n保存位置：{1}\n\n程序将使用选定的本地游戏验证密钥；失败时保留原文件。",
   "ja": "第三者の公開ソースから AES キーをダウンロードしますか？\n\nソース：{0}\nプロジェクト：https://github.com/yarik0chka/wuwa-keys\n保存先：{1}\n\n選択したローカルゲームで検証し、失敗時は既存ファイルを保持します。",
   "ko": "제3자 공개 출처에서 AES 키를 다운로드할까요?\n\n출처: {0}\n프로젝트: https://github.com/yarik0chka/wuwa-keys\n저장 위치: {1}\n\n선택한 로컬 게임으로 키를 검증하며 실패하면 기존 파일을 보존합니다."
+ },
+ "以遊戲 shader 烘焙裁切覆蓋率": {
+  "en": "Baking cut-out coverage with the game's shader",
+  "zh-CN": "以游戏 shader 烘焙裁切覆盖率",
+  "ja": "ゲームのシェーダーで切り抜きのカバレッジを焼き込み中",
+  "ko": "게임 셰이더로 컷아웃 커버리지 굽는 중"
+ },
+ "{0}：以遊戲的 shader 烘焙覆蓋率（第一次要一兩分鐘）…": {
+  "en": "{0}: baking its coverage with the game's shader (a minute or two the first time)…",
+  "zh-CN": "{0}：以游戏的 shader 烘焙覆盖率（第一次要一两分钟）…",
+  "ja": "{0}：ゲームのシェーダーでカバレッジを焼き込み中（初回は 1〜2 分）…",
+  "ko": "{0}: 게임 셰이더로 커버리지 굽는 중(처음에는 1~2분)…"
+ },
+ "{0}：遊戲的 shader 無法在這裡執行（{1}），照材質宣告的裁切輸出": {
+  "en": "{0}: the game's shader cannot be run here ({1}); written cut as the material declares",
+  "zh-CN": "{0}：游戏的 shader 无法在这里执行（{1}），按材质声明的裁切输出",
+  "ja": "{0}：ゲームのシェーダーをここでは実行できません（{1}）。マテリアルの宣言どおりの切り抜きで書き出します",
+  "ko": "{0}: 게임 셰이더를 여기서 실행할 수 없어({1}) 재질이 선언한 컷아웃으로 씁니다"
+ },
+ "從安裝取出 shader 封存檔（第一次，約 1.2 GB）…": {
+  "en": "Copying the shader archive out of the install (once, about 1.2 GB)…",
+  "zh-CN": "从安装取出 shader 封存文件（第一次，约 1.2 GB）…",
+  "ja": "インストールからシェーダーアーカイブを取り出し中（初回のみ、約 1.2 GB）…",
+  "ko": "설치에서 셰이더 아카이브를 꺼내는 중(처음 한 번, 약 1.2GB)…"
+ },
+ "覆蓋率讀了執行期的光照或視角（{0}）": {
+  "en": "its coverage reads the frame's lighting or view ({0})",
+  "zh-CN": "覆盖率读了执行期的光照或视角（{0}）",
+  "ja": "カバレッジが実行時のライティングや視点を読んでいます（{0}）",
+  "ko": "커버리지가 실행 시 조명이나 시점을 읽습니다({0})"
+ },
+ "材質實例的套件裡沒有內嵌的 shader map": {
+  "en": "the instance's package carries no inline shader map",
+  "zh-CN": "材质实例的包里没有内嵌的 shader map",
+  "ja": "マテリアルインスタンスのパッケージにインラインのシェーダーマップがありません",
+  "ko": "재질 인스턴스 패키지에 내장 셰이더 맵이 없습니다"
+ },
+ "材質的 shader map 不在 SM5 封存檔裡": {
+  "en": "the material's shader map is not in the SM5 archive",
+  "zh-CN": "材质的 shader map 不在 SM5 封存文件里",
+  "ja": "マテリアルのシェーダーマップが SM5 アーカイブにありません",
+  "ko": "재질의 셰이더 맵이 SM5 아카이브에 없습니다"
+ },
+ "找不到會丟棄像素的陰影深度 shader": {
+  "en": "no shadow-depth shader that discards",
+  "zh-CN": "找不到会丢弃像素的阴影深度 shader",
+  "ja": "ピクセルを破棄するシャドウ深度シェーダーがありません",
+  "ko": "픽셀을 버리는 그림자 깊이 셰이더가 없습니다"
  }
 }

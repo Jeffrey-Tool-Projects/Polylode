@@ -51,3 +51,24 @@
   PyOpenGL 的 Cython 加速模組不收（編進去會 `KeyError: '__reduce_cython__'`）。結果 `dist/ModelExtractor/`：exe 80 MB、整個資料夾 245 MB、664 個檔。
 - Blender 用的原始檔：建置把 `polylode/` 與 `tools/` 裡的 Blender 腳本（`blender_files.REQUIRED`）原樣複製到程式旁邊，
   因為 Blender 以 `.py` 執行 worker、GF2 匯出也用它們的位元組簽章；之後跑 `--selftest`。`--check-only` 只做複製與自檢。
+
+## 鳴潮的裁切材質：執行遊戲自己的 shader 烘焙覆蓋率（`wuthering_waves/shader_bake.py`、`shaders/`）
+
+鳴潮的裁切材質（`BlendMode` 1）透明度不一定是底色圖的 alpha。例如「心」的狐狸尾巴用毛髮 shader，透明度來自 `TypeMask`.R、
+`Fur_Tex`.R（第二組 UV）、頂點色、螢幕空間抖動，有的組合甚至用受光顏色的亮度。每種靜態開關組合的編譯結果都不同，所以不寫成規則，
+而是直接執行遊戲編譯好的 shader：
+
+1. **shader map**：材質實例的 `.uexp` 嵌有自己的 shader map（凍結記憶體映像）。`shaders/inline.py` 從名稱表、修補表找出 uniform expression
+   set（向量／純量 preshader、參數、2D 貼圖參數、preshader 位元組碼，在凍結內容裡首尾相接）。CUE4Parse 的傾印裡這些是空的。
+2. **uniform buffer**：`shaders/preshader.py` 依 UE 4.26 的 `EMaterialPreshaderOpcode` 執行 preshader，用實例自己的參數值填出 Material
+   uniform buffer（前面是向量，後面每 4 個純量一格）。遇到沒讀過的指令就報錯。
+3. **shader 程式碼**：shader map 的雜湊對到 `ShaderArchive-Client_Chunk-PCD3D_SM5.ushaderbytecode`（`shaders/archive.py`；LZ4 壓縮）。
+   選陰影深度 pass 裡最小、有 `discard` 的像素 shader。`shaders/dxbc.py` 讀 UE 的資源表（暫存器 → uniform buffer 資源；材質第 i 張
+   2D 貼圖是資源 2i）、uniform buffer 名稱、輸入簽章，用 `d3dcompiler_47` 反組譯。
+4. **執行**：`shaders/vm.py` 直譯 `ps_5_0` 組合語言，所有點同時執行，暫存器存原始位元，分支與迴圈用遮罩。對底色圖每個被三角形
+   蓋到的像素，代入內插的 UV（UE 的 v 朝下）、頂點色、切線框架，從正面看（相機相對位置 −N、每點各自的視圖矩陣），在 10 個螢幕位置
+   （涵蓋 5 種抖動圖樣）上執行，沒被丟棄的比例就是 alpha。大多 0／1 的材質用 0.5 裁切，有部分覆蓋的用半透明。
+5. **執行期欄位的代表值**：`DiffuseOverrideParameter` (0,0,0,1)、primitive 行列式 1、濕度 0、mip 偏移與影格 0；材質參數集合用預設值。
+   視角相依與光照相依的效果取「正面、受光」。
+6. **快取與失敗**：遊戲檔（約 1.2 GB 的封存檔、材質套件、上層材質與參數集合的 JSON）第一次由讀取器取出，放在
+   `assets_cache/wuthering_waves/shaders`，依安裝狀態區分。烘焙結果依材質與網格快取。執行不了的材質照原本的裁切輸出，並在記錄說明原因。

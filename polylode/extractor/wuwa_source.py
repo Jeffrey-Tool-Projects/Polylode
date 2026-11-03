@@ -281,6 +281,9 @@ class WuwaSource:
             case = assemble(row, sources, root.parent / "cases")
         except ValueError as refusal:
             raise ExtractorError(f"{model.ident} 組合失敗：{refusal}") from None
+        # a masked material's coverage as the game's own shader gives it (shader_bake), for every format
+        from ..wuthering_waves.shader_bake import bake_case
+        bake_case(case, GameFiles(settings, log), log, progress.step)
         written = []
         if "blend" in formats:
             log(f"以 Blender 建 .blend 並讀回 {model.ident}（每個模型幾分鐘）…")
@@ -289,6 +292,72 @@ class WuwaSource:
                 blender_run(blender, mode, case, model.ident)
             written.append(Path(shutil.copy2(case / f"{model.ident}.blend", output / f"{model.ident}.blend")))
         return written + write_own(formats, case / "source_document.json", output, model.ident, blender, log)
+
+
+class GameFiles:
+    """The game's own files a shader bake reads (``shader_bake.bake_case``), copied out of the install once
+    and kept by the archives' stamp: the SM5 shader archive, material packages and their JSON."""
+
+    ARCHIVE = "Client/Content/ShaderArchive-Client_Chunk-PCD3D_SM5.ushaderbytecode"
+
+    def __init__(self, settings, log: Log):
+        from ..wuthering_waves import extract
+        self.settings, self.log = settings, log
+        self.root = config_root().parent / "shaders"
+        stamp = json.dumps(extract.install_stamp(require(settings, INSTALL)))
+        marker = self.root / "install.json"
+        if marker.is_file() and marker.read_text(encoding="utf-8") != stamp:
+            shutil.rmtree(self.root, ignore_errors=True)    # the game changed: its shaders may have
+        self.root.mkdir(parents=True, exist_ok=True)
+        marker.write_text(stamp, encoding="utf-8")
+        self.cache = self.root / "coverage"
+
+    def _raw(self, paths: list[str]) -> None:
+        listing = self.root / "raw_list.txt"
+        listing.write_text("\n".join(paths) + "\n", encoding="utf-8")
+        _reader(self.settings, "raw-list", self.root, str(listing), self.log)
+
+    def archive(self) -> Path:
+        path = self.root / self.ARCHIVE
+        if not path.is_file():
+            self.log("從安裝取出 shader 封存檔（第一次，約 1.2 GB）…")
+            self._raw([self.ARCHIVE])
+        return path
+
+    def package(self, package: str) -> bytes:
+        path = self.root / (package + ".uexp")
+        if not path.is_file():
+            self._raw([package + ".uasset", package + ".uexp"])
+        return path.read_bytes()
+
+    def json(self, package: str) -> dict:
+        path = self.root / "json" / (package + ".json")
+        if not path.is_file():
+            folder = self.root / "json_out"
+            shutil.rmtree(folder, ignore_errors=True)
+            _reader(self.settings, "json", folder, package + ".uasset", self.log)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(folder / "package.json"), path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        items = data if isinstance(data, list) else [data]
+        return next(e for e in items if isinstance(e, dict) and e.get("Type", "").startswith(("Material", "MaterialParameterCollection")))
+
+    def root_of(self, package: str):
+        """The root material's ``CachedExpressionData`` above *package*, and its parameter collections."""
+        for _ in range(16):
+            item = self.json(package)
+            if item.get("Type") == "Material":
+                data = item.get("CachedExpressionData") or item.get("Properties", {}).get("CachedExpressionData") or {}
+                collections = []
+                for info in data.get("ParameterCollectionInfos") or []:
+                    path = (info.get("ParameterCollection") or {}).get("ObjectPath", "").rsplit(".", 1)[0]
+                    collections.append(self.json(path).get("Properties", {}) if path else {})
+                return data, collections
+            parent = (item.get("Properties", {}).get("Parent") or {}).get("ObjectPath")
+            if not parent:
+                break
+            package = parent.rsplit(".", 1)[0]
+        raise ExtractorError(f"{package}: no root material above it")
 
 
 def blender_run(blender: Path, mode: str, case: Path, ident: str) -> None:

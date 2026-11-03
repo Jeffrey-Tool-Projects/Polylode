@@ -163,7 +163,7 @@ def build(case, ident, document, arrays):
             materials[name] = material
             continue
         images = [node for node in material.node_tree.nodes if node.type == "TEX_IMAGE"]
-        if images and source.get("BlendMode") == 1:
+        if images and source.get("BlendMode") == 1 and record.get("blend") is None and record.get("cutoff") is None:
             threshold = source["Properties"].get("BasePropertyOverrides", {}).get("OpacityMaskClipValue")
             if threshold is None:
                 raise ValueError(f"{name}: a masked material with no cutoff")
