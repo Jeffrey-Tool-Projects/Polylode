@@ -120,16 +120,27 @@ def _page(title: str, url: str) -> str:
 """
 
 
-def _index(site: Path, url: str) -> str:
-    """The site's front page: every model shared there, newest first."""
-    shared = []
+#: the site's list of what is shared on it, ``[{"name", "title", "shared"}]``: what the front page is made from,
+#: and all a share through the API needs to read back from the repository
+LIST = "models.json"
+
+
+def entries_in(site: Path) -> list[dict]:
+    """The models shared on the site cloned at *site*, from each one's ``model.json``."""
+    found = []
     for meta in (site / MODELS).glob("*/model.json"):
         try:
             data = json.loads(meta.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        shared.append((data.get("shared", ""), data.get("title", meta.parent.name), meta.parent.name))
-    shared.sort(reverse=True)
+        found.append({"name": meta.parent.name, "title": data.get("title", meta.parent.name),
+                      "shared": data.get("shared", "")})
+    return found
+
+
+def _index(entries: list[dict], url: str) -> str:
+    """The site's front page: every model shared there, newest first."""
+    shared = sorted(((e.get("shared", ""), e.get("title", e["name"]), e["name"]) for e in entries), reverse=True)
     cards = "\n".join(
         f'  <a class="card" href="{MODELS}/{name}/"><img src="{MODELS}/{name}/card.png" alt="" loading="lazy">'
         f'<span>{html.escape(title)}</span></a>' for _when, title, name in shared)
@@ -163,9 +174,12 @@ def _index(site: Path, url: str) -> str:
 """
 
 
-def write_model(model: Path, site: Path, url: str, title: str = "") -> tuple[str, list[Path]]:
-    """*model* (a ``.glb``) written into *site* as its page; the page's address and the files written.
-    The card is drawn by the preview, so this needs a ``QGuiApplication`` with OpenGL."""
+def write_model(model: Path, site: Path, url: str, title: str = "",
+                others: list[dict] | None = None) -> tuple[str, list[Path]]:
+    """*model* (a ``.glb``) written into *site* as its page, with the site's front page and list; the page's
+    address and the files written.  *others* are the models already on the site (read from *site* when not
+    given: a clone has them all, a share through the API only what it writes).  The card is drawn by the
+    preview, so this needs a ``QGuiApplication`` with OpenGL."""
     from . import preview
     model = Path(model)
     if model.suffix.lower() != ".glb":
@@ -181,12 +195,14 @@ def write_model(model: Path, site: Path, url: str, title: str = "") -> tuple[str
     title = title or re.sub(r"_[0-9a-f]{10}$", "", model.stem)
     page_url = f"{url}{MODELS}/{name}/"
     (folder / "index.html").write_text(_page(title, page_url), encoding="utf-8")
-    (folder / "model.json").write_text(json.dumps({"title": title, "source": model.name,
-                                                   "shared": datetime.now(timezone.utc).isoformat(timespec="seconds")},
+    entry = {"name": name, "title": title, "shared": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    (folder / "model.json").write_text(json.dumps({"title": title, "source": model.name, "shared": entry["shared"]},
                                                   ensure_ascii=False, indent=1), encoding="utf-8")
+    entries = [e for e in (entries_in(site) if others is None else others) if e.get("name") != name] + [entry]
     (site / ".nojekyll").touch()
-    (site / "index.html").write_text(_index(site, url), encoding="utf-8")
-    return page_url, [folder, site / "index.html", site / ".nojekyll"]
+    (site / LIST).write_text(json.dumps(entries, ensure_ascii=False, indent=1), encoding="utf-8")
+    (site / "index.html").write_text(_index(entries, url), encoding="utf-8")
+    return page_url, [folder, site / "index.html", site / LIST, site / ".nojekyll"]
 
 
 def publish(model: Path, site: Path, log=print, push: bool = True) -> str:

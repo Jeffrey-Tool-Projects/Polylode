@@ -123,19 +123,25 @@ shape keys and each material's blending — and marks a file written by older ru
 ### 7. Sharing on GitHub Pages (for Discord)
 
 Discord cannot show a 3D model: a `.glb` posted there is only a download. Polylode shares a model as a page of its own
-on a GitHub Pages site of yours; the page turns the model in any browser, and its link shows in Discord as a card with
-the model's picture.
+on a GitHub Pages site in your own GitHub account; the page turns the model in any browser, and its link shows in Discord
+as a card with the model's picture. Nothing else needs installing: no Git, no clone.
 
-1. Create a **public** GitHub repository (Pages on a private one needs a paid plan) and clone it, for example
-   `git clone https://github.com/<account>/models`. Git must be installed and able to push to it.
-2. In the repository's **Settings → Pages**, choose **Deploy from a branch**, your branch and `/ (root)`.
-3. Open a `.glb` in the model viewer and press **Share on GitHub Pages…**. The first time it asks for the clone's
-   folder (also under **Settings → GitHub Pages site folder**).
-4. It names the address the model will be public at and asks before going on, then writes `models/<name>/` (the
-   model, a 1200×630 card picture drawn as the preview shows it, and the page) and the site's list of models, commits
-   only those files and pushes.
-5. The link is copied: `https://<account>.github.io/<repository>/models/<name>/`. Pages takes a minute or two to
-   update; then paste it in Discord.
+1. Open a `.glb` in the model viewer and press **Share on GitHub Pages…**. It names the address the model will be public
+   at and asks before going on.
+2. The first time, it opens GitHub's sign-in page in your browser and shows a short code (already copied): enter it and
+   authorize Polylode. It asks only for `public_repo` (making and writing public repositories) and keeps the
+   authorization on this computer, encrypted for your Windows user. **Settings → GitHub account → Sign out** forgets it;
+   GitHub's Settings → Applications revokes it.
+3. It makes the public repository `polylode-models` in your account (once), and uploads `models/<name>/` (the model, a
+   1200×630 card picture drawn as the preview shows it, and the page) with the site's list of models, as one commit.
+4. The link is copied: `https://<account>.github.io/polylode-models/models/<name>/`. The first time, if Pages is not on
+   for the repository yet, the message offers **Open Pages settings**: choose **Deploy from a branch**, `main`,
+   `/ (root)` and Save — once. (Turning it on from the program would need access to all your private repositories,
+   which it does not ask for.)
+5. Pages takes a minute or two to update; then paste the link in Discord.
+
+Already have a Pages site? Set **Settings → GitHub Pages site folder** to its local clone: sharing then commits there
+and pushes with Git instead.
 
 Only `.glb` can be shared, up to 100 MB (GitHub's file limit); sharing a model again replaces its page. Everything
 shared is public: the models come from games, so make sure you may share them. The program's own folder is refused

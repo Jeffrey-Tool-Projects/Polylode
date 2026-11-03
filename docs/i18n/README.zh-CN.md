@@ -99,16 +99,20 @@ glTF（`.glb`）、FBX 与 Blender（`.blend`）。它是 Windows 桌面程序�
 
 ### 7. 分享到 GitHub Pages（给 Discord 用）
 
-Discord 不能显示 3D 模型，贴上去的 `.glb` 只是一个下载文件。Polylode 把模型分享成你自己 GitHub Pages 网站上的一个网页：
-网页在任何浏览器里都能转动模型，网址贴到 Discord 会显示成带模型图片的卡片。
+Discord 不能显示 3D 模型，贴上去的 `.glb` 只是一个下载文件。Polylode 把模型分享成你自己 GitHub 账号里 GitHub Pages 网站上的一个网页：
+网页在任何浏览器里都能转动模型，网址贴到 Discord 会显示成带模型图片的卡片。不需要另外安装任何东西：不用 Git，也不用 clone。
 
-1. 建一个**公开**的 GitHub 仓库（私有仓库的 Pages 需要付费方案），clone 到本机，例如
-   `git clone https://github.com/<账号>/models`。电脑要装 Git，而且能推送到这个仓库。
-2. 在仓库的 **Settings → Pages** 选 **Deploy from a branch**、你的分支与 `/ (root)`。
-3. 在模型查看器打开一个 `.glb`，按 **分享到 GitHub Pages…**。第一次会问 clone 的文件夹（也可以在 **设置 → GitHub Pages 网站文件夹** 指定）。
-4. 它会先说模型会公开在哪个网址、问过你才继续，然后写入 `models/<名称>/`（模型、照预览画出的 1200×630 卡片图、网页）
-   与网站的模型列表，只提交这些文件并推送。
-5. 网址已复制：`https://<账号>.github.io/<仓库>/models/<名称>/`。GitHub Pages 通常一两分钟后更新，之后贴到 Discord 即可。
+1. 在模型查看器打开一个 `.glb`，按 **分享到 GitHub Pages…**。它会先说模型会公开在哪个网址，问过你才继续。
+2. 第一次会在浏览器打开 GitHub 的登录页，并显示一组短代码（已复制）：输入代码并授权 Polylode。它只要求 `public_repo`
+   （创建与写入公开仓库），授权只存在这台电脑，并以你的 Windows 用户加密保存。**设置 → GitHub 账号 → 退出登录** 会把它删掉；
+   也可以在 GitHub 的 Settings → Applications 撤销。
+3. 它会在你的账号创建公开仓库 `polylode-models`（只有第一次），然后把 `models/<名称>/`（模型、照预览画出的 1200×630 卡片图、网页）
+   与网站的模型列表，以一个 commit 上传。
+4. 网址已复制：`https://<账号>.github.io/polylode-models/models/<名称>/`。第一次如果这个仓库的 Pages 还没开启，消息会有
+   **打开 Pages 设置**：选 **Deploy from a branch**、`main`、`/ (root)`，按 Save，只需要做一次。（从程序直接开启需要访问你所有私有仓库的权限，程序不会要这个权限。）
+5. GitHub Pages 通常一两分钟后更新，之后把网址贴到 Discord 即可。
+
+已经有自己的 Pages 网站？把 **设置 → GitHub Pages 网站文件夹** 指到它在本机的 clone，分享就会改成提交到那里、用 Git 推送。
 
 只能分享 `.glb`，最大 100 MB（GitHub 的单文件上限）；同一个模型再分享一次会替换它的网页。分享出去的东西都是公开的：
 模型来自游戏，请自行确认可以分享。本程序自己的文件夹不能当网站。

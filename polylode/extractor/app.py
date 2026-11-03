@@ -26,7 +26,7 @@ ICON = Path(__file__).with_name("icon.png")
 #: Tools every source shares.
 COMMON = (PathSpec("blender", "Blender 執行檔", "file", "blender.exe（4.x 或 5.x）；.blend 需要，.glb／FBX 有它時多做讀回核對"),
           PathSpec("pages_site", "GitHub Pages 網站資料夾", "dir",
-                   "你的 GitHub Pages 倉庫在本機的 clone；模型檢視器的「分享」寫進這裡並推送"))
+                   "可留空：分享時登入 GitHub，上傳到你帳號的倉庫；指定本機 clone 則改用 Git 推送到那裡"))
 FORMATS = (("glb", "glTF（.glb，貼圖內嵌）"), ("fbx", "FBX（貼圖內嵌）"),
            ("blend", "Blender（.blend，貼圖打包在檔內，需 Blender）"))
 
@@ -156,6 +156,15 @@ class SettingsPage(QWidget):
         self.rows: list[PathRow] = []
         for spec in COMMON:
             self._add(form, spec)
+        # the account the model viewer's Share uploads to (``github``): shown, and signed out of, here
+        account_row = QHBoxLayout()
+        self.account = QLabel()
+        account_row.addWidget(self.account, 1)
+        self.sign_out = QPushButton("登出")
+        self.sign_out.clicked.connect(self._sign_out)
+        account_row.addWidget(self.sign_out)
+        form.addRow(_label("GitHub 帳號"), account_row)
+        self.refresh_account()
         for source in sources.values():
             header = QLabel(source.label)
             header.setStyleSheet("font-weight: 600; margin-top: 12px;")
@@ -175,6 +184,21 @@ class SettingsPage(QWidget):
         form.addRow(_label("匯出格式"), formats)
         layout.addLayout(form)
         layout.addStretch(1)
+
+    def refresh_account(self) -> None:
+        from . import github
+        login = github.account()
+        self.account.setText(login if login else "未登入（第一次分享時在瀏覽器登入）")
+        self.sign_out.setEnabled(bool(login))
+
+    def _sign_out(self) -> None:
+        from . import github
+        github.forget()
+        self.refresh_account()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self.refresh_account()
 
     def _language_changed(self) -> None:
         """Another language: kept in the settings and shown at once in every open window."""

@@ -1523,29 +1523,11 @@
   "ja": "先に .glb を開いてください。Web ページの 3D ビューアーは glTF を読みます。",
   "ko": "먼저 .glb를 여세요. 웹 페이지의 3D 뷰어는 glTF를 읽습니다."
  },
- "選你的 GitHub Pages 倉庫在本機的 clone（例：git clone https://github.com/<帳號>/<倉庫>）。": {
-  "en": "Choose your local clone of your GitHub Pages repository (e.g. git clone https://github.com/<account>/<repository>).",
-  "zh-CN": "选择你的 GitHub Pages 仓库在本机的 clone（例：git clone https://github.com/<账号>/<仓库>）。",
-  "ja": "GitHub Pages リポジトリのローカル clone を選んでください（例：git clone https://github.com/<アカウント>/<リポジトリ>）。",
-  "ko": "GitHub Pages 저장소의 로컬 clone을 선택하세요(예: git clone https://github.com/<계정>/<저장소>)."
- },
- "倉庫的 Settings → Pages 要設成從分支發布，模型才會出現在網址上。": {
-  "en": "Set the repository's Settings → Pages to deploy from a branch, or the models will not appear at its address.",
-  "zh-CN": "仓库的 Settings → Pages 要设成从分支发布，模型才会出现在网址上。",
-  "ja": "リポジトリの Settings → Pages をブランチから公開する設定にしないと、モデルは URL に出ません。",
-  "ko": "저장소의 Settings → Pages를 브랜치에서 배포하도록 설정해야 모델이 주소에 나타납니다."
- },
  "GitHub Pages 網站資料夾": {
   "en": "GitHub Pages site folder",
   "zh-CN": "GitHub Pages 网站文件夹",
   "ja": "GitHub Pages サイトのフォルダー",
   "ko": "GitHub Pages 사이트 폴더"
- },
- "你的 GitHub Pages 倉庫在本機的 clone；模型檢視器的「分享」寫進這裡並推送": {
-  "en": "Your local clone of your GitHub Pages repository; the model viewer's Share writes here and pushes",
-  "zh-CN": "你的 GitHub Pages 仓库在本机的 clone；模型查看器的「分享」写进这里并推送",
-  "ja": "GitHub Pages リポジトリのローカル clone。モデルビューアーの「共有」がここに書き込んでプッシュします",
-  "ko": "GitHub Pages 저장소의 로컬 clone. 모델 뷰어의 '공유'가 여기에 쓰고 푸시합니다"
  },
  "這個模型會推送到 GitHub，公開在 {0}，任何拿到網址的人都看得到、也下載得到。": {
   "en": "This model will be pushed to GitHub and made public at {0}: anyone with the link can see and download it.",
@@ -1648,5 +1630,167 @@
   "zh-CN": "推送到 GitHub…",
   "ja": "GitHub にプッシュ中…",
   "ko": "GitHub에 푸시 중…"
+ },
+ "可留空：分享時登入 GitHub，上傳到你帳號的倉庫；指定本機 clone 則改用 Git 推送到那裡": {
+  "en": "May stay empty: sharing signs in to GitHub and uploads to a repository in your account; name a local clone to push there with Git instead",
+  "zh-CN": "可留空：分享时登录 GitHub，上传到你账号的仓库；指定本机 clone 则改用 Git 推送到那里",
+  "ja": "空欄でも可：共有時に GitHub にサインインし、自分のアカウントのリポジトリへアップロードします。ローカル clone を指定すると Git でそこへプッシュします",
+  "ko": "비워 둬도 됨: 공유할 때 GitHub에 로그인해 내 계정의 저장소에 올립니다. 로컬 clone을 지정하면 Git으로 그곳에 푸시합니다"
+ },
+ "GitHub 帳號": {
+  "en": "GitHub account",
+  "zh-CN": "GitHub 账号",
+  "ja": "GitHub アカウント",
+  "ko": "GitHub 계정"
+ },
+ "登出": {
+  "en": "Sign out",
+  "zh-CN": "退出登录",
+  "ja": "サインアウト",
+  "ko": "로그아웃"
+ },
+ "未登入（第一次分享時在瀏覽器登入）": {
+  "en": "Not signed in (you sign in in your browser the first time you share)",
+  "zh-CN": "未登录（第一次分享时在浏览器登录）",
+  "ja": "未サインイン（初めて共有するときにブラウザーでサインイン）",
+  "ko": "로그인 안 됨(처음 공유할 때 브라우저에서 로그인)"
+ },
+ "這個模型會上傳到你 GitHub 帳號的公開倉庫 {0}，公開在 {1}，任何拿到網址的人都看得到、也下載得到。": {
+  "en": "This model will be uploaded to the public repository {0} in your GitHub account and made public at {1}: anyone with the link can see and download it.",
+  "zh-CN": "这个模型会上传到你 GitHub 账号的公开仓库 {0}，公开在 {1}，任何拿到网址的人都看得到、也下载得到。",
+  "ja": "このモデルは GitHub アカウントの公開リポジトリ {0} にアップロードされ、{1} で公開されます。URL を知っている人は誰でも見て、ダウンロードできます。",
+  "ko": "이 모델은 GitHub 계정의 공개 저장소 {0}에 올라가 {1}에 공개됩니다. 주소를 아는 사람은 누구나 보고 내려받을 수 있습니다."
+ },
+ "第一次會請你在瀏覽器登入 GitHub。": {
+  "en": "The first time, you sign in to GitHub in your browser.",
+  "zh-CN": "第一次会请你在浏览器登录 GitHub。",
+  "ja": "初回はブラウザーで GitHub にサインインします。",
+  "ko": "처음에는 브라우저에서 GitHub에 로그인합니다."
+ },
+ "登入 GitHub": {
+  "en": "Sign in to GitHub",
+  "zh-CN": "登录 GitHub",
+  "ja": "GitHub にサインイン",
+  "ko": "GitHub에 로그인"
+ },
+ "在瀏覽器開啟的 {0} 輸入這組代碼（已複製）：": {
+  "en": "Enter this code (copied) at {0}, opened in your browser:",
+  "zh-CN": "在浏览器打开的 {0} 输入这组代码（已复制）：",
+  "ja": "ブラウザーで開いた {0} にこのコード（コピー済み）を入力してください：",
+  "ko": "브라우저에서 열린 {0}에 이 코드(복사됨)를 입력하세요:"
+ },
+ "授權後這裡會自動繼續。": {
+  "en": "Once you authorize it, this goes on by itself.",
+  "zh-CN": "授权后这里会自动继续。",
+  "ja": "承認すると自動で続きます。",
+  "ko": "승인하면 자동으로 계속됩니다."
+ },
+ "這個倉庫的 GitHub Pages 還沒開啟：按「開啟 Pages 設定」，Source 選 Deploy from a branch、分支選 main、資料夾 / (root)，按 Save。只需要做一次。": {
+  "en": "GitHub Pages is not on for this repository yet: press “Open Pages settings”, set Source to Deploy from a branch, the branch to main and the folder to / (root), and Save. Only once.",
+  "zh-CN": "这个仓库的 GitHub Pages 还没开启：按「打开 Pages 设置」，Source 选 Deploy from a branch、分支选 main、文件夹 / (root)，按 Save。只需要做一次。",
+  "ja": "このリポジトリの GitHub Pages はまだ有効ではありません。「Pages 設定を開く」を押し、Source を Deploy from a branch、ブランチを main、フォルダーを / (root) にして Save してください。一度だけで済みます。",
+  "ko": "이 저장소의 GitHub Pages가 아직 켜져 있지 않습니다. 「Pages 설정 열기」를 눌러 Source를 Deploy from a branch, 브랜치를 main, 폴더를 / (root)로 하고 Save하세요. 한 번만 하면 됩니다."
+ },
+ "開啟 Pages 設定": {
+  "en": "Open Pages settings",
+  "zh-CN": "打开 Pages 设置",
+  "ja": "Pages 設定を開く",
+  "ko": "Pages 설정 열기"
+ },
+ "登入被取消了": {
+  "en": "The sign-in was cancelled",
+  "zh-CN": "登录被取消了",
+  "ja": "サインインはキャンセルされました",
+  "ko": "로그인이 취소되었습니다"
+ },
+ "連不上 GitHub：{0}": {
+  "en": "Cannot reach GitHub: {0}",
+  "zh-CN": "连不上 GitHub：{0}",
+  "ja": "GitHub に接続できません：{0}",
+  "ko": "GitHub에 연결할 수 없습니다: {0}"
+ },
+ "GitHub 的授權已失效，下次分享時會重新登入": {
+  "en": "GitHub's authorization is no longer valid; you will sign in again the next time you share",
+  "zh-CN": "GitHub 的授权已失效，下次分享时会重新登录",
+  "ja": "GitHub の承認が無効になりました。次の共有時にもう一度サインインします",
+  "ko": "GitHub 승인이 더 이상 유효하지 않습니다. 다음에 공유할 때 다시 로그인합니다"
+ },
+ "GitHub 回應 {0}：{1}": {
+  "en": "GitHub answered {0}: {1}",
+  "zh-CN": "GitHub 回应 {0}：{1}",
+  "ja": "GitHub の応答 {0}：{1}",
+  "ko": "GitHub 응답 {0}: {1}"
+ },
+ "帳號登入只支援 Windows": {
+  "en": "Signing in to an account works on Windows only",
+  "zh-CN": "账号登录只支持 Windows",
+  "ja": "アカウントへのサインインは Windows のみ対応です",
+  "ko": "계정 로그인은 Windows에서만 됩니다"
+ },
+ "沒辦法讀寫保存的 GitHub 授權": {
+  "en": "The saved GitHub authorization cannot be read or written",
+  "zh-CN": "没办法读写保存的 GitHub 授权",
+  "ja": "保存した GitHub の承認を読み書きできません",
+  "ko": "저장된 GitHub 승인을 읽거나 쓸 수 없습니다"
+ },
+ "GitHub 沒有開始登入：{0}": {
+  "en": "GitHub did not start the sign-in: {0}",
+  "zh-CN": "GitHub 没有开始登录：{0}",
+  "ja": "GitHub がサインインを開始しませんでした：{0}",
+  "ko": "GitHub가 로그인을 시작하지 않았습니다: {0}"
+ },
+ "登入代碼過期了，請再按一次分享": {
+  "en": "The sign-in code expired; press Share again",
+  "zh-CN": "登录代码过期了，请再按一次分享",
+  "ja": "サインインのコードが期限切れです。もう一度共有を押してください",
+  "ko": "로그인 코드가 만료되었습니다. 공유를 다시 누르세요"
+ },
+ "GitHub 登入失敗：{0}": {
+  "en": "Signing in to GitHub failed: {0}",
+  "zh-CN": "GitHub 登录失败：{0}",
+  "ja": "GitHub へのサインインに失敗しました：{0}",
+  "ko": "GitHub 로그인 실패: {0}"
+ },
+ "登入 GitHub…": {
+  "en": "Signing in to GitHub…",
+  "zh-CN": "登录 GitHub…",
+  "ja": "GitHub にサインイン中…",
+  "ko": "GitHub에 로그인 중…"
+ },
+ "已登入 GitHub：{0}": {
+  "en": "Signed in to GitHub: {0}",
+  "zh-CN": "已登录 GitHub：{0}",
+  "ja": "GitHub にサインインしました：{0}",
+  "ko": "GitHub에 로그인됨: {0}"
+ },
+ "在 GitHub 建立公開倉庫 {0}": {
+  "en": "Creating the public repository {0} on GitHub",
+  "zh-CN": "在 GitHub 创建公开仓库 {0}",
+  "ja": "GitHub に公開リポジトリ {0} を作成中",
+  "ko": "GitHub에 공개 저장소 {0} 만드는 중"
+ },
+ "{0} 是私人倉庫：免費方案的 Pages 只發布公開倉庫": {
+  "en": "{0} is a private repository: Pages on the free plan publishes public ones only",
+  "zh-CN": "{0} 是私有仓库：免费方案的 Pages 只发布公开仓库",
+  "ja": "{0} は非公開リポジトリです。無料プランの Pages は公開リポジトリのみ公開します",
+  "ko": "{0}은(는) 비공개 저장소입니다. 무료 요금제의 Pages는 공개 저장소만 게시합니다"
+ },
+ "GitHub Pages 還沒開啟：到倉庫的 Settings → Pages 選 Deploy from a branch": {
+  "en": "GitHub Pages is not on yet: in the repository's Settings → Pages, choose Deploy from a branch",
+  "zh-CN": "GitHub Pages 还没开启：到仓库的 Settings → Pages 选 Deploy from a branch",
+  "ja": "GitHub Pages はまだ有効ではありません。リポジトリの Settings → Pages で Deploy from a branch を選んでください",
+  "ko": "GitHub Pages가 아직 켜져 있지 않습니다. 저장소의 Settings → Pages에서 Deploy from a branch를 고르세요"
+ },
+ "{0} 沒有 {1} 分支": {
+  "en": "{0} has no {1} branch",
+  "zh-CN": "{0} 没有 {1} 分支",
+  "ja": "{0} に {1} ブランチがありません",
+  "ko": "{0}에 {1} 브랜치가 없습니다"
+ },
+ "上傳 {0}": {
+  "en": "Uploading {0}",
+  "zh-CN": "上传 {0}",
+  "ja": "{0} をアップロード中",
+  "ko": "{0} 올리는 중"
  }
 }

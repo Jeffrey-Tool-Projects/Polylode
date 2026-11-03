@@ -1,6 +1,6 @@
 """``python -m polylode.extractor`` (or the packaged program): the window, ``--run-job <job.json>``
-``--scan <source> <settings.json>``, ``--share <model.glb> <site folder>``, ``--selftest <report.json>``, or a model
-file to open in the viewer."""
+``--scan <source> <settings.json>``, ``--share <model.glb> <site folder>``, ``--share-github <model.glb>``,
+``--selftest <report.json>``, or a model file to open in the viewer."""
 from __future__ import annotations
 
 import sys
@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     from .blender_files import load_source_modules
     load_source_modules()
     if not argv or argv[0] not in ("--run-job", "--scan", "--selftest", "--discover-wuwa-keys", "--download-wuwa-keys",
-                                       "--share"):
+                                       "--share", "--share-github"):
         from .migrate import from_islandlife
         from_islandlife(lambda _line: None)      # the window's first start: the old folder's data, once
     if len(argv) == 2 and argv[0] == "--run-job":
@@ -34,6 +34,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) == 3 and argv[0] == "--share":
         from .share import run_share
         return run_share(argv[1], argv[2])
+    if len(argv) == 2 and argv[0] == "--share-github":
+        from .github import run_share as run_github_share
+        return run_github_share(argv[1])
     if len(argv) == 2 and argv[0] == "--selftest":
         return selftest(argv[1])
     from .app import run
@@ -64,7 +67,7 @@ def selftest(path: str) -> int:
                  "polylode.gf2.bundles", "polylode.gf2.catalog", "polylode.gf2.selection",
                  "polylode.wuthering_waves.assembly", "polylode.wuthering_waves.source_scene",
                  "polylode.wuthering_waves.extract", "polylode.wuthering_waves.keys", "polylode.converted.names", "polylode.converted.scope",
-                 "polylode.interchange.glb", "polylode.interchange.fbx", "polylode.extractor.share",
+                 "polylode.interchange.glb", "polylode.interchange.fbx", "polylode.extractor.share", "polylode.extractor.github",
                  "polylode.extractor.app"):
         try:
             __import__(name)

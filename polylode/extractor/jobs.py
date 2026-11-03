@@ -71,6 +71,11 @@ def share_command(model: Path, site: Path) -> list[str]:
     return _start("--share", str(model), str(site))
 
 
+def share_github_command(model: Path) -> list[str]:
+    """The model shared through the user's own GitHub account (``github.run_share``)."""
+    return _start("--share-github", str(model))
+
+
 def keys_command(settings_file: Path, public: bool = False) -> list[str]:
     return _start("--download-wuwa-keys" if public else "--discover-wuwa-keys", str(settings_file))
 
