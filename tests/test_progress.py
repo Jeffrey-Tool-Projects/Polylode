@@ -381,3 +381,11 @@ def test_a_preview_made_again_replaces_the_cached_one_only_when_done(tmp_path, m
     page.preview_process = None
     window.close()
     del qt
+
+
+def test_a_file_moved_to_the_recycle_bin_reports_it_whichever_shape_qt_answers_in(tmp_path, monkeypatch):
+    from polylode.extractor import viewer
+    path = tmp_path / "m.glb"
+    for answer, moved in ((True, True), (False, False), ((True, "C:/bin/m.glb"), True), ((False, ""), False)):
+        monkeypatch.setattr(viewer.QFile, "moveToTrash", staticmethod(lambda name, a=answer: a))
+        assert viewer.trash(path) is moved

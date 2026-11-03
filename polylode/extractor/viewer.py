@@ -40,7 +40,9 @@ def outputs_of(path: Path) -> list[Path]:
 
 def trash(path: Path) -> bool:
     """*path* to the system's recycle bin (restorable), not deleted outright."""
-    return QFile.moveToTrash(str(path))[0]
+    # PySide6 6.11's static overload gives a bool; earlier ones gave (bool, the path in the bin)
+    moved = QFile.moveToTrash(str(path))
+    return bool(moved[0] if isinstance(moved, tuple) else moved)
 
 
 def _gltf(path: Path) -> dict:
