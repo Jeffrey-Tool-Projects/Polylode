@@ -50,7 +50,7 @@ def selftest(path: str) -> int:
 
     from .blender_files import missing
     report: dict = {"imports": {}, "sources": [], "blender_files_missing": []}
-    for name in ("numpy", "PySide6.QtWidgets", "PySide6.QtQuickWidgets", "PySide6.QtQuick3D",
+    for name in ("numpy", "psutil", "PySide6.QtWidgets", "PySide6.QtQuickWidgets", "PySide6.QtQuick3D",
                  # UnityPy's texture codecs, imported only when a texture is read; they load data files of
                  # their own (archspec's CPU tables) that a package must carry (§7.1455)
                  "etcpak", "astc_encoder", "texture2ddecoder", "UnityPy", "polylode.gf2.export", "polylode.gf2.batch",

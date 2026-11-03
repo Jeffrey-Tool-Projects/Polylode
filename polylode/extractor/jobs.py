@@ -66,7 +66,6 @@ def scan_command(source: str, settings_file: Path) -> list[str]:
     return _start("--scan", source, str(settings_file))
 
 
-
 def keys_command(settings_file: Path) -> list[str]:
     return _start("--discover-wuwa-keys", str(settings_file))
 
@@ -88,6 +87,7 @@ def run_keys(settings_file: Path) -> int:
     except Exception as failure:
         _emit("ERROR", str(failure))
         return 1
+
 
 def run_scan(source_id: str, settings_file: Path) -> int:
     """Print the models *source_id*'s install has, one ``MODEL`` line each; 1 with ``ERROR`` when it cannot."""

@@ -1186,5 +1186,95 @@
   "zh-CN": "游戏文件需要当前客户端版本的 AES 密钥。可在鸣潮页面点击“自动获取 AES 密钥”，从本地游戏程序寻找并验证；部分版本可能不受支持。\n\n也可选择已有的 JSON 密钥文件或粘贴密钥。游戏更新后密钥可能变化。",
   "ja": "ゲームファイルには現在のクライアントの AES キーが必要です。鳴潮ページの「AES キーを自動取得」でローカルのゲームファイルを検索して検証できます。一部のバージョンは対応していない場合があります。\n\n既存の JSON ファイルを選択するか、キーを貼り付けることもできます。更新後にキーが変わる場合があります。",
   "ko": "게임 파일에는 현재 클라이언트 버전의 AES 키가 필요합니다. 명조 페이지에서 AES 키 자동 가져오기를 눌러 로컬 게임 파일을 검색하고 검증할 수 있습니다. 일부 버전은 지원되지 않을 수 있습니다.\n\n기존 JSON 키 파일을 선택하거나 키를 붙여 넣을 수도 있습니다. 게임 업데이트 후 키가 바뀔 수 있습니다."
+ },
+ "分析本機遊戲程式：{0}": {
+  "en": "Analyzing local game binary: {0}",
+  "zh-CN": "分析本地游戏程序：{0}",
+  "ja": "ローカルゲームを解析中：{0}",
+  "ko": "로컬 게임 파일 분석 중: {0}"
+ },
+ "找到 {0} 個本機候選金鑰，正在驗證": {
+  "en": "Found {0} local candidate keys. Verifying.",
+  "zh-CN": "找到 {0} 个本地候选密钥，正在验证",
+  "ja": "候補キーが {0} 個見つかりました。検証中",
+  "ko": "로컬 후보 키 {0}개를 검증합니다"
+ },
+ "驗證本機候選金鑰 {0} / {1}": {
+  "en": "Verifying local candidate key {0} / {1}",
+  "zh-CN": "验证本地候选密钥 {0} / {1}",
+  "ja": "候補キーを検証中 {0} / {1}",
+  "ko": "로컬 후보 키 검증 중 {0} / {1}"
+ },
+ "本機程式中沒有找到可驗證所有加密封存檔的金鑰，此版本可能尚不支援": {
+  "en": "No local key set could unlock all encrypted archives. This game version may be unsupported.",
+  "zh-CN": "本地程序中未找到可验证所有加密封存档的密钥，此版本可能尚不支持",
+  "ja": "暗号化アーカイブ全体を開けるキーが見つかりません。このバージョンは未対応の可能性があります",
+  "ko": "모든 암호화 아카이브를 열 수 있는 로컬 키를 찾지 못했습니다. 이 버전은 지원되지 않을 수 있습니다"
+ },
+ "離線驗證缺少本機 Oodle 或 zlib-ng 解壓縮元件，未下載任何檔案": {
+  "en": "Offline verification needs local Oodle and zlib-ng libraries. Nothing was downloaded.",
+  "zh-CN": "离线验证缺少本地 Oodle 或 zlib-ng 解压缩组件，未下载任何文件",
+  "ja": "オフライン検証に必要な Oodle または zlib-ng がありません。ダウンロードは行いませんでした",
+  "ko": "오프라인 검증에 필요한 로컬 Oodle 또는 zlib-ng가 없습니다. 파일을 다운로드하지 않았습니다"
+ },
+ "請等待匯出完成再取得 AES 金鑰": {
+  "en": "Wait for exports to finish before discovering AES keys",
+  "zh-CN": "请等待导出完成再获取 AES 密钥",
+  "ja": "エクスポート完了後に AES キーを取得してください",
+  "ko": "내보내기가 끝난 후 AES 키를 가져오세요"
+ },
+ "本機金鑰驗證超時，未變更金鑰檔": {
+  "en": "Local key verification timed out. The keys file was not changed.",
+  "zh-CN": "本地密钥验证超时，未更改密钥文件",
+  "ja": "キー検証がタイムアウトしました。キーファイルは変更していません",
+  "ko": "로컬 키 검증 시간이 초과되었습니다. 키 파일은 변경되지 않았습니다"
+ },
+ "找不到本機遊戲程式，無法取得金鑰": {
+  "en": "No local game binaries found to analyze",
+  "zh-CN": "找不到本地游戏程序，无法获取密钥",
+  "ja": "解析するローカルゲームファイルがありません",
+  "ko": "분석할 로컬 게임 실행 파일을 찾지 못했습니다"
+ },
+ "沒有可供驗證的加密封存檔": {
+  "en": "No encrypted archives are available for key verification",
+  "zh-CN": "没有可供验证的加密封存档",
+  "ja": "キー検証に使える暗号化アーカイブがありません",
+  "ko": "키 검증에 사용할 암호화 아카이브가 없습니다"
+ },
+ "遊戲讀取器的掛載報告無效": {
+  "en": "The game reader returned an invalid mount report",
+  "zh-CN": "游戏读取器的挂载报告无效",
+  "ja": "ゲームリーダーのマウント結果が無効です",
+  "ko": "게임 리더의 마운트 보고서가 유효하지 않습니다"
+ },
+ "完整金鑰組合未能通過掛載驗證": {
+  "en": "The complete key set failed archive validation",
+  "zh-CN": "完整密钥组合未能通过挂载验证",
+  "ja": "キー全体のアーカイブ検証に失敗しました",
+  "ko": "전체 키 집합의 아카이브 검증에 실패했습니다"
+ },
+ "模型設定讀取驗證失敗": {
+  "en": "Could not verify model configuration access",
+  "zh-CN": "模型配置读取验证失败",
+  "ja": "モデル設定の読み取り検証に失敗しました",
+  "ko": "모델 설정 읽기 검증에 실패했습니다"
+ },
+ "角色設定讀取驗證失敗": {
+  "en": "Could not verify character configuration access",
+  "zh-CN": "角色配置读取验证失败",
+  "ja": "キャラクター設定の読み取り検証に失敗しました",
+  "ko": "캐릭터 설정 읽기 검증에 실패했습니다"
+ },
+ "無法啟動或等待遊戲讀取器": {
+  "en": "Could not start the game reader, or it timed out",
+  "zh-CN": "无法启动或等待游戏读取器",
+  "ja": "ゲームリーダーを起動できないか、タイムアウトしました",
+  "ko": "게임 리더를 시작하지 못했거나 시간이 초과되었습니다"
+ },
+ "遊戲讀取器無法驗證金鑰": {
+  "en": "The game reader could not verify the key",
+  "zh-CN": "游戏读取器无法验证密钥",
+  "ja": "ゲームリーダーでキーを検証できませんでした",
+  "ko": "게임 리더가 키를 검증하지 못했습니다"
  }
 }

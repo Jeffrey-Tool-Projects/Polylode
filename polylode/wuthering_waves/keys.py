@@ -1,4 +1,3 @@
-"""Discover and verify keys using only files in the local game installation."""
 from __future__ import annotations
 
 import json
@@ -6,6 +5,7 @@ import os
 import re
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from . import extract
@@ -13,8 +13,7 @@ from . import extract
 _LIMIT = 256
 _HEX = re.compile(rb'(?<![0-9A-Fa-f])[0-9A-Fa-f]{64}(?![0-9A-Fa-f])')
 _WIDE = re.compile(rb'(?<![0-9A-Fa-f]\x00)(?:[0-9A-Fa-f]\x00){64}(?![0-9A-Fa-f]\x00)')
-# MOV dword ptr [base+disp8], imm32 or [base+disp32], imm32.
-_MOV = re.compile(rb'\xc7[\x40-\x47]([\x00-\xff])(.{4})|\xc7[\x80-\x87](.{4})(.{4})', re.DOTALL)
+_MOV = re.compile(rb'\xc7[\x00-\x04\x06\x07\x40-\x47\x80-\x87]')
 
 
 class DiscoveryError(RuntimeError):
@@ -23,6 +22,43 @@ class DiscoveryError(RuntimeError):
 
 def _candidates(data: bytes):
     seen = set()
+    group = {}
+    previous_end, previous_base = -1, None
+    for match in _MOV.finditer(data):
+        if match.start() < previous_end:
+            continue
+        pos = match.end()
+        modrm = data[match.start() + 1]
+        mode, base = modrm >> 6, modrm & 7
+        rex = data[match.start() - 1] if match.start() and match.start() - 1 >= previous_end else 0
+        if 0x48 <= rex <= 0x4f:
+            continue
+        if base == 4:
+            if pos >= len(data) or data[pos] & 0x38 != 0x20:
+                continue
+            base = data[pos] & 7
+            pos += 1
+            if mode == 0 and base == 5:
+                continue
+        if 0x40 <= rex <= 0x47:
+            base += (rex & 1) * 8
+        size = {0: 0, 1: 1, 2: 4}[mode]
+        if pos + size + 4 > len(data):
+            continue
+        displacement = int.from_bytes(data[pos:pos + size], 'little', signed=True)
+        pos += size
+        if match.start() - previous_end > 8 or base != previous_base:
+            group = {}
+        group[displacement] = data[pos:pos + 4]
+        previous_end, previous_base = pos + 4, base
+        if len(group) == 8:
+            offsets = sorted(group)
+            if offsets == list(range(offsets[0], offsets[0] + 32, 4)):
+                key = b''.join(group[offset] for offset in offsets)
+                if key not in seen:
+                    seen.add(key)
+                    yield key
+            group = {}
     for pattern in (_HEX, _WIDE):
         for match in pattern.finditer(data):
             text = match.group().replace(b'\x00', b'')
@@ -30,22 +66,6 @@ def _candidates(data: bytes):
             if key not in seen:
                 seen.add(key)
                 yield key
-    group = []
-    previous_end = -1
-    for match in _MOV.finditer(data):
-        displacement = int.from_bytes(match.group(1) or match.group(3), 'little', signed=True)
-        immediate = match.group(2) or match.group(4)
-        opcode = match.group()[1] & 7
-        if not group or match.start() - previous_end > 8 or opcode != group[-1][0] or displacement != group[-1][1] + 4:
-            group = []
-        group.append((opcode, displacement, immediate))
-        previous_end = match.end()
-        if len(group) == 8:
-            key = b''.join(item[2] for item in group)
-            if key not in seen:
-                seen.add(key)
-                yield key
-            group = []
 
 
 def _run(reader, dotnet, install, keys, output, mode, argument=None):
@@ -54,6 +74,9 @@ def _run(reader, dotnet, install, keys, output, mode, argument=None):
     from ..core.paths import derived_root
     cwd = derived_root() / 'assets_cache' / 'wuthering_waves' / 'reader_runtime'
     cwd.mkdir(parents=True, exist_ok=True)
+    if mode != 'index' and (not (cwd / 'zlib-ng2.dll').is_file() or not any(
+            (cwd / name).is_file() for name in ('oodle-data-shared.dll', 'oo2core_9_win64.dll'))):
+        raise DiscoveryError('離線驗證缺少本機 Oodle 或 zlib-ng 解壓縮元件，未下載任何檔案')
     try:
         done = subprocess.run(extract.command(reader, dotnet, install, keys, output, mode, argument),
                               cwd=cwd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -84,6 +107,7 @@ def discover_keys(install: Path, reader: Path, dotnet: Path, output: Path, log=p
         raise DiscoveryError('找不到本機遊戲程式，無法取得金鑰')
     candidates = []
     for path in files:
+        log(f'分析本機遊戲程式：{path.name}')
         for key in _candidates(path.read_bytes()):
             if key not in candidates and any(key):
                 candidates.append(key)
@@ -92,6 +116,8 @@ def discover_keys(install: Path, reader: Path, dotnet: Path, output: Path, log=p
         if len(candidates) >= _LIMIT:
             break
     log(f'找到 {len(candidates)} 個本機候選金鑰，正在驗證')
+    if not candidates:
+        raise DiscoveryError('本機程式中沒有找到可驗證所有加密封存檔的金鑰，此版本可能尚不支援')
     zero = '0x' + '00' * 32
     with tempfile.TemporaryDirectory(prefix='polylode-wuwa-keys-') as temp:
         root = Path(temp)
@@ -101,7 +127,11 @@ def discover_keys(install: Path, reader: Path, dotnet: Path, output: Path, log=p
         remaining = set(pending)
         main = zero
         dynamic = {}
+        deadline = time.monotonic() + 300
         for number, candidate in enumerate(candidates):
+            if time.monotonic() > deadline:
+                raise DiscoveryError('本機金鑰驗證超時，未變更金鑰檔')
+            log(f'驗證本機候選金鑰 {number + 1} / {len(candidates)}')
             key = '0x' + candidate.hex().upper()
             trial = {'mainKey': key, 'dynamicKeys': [{'guid': guid, 'key': key} for guid in set(pending.values())]}
             try:

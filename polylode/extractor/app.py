@@ -435,6 +435,10 @@ class SourcePage(QWidget):
     def discover_keys(self) -> None:
         if self.process is not None or self.preview_process is not None:
             return
+        if self.window_.process is not None or self.window_.pending:
+            self.status.setText(tr("請等待匯出完成再取得 AES 金鑰"))
+            return
+        self.window_.settings_page._save()
         if not self.ask_install() or not self.ask_tools(skip_keys=True):
             return
         fd, name = tempfile.mkstemp(prefix="extractor_wuwa_keys_", suffix=".json")
@@ -471,8 +475,10 @@ class SourcePage(QWidget):
     def _keys_done(self, code: int, status) -> None:
         if self.process is None:
             return
+        self._keys_output()
         self._keys_lines(self.lines.rest())
         self.keys_settings_file.unlink(missing_ok=True)
+        self.keys_settings_file = None
         from .wuwa_source import is_keys_file
         ok = (code == 0 and status != QProcess.ExitStatus.CrashExit and self.keys_written is not None
               and is_keys_file(self.keys_written))
@@ -482,9 +488,27 @@ class SourcePage(QWidget):
         elif code == -1:
             self.window_.log(f"[{self.source.label}] {self.process.errorString()}")
         self.status.setText(tr("AES 金鑰已取得" if ok else "取得 AES 金鑰失敗，見下方記錄"))
+        self.process.deleteLater()
         self.process = None
         for button in (self.scan_button, self.keys_button, self.preview_button, self.export_button):
             button.setEnabled(True)
+
+    def stop_key_discovery(self) -> None:
+        if self.process is None or getattr(self, "keys_settings_file", None) is None:
+            return
+        import psutil
+        pid = self.process.processId()
+        try:
+            children = psutil.Process(pid).children(recursive=True) if pid > 0 else []
+            for child in children:
+                try:
+                    child.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+        self.process.kill()
+        self.process.waitForFinished(3000)
 
     def _selected(self) -> Model | None:
         index = self.table.currentIndex()
@@ -755,6 +779,9 @@ class Window(QMainWindow):
             return
         # a preview only fills a cache: it is stopped without asking
         for i in range(self.pages.count()):
+            page = self.pages.widget(i)
+            if isinstance(page, SourcePage):
+                page.stop_key_discovery()
             process = getattr(self.pages.widget(i), "preview_process", None)
             if process is not None:
                 process.kill()
