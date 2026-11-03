@@ -92,3 +92,53 @@ mul r1.x, cb0[1].x, l(2.000000)
     assert machine.registers[1].view(np.float32)[:, 0].tolist() == [6.0, 10.0]
     with pytest.raises(vm.ShaderError):
         run("bogus_op r0.x, v0.x\n", {0: v0})                         # an instruction not run here: refused
+
+
+def test_overlapping_uvs_with_another_coverage_get_a_map_of_their_own():
+    from polylode.wuthering_waves import shader_bake as SB
+    square = np.array([[[0, 0], [1, 0], [1, 1]], [[0, 0], [1, 1], [0, 1]]], np.float64)
+    uv = np.concatenate([square, square, square])                       # three islands on the same texels
+    rows, columns, which, _weights = SB._texels(uv, (8, 8), unique=False)
+    covered = np.where(which >= 4, 1.0, 0.0)                           # the third island differs: opaque cards
+    maps, layer = SB._layers(rows, columns, which, covered, len(uv), (8, 8))
+    assert layer.tolist() == [0, 0, 0, 0, 1, 1]                        # the first two (mirrored) stay together
+    assert np.nanmax(maps[0]) == 0.0 and np.nanmin(maps[1]) == 1.0
+    same = np.zeros_like(covered)
+    maps, layer = SB._layers(rows, columns, which, same, len(uv), (8, 8))
+    assert len(maps) == 1 and not layer.any()                          # agreeing overlaps share one map
+
+
+def test_overlap_layers_move_to_parts_of_their_own():
+    from polylode.wuthering_waves import shader_bake as SB
+    document = {"parts": [{"name": "Tail", "materials": ["Fur"], "shapes": ["Wag"]},
+                          {"name": "Body", "materials": ["Skin"], "shapes": []}]}
+    co = np.arange(18, dtype=np.float32).reshape(6, 3)
+    arrays = {"p0_co": co, "p0_no": co, "p0_uv0": co[:, :2], "p0_tri": np.array([[0, 1, 2], [3, 4, 5], [0, 2, 3]]),
+              "p0_slot": np.zeros(3, np.int64), "p0_s0_idx": np.array([1, 4]), "p0_s0_delta": np.ones((2, 3)),
+              "p1_co": co[:3], "p1_no": co[:3], "p1_uv0": co[:3, :2], "p1_tri": np.array([[0, 1, 2]]),
+              "p1_slot": np.zeros(1, np.int64)}
+    SB._move_layers(document, arrays, "Fur", np.array([0, 1, 0]))
+    assert [p["name"] for p in document["parts"]] == ["Tail", "Body", "Tail_Overlap1"]
+    assert document["parts"][2]["materials"] == ["Fur_Overlap1"] and document["parts"][0]["materials"] == ["Fur"]
+    assert arrays["p0_tri"].tolist() == [[0, 1, 2], [0, 2, 3]] and len(arrays["p0_co"]) == 4
+    assert arrays["p2_co"].tolist() == co[3:].tolist() and arrays["p2_tri"].tolist() == [[0, 1, 2]]
+    assert arrays["p2_s0_idx"].tolist() == [1] and document["parts"][2]["shapes"] == ["Wag"]   # the shape follows
+    assert arrays["p1_tri"].tolist() == [[0, 1, 2]]                    # the other part untouched
+
+
+def test_overlapping_samples_run_the_shader_only_where_they_can_differ():
+    from polylode.wuthering_waves import shader_bake as SB
+    square = np.array([[[0, 0], [1, 0], [1, 1]], [[0, 0], [1, 1], [0, 1]]], np.float64)
+    rows, columns, which, _weights = SB._texels(np.concatenate([square] * 3), (16, 16), unique=False)
+    truth = np.where(which >= 4, 1.0, 0.0)                             # the third island: opaque cards
+    ran = []
+
+    def run(indices):
+        ran.extend(indices.tolist())
+        return truth[indices]
+    covered = SB._covered(run, rows, columns, which, 6, 16)
+    assert np.array_equal(covered, truth)
+    ran = np.array(ran)
+    assert len(set(ran.tolist())) == len(ran)                          # no sample run twice
+    assert (which[ran] >= 4).sum() == (which >= 4).sum()               # the differing island run in full
+    assert (which[ran] // 2 == 1).sum() <= 2 * SB.PROBES               # the mirrored one only probed

@@ -58,9 +58,9 @@ def _image(path: Path, srgb: bool) -> np.ndarray:
     return data
 
 
-def _texels(uv: np.ndarray, size: tuple[int, int]):
+def _texels(uv: np.ndarray, size: tuple[int, int], unique: bool = True):
     """Every texel centre of a *size* map inside one of the triangles *uv* (T × 3 × 2, v down): row, column,
-    triangle and barycentrics."""
+    triangle and barycentrics — each texel once, or (*unique* false) once for every triangle over it."""
     w, h = size
     rows, columns, triangles, weights = [], [], [], []
     for number, corners in enumerate(uv):
@@ -83,6 +83,8 @@ def _texels(uv: np.ndarray, size: tuple[int, int]):
             weights.append(np.stack([l1[inside], l2[inside], 1 - l1[inside] - l2[inside]], axis=1))
     if not rows:
         raise BakeError("底色圖上沒有貼圖像素落在材質的三角形上")
+    if not unique:
+        return tuple(np.concatenate(parts) for parts in (rows, columns, triangles, weights))
     # a texel two triangles share (an island's seam) is taken once
     keys = np.concatenate(rows) * w + np.concatenate(columns)
     _unique, first = np.unique(keys, return_index=True)
@@ -262,8 +264,9 @@ def _input(semantic: str, index: int, mask: str, part: dict, packed: bool, scree
 
 
 def bake_material(name: str, record: dict, document: dict, arrays: dict, case: Path, store: A.Archive,
-                  uexp: bytes, root: dict, collections: list[dict], announce=lambda: None) -> np.ndarray:
-    """*name*'s coverage over its base map (H × W, 0..1)."""
+                  uexp: bytes, root: dict, collections: list[dict], announce=lambda: None):
+    """*name*'s coverage over its base map: maps (each H × W, 0..1) and each of its triangles' map, in the order
+    of the parts and their triangles (``_layers``)."""
     resources = inline.read(uexp)
     if not resources:
         raise BakeError("材質實例的套件裡沒有內嵌的 shader map")
@@ -338,7 +341,7 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, case: P
         raise BakeError("沒有部件用這個材質")
     joined = {k: np.concatenate([t[k] for t in triangles]) for k in ("normal", "tangent", "sign", "colour")}
     uv_sets = [np.concatenate([t["uvs"][k] for t in triangles]) for k in range(len(triangles[0]["uvs"]))]
-    rows, columns, which, weights = _texels(uv_sets[0], size)
+    rows, columns, which, weights = _texels(uv_sets[0], size, unique=False)
     at = lambda values: (weights[:, :, None] * values[which]).sum(axis=1)
     normal = at(joined["normal"])
     normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-12)
@@ -352,19 +355,110 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, case: P
     if unknown:
         # the coverage may not depend on what the mesh lacks: run a sample with it at 0 and at 1
         pick = np.random.default_rng(0).choice(len(normal), min(PROBE, len(normal)), replace=False)
-        sample = {k: v[pick] for k, v in points.items() if k != "uvs"}
-        sample["uvs"] = [uv[pick] for uv in points["uvs"]]
+        sample = _subset(points, pick)
         low = coverage(shader, buffers, textures, sample, {u: 0.0 for u in unknown}, SCREEN[:2])
         high = coverage(shader, buffers, textures, sample, {u: 1.0 for u in unknown}, SCREEN[:2])
         changed = float((np.abs(low - high) > 0.25).mean())
         if changed > SENSITIVE:
             raise BakeError(f"覆蓋率取決於網格沒有的輸入（頂點 shader 算出的自訂 UV；{changed:.0%} 的點會變）")
-    covered = coverage(shader, buffers, textures, points, {u: 0.0 for u in unknown})
-    alpha = np.full((size[1], size[0]), np.nan)
-    alpha[rows, columns] = covered
-    alpha = _fill(alpha)
+    fill = {u: 0.0 for u in unknown}
+    covered = _covered(lambda pick: coverage(shader, buffers, textures, _subset(points, pick), fill),
+                       rows, columns, which, len(joined["normal"]), size[0])
+    maps, layer = _layers(rows, columns, which, covered, len(joined["normal"]), (size[1], size[0]))
+    maps = [_fill(alpha) for alpha in maps]
     if size != full:
-        alpha = np.asarray(Image.fromarray(alpha.astype(np.float32), "F").resize(full, Image.BILINEAR))
+        maps = [np.asarray(Image.fromarray(alpha.astype(np.float32), "F").resize(full, Image.BILINEAR))
+                for alpha in maps]
+    return maps, layer
+
+
+
+#: how many of a triangle's own samples are run to tell whether it agrees with the texels' first triangles
+PROBES = 6
+
+
+def _subset(points: dict, pick: np.ndarray) -> dict:
+    sample = {k: v[pick] for k, v in points.items() if k != "uvs"}
+    sample["uvs"] = [uv[pick] for uv in points["uvs"]]
+    return sample
+
+
+def _covered(run, rows, columns, which, triangles: int, width: int) -> np.ndarray:
+    """Every sample's coverage, the shader run (``run(indices)``) only where it can differ: once per texel (its
+    first triangle), at up to PROBES samples of each triangle, and over the whole of a triangle whose probes lie
+    more than DISAGREE from the texels' first values.  The rest — a texel's other triangles that agree, mostly
+    mirrored islands — take its first value."""
+    keys = rows * width + columns
+    _unique, inverse = np.unique(keys, return_inverse=True)
+    first = np.full(int(inverse.max()) + 1, len(keys))
+    np.minimum.at(first, inverse, np.arange(len(keys)))
+    head = first[inverse]                                  # each sample's texel's first sample
+    covered = np.full(len(keys), np.nan)
+    done = np.zeros(len(keys), bool)
+
+    def evaluate(indices):
+        indices = indices[~done[indices]]
+        if len(indices):
+            covered[indices] = run(indices)
+            done[indices] = True
+    evaluate(np.unique(first))
+    order = np.argsort(which, kind="stable")
+    starts = np.searchsorted(which[order], np.arange(triangles))
+    ends = np.searchsorted(which[order], np.arange(triangles), side="right")
+    probes = np.concatenate([order[a:b][np.linspace(0, b - a - 1, min(PROBES, b - a)).astype(np.int64)]
+                             for a, b in zip(starts, ends) if b > a] or [np.zeros(0, np.int64)])
+    evaluate(probes[probes != head[probes]])
+    distance = np.abs(covered[probes] - covered[head[probes]])
+    suspect = np.zeros(triangles, bool)
+    total = np.bincount(which[probes], distance, minlength=triangles)
+    count = np.bincount(which[probes], minlength=triangles)
+    suspect[total > DISAGREE * np.maximum(count, 1)] = True
+    evaluate(np.flatnonzero(suspect[which]))
+    rest = ~done
+    covered[rest] = covered[head[rest]]
+    return covered
+
+#: the most coverage maps one material is split into, and how far (mean |Δ|) a triangle's own coverage may lie
+#: from a map's before it goes to the next one
+LAYERS, DISAGREE = 4, 0.25
+
+
+def _layers(rows, columns, which, covered, triangles: int, shape) -> tuple[list[np.ndarray], np.ndarray]:
+    """The coverage maps the samples need, and each triangle's map.
+
+    One map holds one coverage per texel, but triangles can share texels with a different coverage: UV islands
+    laid over each other whose vertex colour or other UVs differ (心's ear: opaque parallax-fur cards over the
+    strand cards).  Each map is filled, first come, from the triangles still unplaced; those whose own samples lie
+    on average more than DISAGREE from it go on to the next map.  Mirrored islands agree and stay together."""
+    left = np.ones(triangles, bool)
+    layer = np.zeros(triangles, np.int64)
+    maps = []
+    for number in range(LAYERS):
+        if not left.any():
+            break
+        if number == LAYERS - 1:
+            agree = left.copy()
+        else:
+            alpha = _first(rows, columns, covered, left[which], shape)
+            take = left[which]
+            distance = np.abs(covered - alpha[rows, columns])
+            total = np.bincount(which[take], distance[take], minlength=triangles)
+            count = np.bincount(which[take], minlength=triangles)
+            agree = left & (total <= DISAGREE * np.maximum(count, 1))
+            if not agree.any():
+                agree = left.copy()
+        layer[agree] = number
+        left &= ~agree
+        maps.append(_first(rows, columns, covered, agree[which], shape))
+    return maps, layer
+
+
+def _first(rows, columns, covered, take, shape) -> np.ndarray:
+    """A map of the taken samples, each texel the first sample over it (NaN where none is)."""
+    alpha = np.full(shape, np.nan)
+    keys = rows[take] * shape[1] + columns[take]
+    _unique, first = np.unique(keys, return_index=True)
+    alpha[rows[take][first], columns[take][first]] = covered[take][first]
     return alpha
 
 
@@ -379,12 +473,59 @@ def _fill(alpha: np.ndarray) -> np.ndarray:
 
 
 #: raised when what a bake gives changes, so a coverage kept from an earlier rule is not used again
-VERSION = 4
+VERSION = 6
 #: a texel's coverage counted as partial (drawn blended, not cut) between these
 PARTIAL = (0.02, 0.98)
 #: the share of a material's covered texels that must be partial for it to be drawn blended; below it the
 #: partial ones are cut at 0.5 (a dither's edge, a strand's tip) and the rest drawn as the solid cards they are
 BLENDED_SHARE = 0.5
+
+
+
+def _move_layers(document: dict, arrays: dict, name: str, layer: np.ndarray) -> None:
+    """*name*'s triangles whose coverage lies on map k > 0 moved to the material ``<name>_Overlap<k>``, in a part
+    of their own (``<part>_Overlap<k>``: a part is one material, as ``split.by_material`` leaves them); *layer* is
+    in the order ``bake_material`` reads them (the parts in order, each part's triangles in order)."""
+    from ..interchange.split import by_material
+    at = 0
+    for index, part in enumerate(list(document["parts"])):
+        if name not in part["materials"]:
+            continue
+        p = f"p{index}_"
+        slots = arrays[p + "slot"].copy()
+        mine = np.flatnonzero(slots == part["materials"].index(name))
+        theirs = layer[at:at + len(mine)]
+        at += len(mine)
+        numbers = [int(n) for n in np.unique(theirs[theirs > 0])]
+        if not numbers:
+            continue
+        part = dict(part, materials=list(part["materials"]))
+        for number in numbers:
+            part["materials"].append(f"{name}_Overlap{number}")
+            slots[mine[theirs == number]] = len(part["materials"]) - 1
+        own = {key[len(p):]: value for key, value in arrays.items() if key.startswith(p)}
+        own["slot"] = slots
+        pieces, piece_arrays = by_material({"parts": [part]}, {f"p0_{key}": value for key, value in own.items()})
+        for key in [key for key in arrays if key.startswith(p)]:
+            del arrays[key]
+        placed = False
+        for number, piece in enumerate(pieces["parts"]):
+            material = piece["materials"][0]
+            if material.startswith(f"{name}_Overlap"):
+                piece["name"] = f"{part['name']}_Overlap{material[len(name) + len('_Overlap'):]}"
+            elif len(pieces["parts"]) == len(numbers) + 1:
+                piece["name"] = part["name"]                  # one material before: the part keeps its name
+            if not placed and not material.startswith(f"{name}_Overlap"):
+                target, placed = index, True
+                document["parts"][index] = piece
+            else:
+                target = len(document["parts"])
+                document["parts"].append(piece)
+            for key, value in piece_arrays.items():
+                if key.startswith(f"p{number}_"):
+                    arrays[f"p{target}_{key[len(f'p{number}_'):]}"] = value
+    if at != len(layer):
+        raise BakeError("覆蓋率分層的三角形數和材質對不上")
 
 
 def bake_case(case: Path, files, log=print, step=lambda text: None) -> None:
@@ -403,6 +544,7 @@ def bake_case(case: Path, files, log=print, step=lambda text: None) -> None:
         return
     arrays = dict(np.load(case / document["arrays"]))
     store = None
+    changed = False
     import hashlib
     for name in masked:
         record = document["materials"][name]
@@ -414,21 +556,23 @@ def bake_case(case: Path, files, log=print, step=lambda text: None) -> None:
                         geometry.update(np.ascontiguousarray(arrays[f"p{index}_{key}"]).tobytes())
         key = hashlib.sha256((f"{VERSION}|" + record.get("source_json_sha256", "") + name + geometry.hexdigest())
                              .encode()).hexdigest()[:24]
-        cached = Path(files.cache) / f"{key}.png"
+        cached = Path(files.cache) / f"{key}.npz"
         step("以遊戲 shader 烘焙裁切覆蓋率")
         try:
             if cached.is_file():
-                with Image.open(cached) as opened:
-                    alpha = np.asarray(opened, np.float32) / 255.0
+                with np.load(cached) as stored:
+                    maps = [stored[f"map{k}"].astype(np.float32) / 255.0 for k in range(int(stored["count"]))]
+                    layer = stored["layer"]
             else:
                 if store is None:
                     store = A.read(files.archive())
                 root, collections = files.root_of(record["source_package"])
-                alpha = bake_material(name, record, document, arrays, case, store,
-                                      files.package(record["source_package"]), root, collections,
-                                      announce=lambda: log(f"{name}：以遊戲的 shader 烘焙覆蓋率（第一次要一兩分鐘）…"))
+                maps, layer = bake_material(name, record, document, arrays, case, store,
+                                            files.package(record["source_package"]), root, collections,
+                                            announce=lambda: log(f"{name}：以遊戲的 shader 烘焙覆蓋率（第一次要一兩分鐘）…"))
                 cached.parent.mkdir(parents=True, exist_ok=True)
-                Image.fromarray(np.round(alpha * 255).astype(np.uint8)).save(cached)
+                np.savez_compressed(cached, count=len(maps), layer=layer,
+                                    **{f"map{k}": np.round(m * 255).astype(np.uint8) for k, m in enumerate(maps)})
         except (BakeError, vm.ShaderError, preshader.PreshaderError, OSError, KeyError, ValueError) as failure:
             log(f"{name}：遊戲的 shader 無法在這裡執行（{failure}），照材質宣告的裁切輸出")
             continue
@@ -436,17 +580,32 @@ def bake_case(case: Path, files, log=print, step=lambda text: None) -> None:
         base = _image(case / base_record["file"], False)
         folder = case / "coverage"
         folder.mkdir(exist_ok=True)
-        target = folder / f"{name}.png"
-        rgba = np.concatenate([base[:, :, :3], alpha[:, :, None]], axis=2)
-        Image.fromarray(np.round(rgba * 255).astype(np.uint8), "RGBA").save(target)
-        covered = alpha[(alpha > 0)]
-        partial = float(((covered > PARTIAL[0]) & (covered < PARTIAL[1])).mean()) if covered.size else 0.0
-        coverage_key = record["base"] + "_Coverage"
-        record["maps"][coverage_key] = dict(base_record, file=str(target.relative_to(case)))
-        record.update(base=coverage_key, alpha_from="a",
-                      coverage="the game's shadow-depth shader run over each texel, seen head-on (shader_bake)")
-        if partial > BLENDED_SHARE:
-            record["blend"] = "alpha"
-        else:
-            record["cutoff"] = 0.5
+        original = dict(record, maps=dict(record["maps"]))
+        for number, alpha in enumerate(maps):
+            target = folder / (f"{name}.png" if number == 0 else f"{name}_{number}.png")
+            rgba = np.concatenate([base[:, :, :3], alpha[:, :, None]], axis=2)
+            Image.fromarray(np.round(rgba * 255).astype(np.uint8), "RGBA").save(target)
+            if number == 0:
+                layered = record
+            else:
+                # triangles over the same texels with another coverage: a material of their own
+                layered = dict(original, maps=dict(original["maps"]))
+                document["materials"][f"{name}_Overlap{number}"] = layered
+            covered = alpha[(alpha > 0)]
+            partial = float(((covered > PARTIAL[0]) & (covered < PARTIAL[1])).mean()) if covered.size else 0.0
+            coverage_key = original["base"] + "_Coverage"
+            layered["maps"][coverage_key] = dict(base_record, file=target.relative_to(case).as_posix())
+            layered.update(base=coverage_key, alpha_from="a",
+                           coverage="the game's shadow-depth shader run over each texel, seen head-on (shader_bake)"
+                           + (f"; overlapping UVs, map {number + 1} of {len(maps)}" if len(maps) > 1 else ""))
+            if partial > BLENDED_SHARE:
+                layered["blend"] = "alpha"
+            else:
+                layered["cutoff"] = 0.5
+        if len(maps) > 1:
+            _move_layers(document, arrays, name, layer)
+            changed = True
+            log(f"{name}：UV 重疊處的覆蓋率不同，分成 {len(maps)} 個材質")
+    if changed:
+        np.savez_compressed(case / document["arrays"], **arrays)
     (case / "source_document.json").write_text(json.dumps(document, indent=2, ensure_ascii=False), encoding="utf-8")

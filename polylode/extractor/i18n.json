@@ -1396,5 +1396,23 @@
   "zh-CN": "{0}：{1} 个毛发卡片三角形做成 {2} 层毛丝",
   "ja": "{0}：毛カードの三角形 {1} 個を {2} 層の毛束に",
   "ko": "{0}: 털 카드 삼각형 {1}개를 {2}층 털 가닥으로"
+ },
+ "{0}：UV 重疊處的覆蓋率不同，分成 {1} 個材質": {
+  "en": "{0}: overlapping UVs carry different coverage; split into {1} materials",
+  "zh-CN": "{0}：UV 重叠处的覆盖率不同，分成 {1} 个材质",
+  "ja": "{0}：重なった UV でカバレッジが異なるため {1} 個のマテリアルに分割",
+  "ko": "{0}: 겹친 UV의 커버리지가 달라 재질 {1}개로 나눔"
+ },
+ "{0}：Plane 不是 0 的視差毛髮走法不同，沒有讀過，毛絲層不做": {
+  "en": "{0}: parallax fur with Plane other than 0 walks differently and has not been read; no strand layers",
+  "zh-CN": "{0}：Plane 不是 0 的视差毛发走法不同，没有读过，不做毛丝层",
+  "ja": "{0}：Plane が 0 でない視差の毛は進み方が異なり未解読のため、毛束レイヤーは作りません",
+  "ko": "{0}: Plane이 0이 아닌 시차 털은 방식이 달라 아직 읽지 않았으므로 털 가닥 층을 만들지 않습니다"
+ },
+ "覆蓋率分層的三角形數和材質對不上": {
+  "en": "the coverage layers' triangle count does not match the material's",
+  "zh-CN": "覆盖率分层的三角形数和材质对不上",
+  "ja": "カバレッジ層の三角形数がマテリアルと一致しません",
+  "ko": "커버리지 층의 삼각형 수가 재질과 맞지 않습니다"
  }
 }

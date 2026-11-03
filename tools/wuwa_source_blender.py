@@ -173,6 +173,8 @@ def build(case, ident, document, arrays):
             material.node_tree.links.new(images[0].outputs["Alpha"], compare.inputs[0])
             material.node_tree.links.new(compare.outputs[0], shader.inputs["Alpha"])
             material.surface_render_method = "DITHERED"
+        if record.get("fur_rim_fade") is not None:
+            rim_fade(material, record["fur_rim_fade"])
         for key, value in record["maps"].items():
             if key == record.get("base"):
                 continue
@@ -211,6 +213,30 @@ def build(case, ident, document, arrays):
                "source_omissions": counts, "screenshots_created": 0}
     (case / "original_receipt.json").write_text(json.dumps(receipt, indent=2), encoding="utf-8")
 
+
+def rim_fade(material, bounds):
+    """A fur strand layer's height scaled by the fur shader's rim fade, smoothstep(min, max, N·V), before its
+    cutoff (``fur_shells``): seen at a grazing angle the strands sink toward the card."""
+    nodes, links = material.node_tree.nodes, material.node_tree.links
+    kept = next((n for n in nodes if n.type == "MATH" and n.operation == "GREATER_THAN"), None)
+    if kept is None or not kept.inputs[0].is_linked:
+        raise ValueError(f"{material.name}: a fur strand layer with no cutoff")
+    height = kept.inputs[0].links[0].from_socket
+    geometry = nodes.new("ShaderNodeNewGeometry")
+    facing = nodes.new("ShaderNodeVectorMath")
+    facing.operation = "DOT_PRODUCT"
+    links.new(geometry.outputs["Normal"], facing.inputs[0])
+    links.new(geometry.outputs["Incoming"], facing.inputs[1])
+    fade = nodes.new("ShaderNodeMapRange")
+    fade.interpolation_type = "SMOOTHSTEP"
+    fade.clamp = True
+    fade.inputs["From Min"].default_value, fade.inputs["From Max"].default_value = bounds
+    links.new(facing.outputs["Value"], fade.inputs["Value"])
+    faded = nodes.new("ShaderNodeMath")
+    faded.operation = "MULTIPLY"
+    links.new(height, faded.inputs[0])
+    links.new(fade.outputs["Result"], faded.inputs[1])
+    links.new(faded.outputs["Value"], kept.inputs[0])
 
 def check(case, ident, document, arrays):
     bones = [(bone["name"], bone["parent"], arrays["bone_rest"][index]) for index, bone in enumerate(document["bones"])]
