@@ -60,6 +60,26 @@ def display_lods(parts: list[dict]) -> dict:
     return {'hidden': hidden, 'selected': selected, 'policy': 'standard_highest_visible_lod'}
 
 
+def combat_variants(parts: list[dict]) -> dict[str, bool]:
+    """Each part hidden when it is a mode variant (``…_lod0_Dorm``) of a renderer that has a combat one
+    (``…_lod0_Fight``): Nikketa's SSR0102 carries a combat and a dormitory pair of shoes on one prefab.
+
+    The ``slg`` prefabs are the combat models, and the game's combat code picks ``(\\w*_lod[0-1](?:_Fight)?)``
+    (the literal beside its ``root_merger``), and its swappable-parts code names ``Fight`` and no ``Dorm``.  Those
+    literals are what is read — the code itself is encrypted.  A renderer with no suffix is not a variant.
+    """
+    groups: dict[str, list[tuple[str, str]]] = {}
+    for part in parts:
+        match = re.fullmatch(r'(.*_lodm?\d+)_([A-Za-z]+)', part['name'])
+        if match:
+            groups.setdefault(match[1], []).append((match[2], part['name']))
+    hidden = {part['name']: False for part in parts}
+    for members in groups.values():
+        if any(mode == 'Fight' for mode, _name in members):
+            for mode, name in members:
+                hidden[name] = mode != 'Fight'
+    return hidden
+
 def surface(record: dict) -> dict:
     """Require source parameters for the verified base/detail coverage rules."""
     shader = record['shader']

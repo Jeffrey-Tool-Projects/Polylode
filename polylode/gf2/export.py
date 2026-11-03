@@ -13,7 +13,7 @@ from ..core.paths import write_json_atomic
 from ..endfield import fbxfile
 from ..endfield import rigscene as RS
 from ..origin import bake
-from . import display, frames, playable, precision, presentation, publish, store
+from . import display, frames, parts, playable, precision, presentation, publish, store
 
 
 def worker(blender, mode, document, fbx):
@@ -156,14 +156,27 @@ def scene_document(ident, declared=None):
         # other levels kept but hidden (presentation.display_lods); with every level shown, a viewer drew
         # each mesh two or three times over itself
         hidden = presentation.display_lods(document_data['parts'])['hidden']
+        # and of an outfit's swappable slots only the choice the game dresses it in (parts: its tables), of a
+        # renderer's combat and dormitory versions only the combat one (presentation.combat_variants); the
+        # others stay in the file, hidden — shown together they were three outfits worn through each other
+        combat = presentation.combat_variants(document_data['parts'])
+        picked = parts.choices(_install(), ident)
+        spare = parts.hidden(document_data['parts'], picked) if picked else {}
         for part in document_data['parts']:
             part.setdefault('source_hidden', part['hidden'])
-            part['hidden'] = hidden[part['name']]
+            part['hidden'] = hidden[part['name']] or combat[part['name']] or spare.get(part['name'], False)
+        if picked:
+            document_data['parts_choice'] = picked
     layout = frames.plan(scene.bones, scene.parts)
     if any(any(v != 0 for v in frame['origin']) for frame in layout['frames']):
         document_data['local_frames'] = layout
     write_json_atomic(document, document_data, indent=1)
     return scene, selection, layout, folder, document
+
+
+def _install() -> Path:
+    """The installation the store was converted from."""
+    return Path(json.loads((store.root() / 'conversion.json').read_text(encoding='utf8'))['install'])
 
 
 def export_one(blender, ident, declared=None):

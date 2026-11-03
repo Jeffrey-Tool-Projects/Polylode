@@ -27,8 +27,9 @@ QML = Path(__file__).with_name("preview.qml")
 #: preview is not shown again (2: overlays as their tint by coverage; 3: GF2 eye layers and transparency,
 #: WuWa translucency, §7.1455; 5: vertex colours kept out of COLOR_0, which hid
 #: GF2's characters, and GF2's lower LOD levels hidden; 6: Wuthering Waves split by material; 7: Wuthering
-#: Waves' cut-outs from the game's shader, parallax fur as strand layers)
-CACHE_VERSION = 7
+#: Waves' cut-outs from the game's shader, parallax fur as strand layers; 8: GF2's spare outfit parts and
+#: dormitory variants hidden)
+CACHE_VERSION = 8
 
 
 def cache_folder(model: Model) -> Path:

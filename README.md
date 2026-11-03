@@ -9,7 +9,7 @@ Windows desktop program with a window, a preview you can turn with the mouse, an
 | Game | What it reads | Notes |
 |---|---|---|
 | Arknights: Endfield | Every playable character prefab | The asset maps are built from your install on the first scan (in checked, resumable batches) and again after a game update |
-| Girls' Frontline 2: Exilium | Every playable character's outfits | Only roots with their own skinned mesh and a whole human skeleton are listed (no pets, props or empty variants) |
+| Girls' Frontline 2: Exilium | Every playable character's outfits | Only roots with their own skinned mesh and a whole human skeleton are listed (no pets, props or empty variants). An outfit with swappable parts is shown as the game dresses it by default; the other versions are in the file, hidden |
 | Wuthering Waves | Every playable character's display models | Needs your AES keys file; the game-file reader (built from `tools/wuwa_cli`) comes with the program; each material section (hair, face, upper body…) is its own part |
 | Existing conversions | Finished models in `*_Converted` folders | Copied out after checking each file's SHA-256 |
 

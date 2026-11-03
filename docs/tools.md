@@ -11,6 +11,17 @@
 - GF2：掃描先 `bundles.scan_directories`＋`bundles.scan`（續跑：大小與 mtime 不變的 bundle 不再讀），再 `gf2.batch.declared_entries` → `selection.roots_only`；
   `conversion.json` 記為 `not_model`／`excluded_scope` 的不列。匯出 `gf2.batch.convert_entry` → `gf2.export.export_one`（Blender 寫出與讀回），
   `ok` 才複製 FBX（連同 `textures/`）與 `.blend` 到 `<輸出>/gf2/<編號>/`。轉換暫存仍在 `gf2.store.root()`。
+- GF2 的可見性（沒有審過的 `display_profiles` 時，`gf2.export.scene_document`）：三條規則的聯集，被藏的照樣寫進檔案、只是隱藏。
+  - LOD：每個 LOD 家族只顯示最細的一層（`presentation.display_lods`）。
+  - 可替換部件（`gf2/parts.py`）：有些衣裝在同一個 prefab 裡放了一個部位的好幾種版本（妮基塔 SSR0102 的上衣、裙子、腿各有
+    `P1`／`P2`／`P3`，renderer 全都 active），遊戲執行時每個部位挑一種。挑法是安裝裡 `LocalCache/Data/Table` 的資料表（protobuf，
+    `rows` 不靠 schema 解）：`ModelConfigData` 名稱 → 模型編號；`PartsGroupData` 的部位（欄位 5 是衣裝 = 模型編號 + 1 000 000，表上 36 套都成立）；
+    `PartsListData` 的選項（欄位 7 部位、欄位 2 是 P 幾；欄位 4 = 1 是不用解鎖、預設穿的那一個，其他帶欄位 5 的解鎖條件，111 個部位都是 index 1）；
+    `PartsResourceData` 是選項的節點名（`P1_hip2` 對到 `…_P1_hip2_trans_lod0`）。預設以外的選項的節點藏起來；記在文件的 `parts_choice`。
+    少數選項（欄位 8／9，例：庫蕾 SSR0104）的資源不在 `PartsResourceData`，不是換節點，這裡不動它們。
+  - 戰鬥版本：同一個 renderer 有 `_Fight` 的時候，其他字尾（`_Dorm`）藏起來（`presentation.combat_variants`）。`slg` prefab 是戰鬥模型；
+    依據是遊戲程式的字串常值：戰鬥合併旁的 `(\w*_lod[0-1](?:_Fight)?)`、可替換部件程式（`ReplaceableModelRes`）裡的 `Fight`，全程式沒有 `_Dorm`。
+    遊戲程式（HybridCLR 的 `Assembly-CSharp.dll.bytes`）的方法本體是加密的，只讀了沒加密的字串常值表 `#US`，沒有解密程式。
 - 鳴潮、GF2 全部可玩角色（§7.1455）：`wuthering_waves.scope.read_scope` 讀每個 `RoleType` 1、非試用的角色（網格在 `/Game/Aki/Character/Role/` 下）；GF2 的匯出在 `gf2_source.own_scope()` 裡跑：`gf2.gender.all_playable()`（角色表的每個身分都通過，選取記 `all_playable`，只有這個模式裡算數）＋工具自己的 GF2 倉庫（`ISLANDLIFE_GF2_DIR` → `assets_cache/extractor/gf2_store`）。遊戲自己的轉換仍是已核實女性。
 - 模型檢視器（§7.1455，`extractor/viewer.py`）：同一個 `preview.qml`（多了 `wireframe`、`backdrop`、`light` 與 `look(yaw, pitch)`），列出輸出資料夾的 `.glb`／`.gltf`／`.fbx`／`.obj`，可開啟或拖進檔案；`ModelExtractor.exe <檔案>` 直接開在這頁。glTF 的內容由 `model_info` 讀它自己的 JSON（頂點按 POSITION 陣列只算一次）。
 - 預覽（§7.1455，`extractor/preview.py`、`preview.qml`）：選一列按「預覽」，用匯出的同一個子行程只寫 `.glb`、不經 Blender，到 `assets_cache/extractor/preview/<來源>/<模型>/`；Qt Quick 3D 的 `RuntimeLoader` 讀它、照邊界取景，`OrbitCameraController` 轉動。打包帶 `--include-qt-plugins=qml`，`--selftest` 的 `preview_qml_errors` 實際載入一次。
