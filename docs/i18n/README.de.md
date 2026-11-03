@@ -75,7 +75,7 @@ nichts wird neu gebaut.
 - **Werkzeuge** — leer lassen, um das Mitgelieferte zu nutzen: AnimeStudio (Endfield), den Wuthering-Waves-Leser und die
   .NET-Laufzeit. Wuthering Waves braucht außerdem deine **AES-Schlüsseldatei** (ein JSON mit `mainKey` und
   `dynamicKeys` für deine Client-Version): Die Dateien sind verschlüsselt, und der Schlüssel gehört dir, das Programm
-  kann ihn nicht mitbringen. Die erste Vorschau oder der erste Export fragt einmal danach.
+  kann ihn nicht mitbringen. Vor der ersten Vorschau oder dem ersten Export sucht es eine Schlüsseldatei, die du schon hast — neben dem Programm, in seinem Datenordner, im Installationsordner und dem darüber, in Downloads, Dokumente und Desktop — und fragt nur, wenn es keine findet.
 
 ### 3. Scannen
 
@@ -117,7 +117,7 @@ in den Papierkorb.
 ### Fehlerbehebung
 
 - **Vor einer Vorschau oder einem Export öffnet sich eine Dateiauswahl** — ein Werkzeug, ohne das die Konvertierung
-  nicht läuft, ist nicht gesetzt; bei Wuthering Waves ist es die AES-Schlüsseldatei. Einmal gewählt, bleibt sie gemerkt.
+  nicht läuft, ist nicht gesetzt; bei Wuthering Waves ist es die AES-Schlüsseldatei, und dort, wo es sucht, lag keine. Einmal gewählt, bleibt sie gemerkt.
 - **„…has not been set“ oder „…is not there“** im Protokoll — korrigiere diesen Pfad unter **Settings**.
 - **„This file's size could not be measured“** — der Betrachter konnte die Ausdehnung der Datei nicht lesen (etwa bei
   einer FBX 7.5); die Ansicht steht am Ursprung, zoome mit dem Mausrad.

@@ -75,7 +75,7 @@ au premier démarrage : rien n'est reconstruit.
 - **Outils** — laissez-les vides pour utiliser ce que le programme embarque : AnimeStudio (Endfield), le lecteur de
   Wuthering Waves et le runtime .NET. Wuthering Waves demande aussi votre **fichier de clés AES** (un JSON avec
   `mainKey` et `dynamicKeys` pour votre version du client) : ses fichiers sont chiffrés, et la clé est la vôtre, pas
-  quelque chose que le programme peut embarquer. Le premier aperçu ou export la demande une fois.
+  quelque chose que le programme peut embarquer. Avant le premier aperçu ou export, il cherche un fichier de clés que vous avez déjà — à côté du programme, dans son dossier de données, dans le dossier d'installation et celui du dessus, dans Téléchargements, Documents et Bureau — et ne le demande que s'il n'en trouve aucun.
 
 ### 3. Analyser
 
@@ -116,7 +116,7 @@ keys et le mélange de chaque matériau — et signale un fichier écrit selon d
 ### Dépannage
 
 - **Un sélecteur de fichier s'ouvre avant un aperçu ou un export** — un outil indispensable à la conversion n'est pas
-  défini ; pour Wuthering Waves, c'est le fichier de clés AES. Choisissez-le une fois, il est retenu.
+  défini ; pour Wuthering Waves, c'est le fichier de clés AES, et aucun n'était là où il cherche. Choisissez-le une fois, il est retenu.
 - **« …has not been set » ou « …is not there »** dans le journal — corrigez ce chemin dans **Settings**.
 - **« This file's size could not be measured »** — la visionneuse n'a pas pu lire l'étendue du fichier (un FBX 7.5, par
   exemple) ; la vue est à l'origine, zoomez avec la molette.

@@ -74,7 +74,7 @@ asset maps, GF2 index and stores are moved over on the first start, so nothing i
 - **Tools** — leave them empty to use what the program carries: AnimeStudio (Endfield), the Wuthering Waves reader
   and the .NET runtime. Wuthering Waves also needs your **AES keys file** (a JSON with `mainKey` and `dynamicKeys`
   for your client version): its files are encrypted, and the key is yours, not something the program can carry.
-  The first preview or export asks for it once.
+  Before the first preview or export it looks for a keys file you already have — beside the program, in its data folder, in the install folder and the one above it, in Downloads, Documents and Desktop — and asks only when it finds none.
 
 ### 3. Scanning
 
@@ -114,8 +114,7 @@ shape keys and each material's blending — and marks a file written by older ru
 
 ### Troubleshooting
 
-- **A file picker opens before a preview or export** — a tool the conversion cannot run without is not set; for
-  Wuthering Waves it is the AES keys file. Pick it once and it is remembered.
+- **A file picker opens before a preview or export** — a tool the conversion cannot run without is not set; for Wuthering Waves it is the AES keys file, and none was found where it looks. Pick it once and it is remembered.
 - **"…has not been set" or "…is not there"** in the log — fix that path under **Settings**.
 - **"This file's size could not be measured"** — the viewer could not read the file's extent (an FBX 7.5 file, for
   one); the view is at the origin, zoom with the wheel.

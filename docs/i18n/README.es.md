@@ -51,7 +51,7 @@ Requisitos: Windows 10 u 11 de 64 bits. Blender 4.x o 5.x solo para `.blend`.
 
 ## Guía de uso
 
-La ventana está en inglés, chino y japonés/coreano; esta guía nombra los botones como los muestra la ventana en inglés.
+La ventana está en inglés, chino, japonés y coreano; esta guía nombra los botones como los muestra la ventana en inglés.
 
 ### 1. Primer arranque
 
@@ -71,7 +71,7 @@ Endfield, índice de GF2 y almacenes se trasladan en el primer arranque, así qu
 - **Herramientas** — déjalas vacías para usar lo que trae el programa: AnimeStudio (Endfield), el lector de Wuthering
   Waves y el runtime de .NET. Wuthering Waves necesita además tu **archivo de claves AES** (un JSON con `mainKey` y
   `dynamicKeys` de tu versión del cliente): sus archivos están cifrados y la clave es tuya, no algo que el programa
-  pueda incluir. La primera vista previa o exportación la pide una vez.
+  pueda incluir. Antes de la primera vista previa o exportación busca un archivo de claves que ya tengas —junto al programa, en su carpeta de datos, en la carpeta de instalación y la de encima, en Descargas, Documentos y Escritorio— y solo lo pide si no encuentra ninguno.
 
 ### 3. Escanear
 
@@ -112,7 +112,7 @@ y la mezcla de cada material— y marca un archivo escrito con reglas antiguas, 
 ### Solución de problemas
 
 - **Se abre un selector de archivos antes de una vista previa o exportación** — falta una herramienta sin la que la
-  conversión no puede funcionar; en Wuthering Waves es el archivo de claves AES. Elígelo una vez y se recuerda.
+  conversión no puede funcionar; en Wuthering Waves es el archivo de claves AES, y no había ninguno donde busca. Elígelo una vez y se recuerda.
 - **«…has not been set» o «…is not there»** en el registro — corrige esa ruta en **Settings**.
 - **«This file's size could not be measured»** — el visor no pudo leer la extensión del archivo (por ejemplo, un FBX
   7.5); la vista está en el origen, acerca con la rueda.

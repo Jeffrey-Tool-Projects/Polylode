@@ -32,6 +32,54 @@ BLENDER = PathSpec("blender", "Blender 執行檔", "file")
 MODEL_TABLE_JSON = "model_config/package.json"
 
 
+#: a keys file this large is not one (a JSON of two keys and a list is a few kilobytes)
+KEYS_MOST = 256 * 1024
+
+
+def is_keys_file(path: Path) -> bool:
+    """Whether *path* is a keys file by its content: a JSON object with a hexadecimal ``mainKey`` and a
+    ``dynamicKeys`` list (its name may be anything)."""
+    try:
+        if not path.is_file() or path.stat().st_size > KEYS_MOST:
+            return False
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError, UnicodeDecodeError):
+        return False
+    if not isinstance(data, dict) or not isinstance(data.get("dynamicKeys"), list):
+        return False
+    key = data.get("mainKey")
+    if not isinstance(key, str):
+        return False
+    digits = key[2:] if key.lower().startswith("0x") else key
+    return len(digits) == 64 and all(c in "0123456789abcdefABCDEF" for c in digits)
+
+
+def keys_places(settings) -> list[Path]:
+    """Where a keys file the user already has is looked for: beside the program, in its data folder, the
+    install folder named and the one above it, and the user's Downloads, Documents and Desktop."""
+    from ..core.paths import derived_root
+    from .blender_files import root
+    places = [root(), derived_root()]
+    install = settings.install(INSTALL.key)
+    if install is not None:
+        places += [install, install.parent]
+    home = Path.home()
+    places += [home / "Downloads", home / "Documents", home / "Desktop"]
+    return list(dict.fromkeys(p for p in places if p.is_dir()))
+
+
+def find_keys(settings) -> Path | None:
+    """A keys file the user already has (``is_keys_file``) in one of ``keys_places``, the files directly in
+    each; the newest when there are several.  The key itself is never derived from the game: it is the user's."""
+    found = []
+    for place in keys_places(settings):
+        try:
+            found += [p for p in place.glob("*.json") if is_keys_file(p)]
+        except OSError:
+            continue
+    return max(found, key=lambda p: p.stat().st_mtime) if found else None
+
+
 def config_root() -> Path:
     from ..core.paths import derived_root
     return derived_root() / "assets_cache" / "wuthering_waves" / "config"
@@ -100,6 +148,10 @@ class WuwaSource:
     id = "wuwa"
     label = "鳴潮"
     paths = (INSTALL, READER, DOTNET, KEYS)
+
+    def find_tool(self, key: str, settings) -> Path | None:
+        """A tool the user already has on this computer, found before they are asked for it."""
+        return find_keys(settings) if key == KEYS.key else None
 
     def scan(self, settings, log: Log) -> list[Model]:
         root = extract_config(settings, log)

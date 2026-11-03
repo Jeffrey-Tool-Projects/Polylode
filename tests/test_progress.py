@@ -171,6 +171,8 @@ def test_a_preview_or_export_asks_for_each_required_tool_it_lacks_once(tmp_path,
     from polylode.extractor import bundled
     monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
     monkeypatch.setattr(bundled, "wuwa_reader", lambda: None)   # a checkout without the built reader
+    from polylode.extractor import wuwa_source
+    monkeypatch.setattr(wuwa_source, "find_keys", lambda settings: None)   # no keys file on this computer
     S.save(S.Settings())
     qt = QApplication.instance() or QApplication([])
     window = A.Window()
@@ -201,6 +203,8 @@ def test_a_tool_the_program_carries_is_not_asked_for(tmp_path, monkeypatch):
     reader, keys = tmp_path / "wuwa.exe", tmp_path / "keys.json"
     reader.write_bytes(b""), keys.write_text("{}")
     monkeypatch.setattr(bundled, "wuwa_reader", lambda: reader)
+    from polylode.extractor import wuwa_source
+    monkeypatch.setattr(wuwa_source, "find_keys", lambda settings: None)
     qt = QApplication.instance() or QApplication([])
     window = A.Window()
     page = next(window.pages.widget(i) for i in range(window.pages.count())
@@ -209,5 +213,36 @@ def test_a_tool_the_program_carries_is_not_asked_for(tmp_path, monkeypatch):
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a: (asked.append(a[1]) or str(keys), ""))
     assert page.ask_tools() and len(asked) == 1                  # the keys only: the reader is carried
     assert S.load().tools.get("wuwa_reader", "") == ""            # its field stays empty: the carried one
+    window.close()
+    del qt
+
+
+def test_a_keys_file_the_user_has_is_found_by_its_content_and_used_without_asking(tmp_path, monkeypatch):
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from pathlib import Path
+    from PySide6.QtWidgets import QApplication, QFileDialog
+    from polylode.extractor import app as A
+    from polylode.extractor import bundled
+    from polylode.extractor import wuwa_source as W
+    home = tmp_path / "home"
+    (home / "Downloads").mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", lambda: home)
+    keys = home / "Downloads" / "anything.json"
+    keys.write_text(json.dumps({"mainKey": "0x" + "ab" * 32, "dynamicKeys": []}), encoding="utf-8")
+    (home / "Downloads" / "other.json").write_text('{"mainKey": "nope", "dynamicKeys": []}', encoding="utf-8")
+    (home / "Downloads" / "list.json").write_text("[1, 2]", encoding="utf-8")
+    assert W.is_keys_file(keys) and not W.is_keys_file(home / "Downloads" / "other.json")
+    assert W.find_keys(S.Settings()) == keys
+
+    monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    monkeypatch.setattr(bundled, "wuwa_reader", lambda: tmp_path / "wuwa.exe")
+    S.save(S.Settings())
+    qt = QApplication.instance() or QApplication([])
+    window = A.Window()
+    page = next(window.pages.widget(i) for i in range(window.pages.count())
+                if getattr(getattr(window.pages.widget(i), "source", None), "id", "") == "wuwa")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a: (_ for _ in ()).throw(AssertionError("asked")))
+    assert page.ask_tools()                                    # found: no file picker
+    assert S.load().tools["wuwa_keys"] == str(keys)
     window.close()
     del qt

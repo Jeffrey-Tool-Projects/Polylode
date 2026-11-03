@@ -309,6 +309,12 @@ class SourcePage(QWidget):
                 continue
             if current is None and spec.bundled and getattr(bundled, spec.bundled)() is not None:
                 continue                                    # an empty field: the one this program carries
+            finder = getattr(self.source, "find_tool", None)
+            found = finder(spec.key, settings) if finder is not None else None
+            if found is not None:                           # one the user already has: asked for only without
+                self.window_.settings_page.set_path(spec.key, str(found))
+                self.window_.log(f"[{self.source.label}] 找到{spec.label}：{found}")
+                continue
             title = tr(f"選擇{spec.label}") + (f"（{tr(spec.hint)}）" if spec.hint else "")
             start = str(current.parent) if current is not None else ""
             chosen = (QFileDialog.getExistingDirectory(self, title, start) if spec.kind == "dir"
