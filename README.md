@@ -35,7 +35,7 @@ The English window, taken from a real scan and preview with `tools/screenshots.p
   read back in it as a check.
 - **Materials as the games draw them.** Cut-outs, transparency, eye-shadow overlays and eye highlight layers are
   written from the rules read out of each game's shaders. Where glTF/FBX cannot blend a layer, its effect is baked
-  into the texture beneath it; the `.blend` keeps real layers.
+  into the texture beneath it; the `.blend` keeps real layers. Wuthering Waves' cut-out coverage comes from running the game's own compiled shader, and its parallax fur is built as layers of strands.
 - **Preview before exporting.** Select a row and press Preview (or double-click): the model is converted to `.glb`
   into a cache and shown beside the list — left-drag turns, right-drag pans, the wheel zooms.
 - **Model viewer.** Lists every model in your output folder and opens any `.glb`, `.gltf`, `.fbx` or `.obj`

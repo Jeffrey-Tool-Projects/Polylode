@@ -114,13 +114,23 @@ def _collection(info: dict) -> np.ndarray:
     return np.array(list(packed.reshape(-1, 4)) + vectors, dtype=np.float64).reshape(-1, 4)
 
 
-#: the frame's own values a bake may give (as a head-on, lit, dry frame holds them): View's viewport origin,
-#: camera position and translation (the head-on view), handedness, mip bias and frame index; the primitive's
-#: determinant and wetness.  A shader that reads any other — the view matrices, the diffuse override, a
-#: parameter collection, the lights — draws its coverage from the frame's lighting or view, which a bake can
-#: only make up: such a material is not baked (the 心 lower body's sheer cloth took its coverage from a lit
-#: colour's luminance, and with made-up light it lost the legs).
-RUNTIME = {"View": {67, 70, 134, 147, 149, 158}, "Primitive": {4, 33}}
+#: the frame's own values a bake gives, each read off how the shaders use it against Unreal 4.26's View and
+#: Primitive uniform buffers, as the game's default frame holds them, seen head-on:
+#:   View [12..15] TranslatedWorldToView — per point, its normal toward the camera (``coverage``);
+#:   View [36] ClipToView's first row — tan(horizontal FOV / 2): 1, a 90° view;
+#:   View [67], [70] the camera's translation and origin — 0 (the position is camera-relative);
+#:   View [134] the viewport's origin, [149] the mip bias, [158] the frame index, [148] the game time — 0;
+#:   View [144] Diffuse/NormalOverrideParameter — (0, 0, 0, 1): no override;  [147].w — 1;
+#:   Primitive [0..3] LocalToWorld — identity (the scene is in its own frame);  [4].w the determinant's sign — 1;
+#:   Primitive [27] per-object custom data, [33] wetness — 0;
+#:   MaterialCollection<i> — its asset's defaults (``_collection``).
+#: A shader reading any other field is not baked: a value a bake would make up is a coverage made up.  (With
+#: LocalToWorld left 0 the lower body of 心 took a distance of 0, a NaN, and lost its legs.)
+RUNTIME = {"View": {12, 13, 14, 15, 36, 67, 70, 134, 144, 147, 148, 149, 158},
+           "Primitive": {0, 1, 2, 3, 4, 27, 33}}
+FRAME = {"View": {36: (1.0, 0.0, 0.0, 0.0), 144: (0.0, 0.0, 0.0, 1.0), 147: (0.0, 0.0, 0.0, 1.0)},
+         "Primitive": {0: (1.0, 0.0, 0.0, 0.0), 1: (0.0, 1.0, 0.0, 0.0), 2: (0.0, 0.0, 1.0, 0.0),
+                       3: (0.0, 0.0, 0.0, 1.0), 4: (1.0, 1.0, 1.0, 1.0)}}
 
 
 def runtime_reads(shader: dxbc.Shader) -> list[str]:
@@ -129,7 +139,7 @@ def runtime_reads(shader: dxbc.Shader) -> list[str]:
     wrong = []
     for register, slot in {(int(a), int(b)) for a, b in re.findall(r"cb(\d+)\[(\d+)\]", shader.asm.split("ps_5_0", 1)[-1])}:
         name = names.get(register, f"cb{register}")
-        if name in ("Material", "ShadowDepthPass"):
+        if name in ("Material", "ShadowDepthPass") or name.startswith("MaterialCollection"):
             continue
         if slot not in RUNTIME.get(name, set()):
             wrong.append(f"{name}[{slot}]")
@@ -156,15 +166,45 @@ def depth_shader(store: A.Archive, map_index: int) -> dxbc.Shader:
     return best[1]
 
 
+#: how many points the sensitivity test runs, and the share of them whose result may change
+PROBE, SENSITIVE = 20000, 0.01
+
+
+def unknown_inputs(shader: dxbc.Shader, uv_sets: int) -> list[tuple[int, int]]:
+    """The (input register, component) the shader reads that the mesh does not have: an interpolant past its
+    UV sets — a customised UV the game's vertex shader works out, which a bake has no value for."""
+    packed = _packed(shader)
+    used = dxbc.used_inputs(shader.asm)
+    unknown = []
+    for register, semantics in shader.inputs.items():
+        for semantic, index, mask in semantics:
+            if semantic != "TEXCOORD" or index >= 6:
+                continue
+            for c in mask:
+                if (semantic, index, c) not in used:
+                    continue
+                k = "xyzw".index(c)
+                uv = 2 * index + (k >= 2) if packed else (index if k < 2 else None)
+                if uv is None or uv >= uv_sets:
+                    unknown.append((register, k))
+    return unknown
+
+
+def _packed(shader: dxbc.Shader) -> bool:
+    return any(mask == "xyzw" for semantic, index, mask in
+               (x for register in shader.inputs.values() for x in register) if semantic == "TEXCOORD" and index == 0)
+
+
 def coverage(shader: dxbc.Shader, buffers: dict[int, np.ndarray], textures: dict[int, np.ndarray],
-             points: dict[str, np.ndarray]) -> np.ndarray:
-    """Each point's share of the dither positions the shader keeps."""
+             points: dict[str, np.ndarray], fill: dict | None = None, screens=None) -> np.ndarray:
+    """Each point's share of the dither positions the shader keeps; *fill* gives inputs the mesh lacks a value
+    ({(register, component): value})."""
     program = vm.parse(shader.asm)
     n = len(points["normal"])
     # without the screen position (no dither) one position says it all
-    screens = SCREEN if re.search(r"dcl_input_ps_siv .*, position", shader.asm) else SCREEN[:1]
-    packed = any(mask == "xyzw" for semantic, index, mask in
-                 (x for register in shader.inputs.values() for x in register) if semantic == "TEXCOORD" and index == 0)
+    if screens is None:
+        screens = SCREEN if re.search(r"dcl_input_ps_siv .*, position", shader.asm) else SCREEN[:1]
+    packed = _packed(shader)
     kept = np.zeros(n)
     for start in range(0, n, CHUNK):
         part = {k: v[start:start + CHUNK] for k, v in points.items() if k != "uvs"}
@@ -183,6 +223,9 @@ def coverage(shader: dxbc.Shader, buffers: dict[int, np.ndarray], textures: dict
                     source = _input(semantic, index, mask, part, packed, (x, y))
                     for c in mask:
                         value[:, "xyzw".index(c)] = source[:, "xyzw".index(c)]
+                for (filled, component), given in (fill or {}).items():
+                    if filled == register:
+                        value[:, component] = given
                 inputs[register] = value
             lane_buffers = dict(buffers)
             view_register = shader.buffers.get("View")
@@ -251,12 +294,12 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, case: P
 
     sizes = _sizes(shader.asm)
     buffers = {register: np.zeros((sizes.get(register, 1), 4)) for register in sizes}
-    view, primitive = shader.buffers.get("View"), shader.buffers.get("Primitive")
-    if view is not None:
-        buffers[view][144] = (0.0, 0.0, 0.0, 1.0)      # DiffuseOverrideParameter
-        buffers[view][147, 3] = 1.0
-    if primitive is not None:
-        buffers[primitive][4, 3] = 1.0                 # the local-to-world determinant's sign
+    for buffer_name, values in FRAME.items():
+        register = shader.buffers.get(buffer_name)
+        if register is not None:
+            for slot, value in values.items():
+                if slot < len(buffers[register]):
+                    buffers[register][slot] = value
     material = _frozen_values(record, uniforms, size_of)
     register = shader.buffers.get("Material")
     if register is None:
@@ -305,7 +348,18 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, case: P
     sign = np.where(at(joined["sign"][:, :, None])[:, 0] < 0, -1.0, 1.0)
     points = dict(normal=normal, tangent=tangent, sign=sign, colour=at(joined["colour"]),
                   uvs=[at(uv) for uv in uv_sets])
-    covered = coverage(shader, buffers, textures, points)
+    unknown = unknown_inputs(shader, len(uv_sets))
+    if unknown:
+        # the coverage may not depend on what the mesh lacks: run a sample with it at 0 and at 1
+        pick = np.random.default_rng(0).choice(len(normal), min(PROBE, len(normal)), replace=False)
+        sample = {k: v[pick] for k, v in points.items() if k != "uvs"}
+        sample["uvs"] = [uv[pick] for uv in points["uvs"]]
+        low = coverage(shader, buffers, textures, sample, {u: 0.0 for u in unknown}, SCREEN[:2])
+        high = coverage(shader, buffers, textures, sample, {u: 1.0 for u in unknown}, SCREEN[:2])
+        changed = float((np.abs(low - high) > 0.25).mean())
+        if changed > SENSITIVE:
+            raise BakeError(f"覆蓋率取決於網格沒有的輸入（頂點 shader 算出的自訂 UV；{changed:.0%} 的點會變）")
+    covered = coverage(shader, buffers, textures, points, {u: 0.0 for u in unknown})
     alpha = np.full((size[1], size[0]), np.nan)
     alpha[rows, columns] = covered
     alpha = _fill(alpha)
@@ -325,7 +379,7 @@ def _fill(alpha: np.ndarray) -> np.ndarray:
 
 
 #: raised when what a bake gives changes, so a coverage kept from an earlier rule is not used again
-VERSION = 2
+VERSION = 4
 #: a texel's coverage counted as partial (drawn blended, not cut) between these
 PARTIAL = (0.02, 0.98)
 #: the share of a material's covered texels that must be partial for it to be drawn blended; below it the

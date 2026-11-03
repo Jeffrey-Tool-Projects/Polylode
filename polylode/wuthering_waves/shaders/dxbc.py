@@ -59,6 +59,18 @@ def _inputs(asm: str) -> dict[int, list[tuple[str, int, str]]]:
     return inputs
 
 
+def used_inputs(asm: str) -> set[tuple[str, int, str]]:
+    """The (semantic, index, component) the shader actually reads: the signature's Used column."""
+    signature = asm.split("// Input signature:", 1)[-1].split("// Output signature:", 1)[0]
+    used = set()
+    for line in signature.splitlines():
+        match = re.match(r"//\s+(\w+)\s+(\d+)\s+([xyzw]+)\s+\d+\s+\w+\s+\w+\s+([xyzw ]*)$", line.rstrip())
+        if match:
+            semantic, index, _mask, components = match.groups()
+            used.update((semantic, int(index), c) for c in components.replace(" ", ""))
+    return used
+
+
 def read(code: bytes) -> Shader:
     """The stored code *code* (``archive.Archive.code``) as a :class:`Shader`."""
     start = code.find(b"DXBC")

@@ -17,4 +17,4 @@
 `assembly`（模型表 → 角色選單的顯示模型）、`extract`（跑 `tools/wuwa_cli` 讀取器）、`source_scene`（傾印 → 交換格式，Blender 端是 `tools/wuwa_source_blender.py`）；`converted.names.wuthering_name`
 可以指定讀哪一份抽取。讀取器的 C# 原始碼、上游 CUE4Parse 版本與本機修補在 `tools/wuwa_cli/`。
 
-`polylode/wuthering_waves/shaders/` 與 `shader_bake.py`：鳴潮裁切材質的覆蓋率由遊戲自己的 shader 決定——讀材質實例嵌入的 shader map、執行 preshader、從 shader 封存檔取出陰影深度 pass 的 DXBC，用直譯器逐像素執行後烘進底色圖的 alpha（`docs/tools.md` 有細節）。遊戲檔由 `extractor/wuwa_source.GameFiles` 取出並快取。
+`polylode/wuthering_waves/shaders/` 與 `shader_bake.py`：鳴潮裁切材質的覆蓋率由遊戲自己的 shader 決定——讀材質實例嵌入的 shader map、執行 preshader、從 shader 封存檔取出陰影深度 pass 的 DXBC，用直譯器逐像素執行後烘進底色圖的 alpha（`docs/tools.md` 有細節）。遊戲檔由 `extractor/wuwa_source.GameFiles` 取出並快取。`wuthering_waves/fur_shells.py` 接在後面，把視差毛髮的高度場做成一層層毛絲幾何。

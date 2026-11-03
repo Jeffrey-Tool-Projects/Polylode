@@ -1378,5 +1378,23 @@
   "zh-CN": "找不到会丢弃像素的阴影深度 shader",
   "ja": "ピクセルを破棄するシャドウ深度シェーダーがありません",
   "ko": "픽셀을 버리는 그림자 깊이 셰이더가 없습니다"
+ },
+ "把毛髮視差做成毛絲層": {
+  "en": "Building the fur's parallax as strand layers",
+  "zh-CN": "把毛发视差做成毛丝层",
+  "ja": "毛のパララックスを毛束レイヤーに変換中",
+  "ko": "털 시차를 털 가닥 층으로 만드는 중"
+ },
+ "覆蓋率取決於網格沒有的輸入（頂點 shader 算出的自訂 UV；{0} 的點會變）": {
+  "en": "its coverage depends on an input the mesh lacks (a customised UV the vertex shader works out; {0} of the points change)",
+  "zh-CN": "覆盖率取决于网格没有的输入（顶点 shader 算出的自定义 UV；{0} 的点会变）",
+  "ja": "カバレッジがメッシュにない入力に依存しています（頂点シェーダーが計算するカスタム UV。{0} の点が変わります）",
+  "ko": "커버리지가 메시에 없는 입력에 의존합니다(정점 셰이더가 계산하는 사용자 정의 UV, {0}의 점이 바뀜)"
+ },
+ "{0}：{1} 個毛髮卡片三角形做成 {2} 層毛絲": {
+  "en": "{0}: {1} fur card triangles built as {2} strand layers",
+  "zh-CN": "{0}：{1} 个毛发卡片三角形做成 {2} 层毛丝",
+  "ja": "{0}：毛カードの三角形 {1} 個を {2} 層の毛束に",
+  "ko": "{0}: 털 카드 삼각형 {1}개를 {2}층 털 가닥으로"
  }
 }

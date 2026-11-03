@@ -284,6 +284,10 @@ class WuwaSource:
         # a masked material's coverage as the game's own shader gives it (shader_bake), for every format
         from ..wuthering_waves.shader_bake import bake_case
         bake_case(case, GameFiles(settings, log), log, progress.step)
+        # the fur shader's parallax depth as layers of strands (fur_shells), after the coverage it stands on
+        from ..wuthering_waves.fur_shells import apply as fur_layers
+        progress.step("把毛髮視差做成毛絲層")
+        fur_layers(case, log)
         written = []
         if "blend" in formats:
             log(f"以 Blender 建 .blend 並讀回 {model.ident}（每個模型幾分鐘）…")
