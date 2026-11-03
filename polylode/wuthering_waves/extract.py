@@ -40,7 +40,8 @@ def run(reader: Path, dotnet: Path, install: Path, keys: Path, output: Path, mod
     workdir.mkdir(parents=True, exist_ok=True)
     log(f"讀取遊戲檔案（{mode}）…")
     done = subprocess.run(command(reader, dotnet, install, keys, output, mode, argument), capture_output=True,
-                          text=True, encoding="utf-8", errors="replace", check=False, env=environment, cwd=workdir)
+                          text=True, encoding="utf-8", errors="replace", check=False, env=environment, cwd=workdir,
+                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if done.returncode != 0:
         raise ReaderError(f"讀取器 {mode} exit {done.returncode}：{(done.stdout + done.stderr)[-1500:]}")
     return done.stdout
