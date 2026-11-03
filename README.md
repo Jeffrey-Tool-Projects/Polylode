@@ -143,7 +143,9 @@ as a card with the model's picture. Nothing else needs installing: no Git, no cl
 **Poses.** An Endfield character's exported `.glb` carries the poses its character screens hold (the game's looping
 `ui` clips, decoded from the install the first time, about half a minute). The shared page has a **Pose** menu to
 switch between them, and its card shows the first one. **Settings → Poses** turns this off; previews never include
-them. Girls' Frontline 2 and Wuthering Waves characters carry none yet.
+them. A Girls' Frontline 2 outfit carries the idles
+it is shown in off the battlefield (barracks, wardrobe, bedroom, ending: the clips the game loops); the first export
+names the game's clips once, a few minutes. Wuthering Waves characters carry none yet.
 
 Already have a Pages site? Set **Settings → GitHub Pages site folder** to its local clone: sharing then commits there
 and pushes with Git instead.

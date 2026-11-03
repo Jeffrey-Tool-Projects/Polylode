@@ -120,6 +120,14 @@ class GF2Source:
         log(f"可匯出的模型 {len(models)} 個（沒有自己蒙皮網格的根節點不列）")
         return models
 
+    def _poses(self, install: Path, scene, document: Path, ident: str, log: Log) -> int:
+        """The outfit's held display poses (``gf2.poses``) into *document*, the clips named once per install."""
+        from ..gf2 import poses, store
+        root = store.root()
+        rows = poses.index(install, root / "bundle_index.jsonl", root / poses.INDEX, log)
+        return poses.add(document, scene, store.read_item(ident).nodes, store.read_extra(ident) or {}, ident, install,
+                         rows, log)
+
     def _export(self, model: Model, settings, output: Path, formats: list[str], log: Log) -> list[Path]:
         from ..gf2.batch import convert_entry, load_results, save_results
         from ..gf2.export import export_one, scene_document
@@ -145,7 +153,10 @@ class GF2Source:
         if any(kind in formats for kind in ("glb", "fbx")):
             # into the job's output: the store's exports/<ident>.fbx is the Blender-checked one export_one recorded
             progress.step("組合場景")
-            _scene, _selection, _layout, _folder, document = scene_document(row["ident"], declared)
+            scene, _selection, _layout, _folder, document = scene_document(row["ident"], declared)
+            if settings.poses and "glb" in formats:
+                progress.step("寫入姿勢")
+                self._poses(install, scene, document, row["ident"], log)
             # glTF and FBX cannot multiply or add the eye layers: their effect is baked into the eye's map
             # (gf2.eye_bake, owner 2026-11-02); the .blend above keeps them as layers
             from ..gf2.eye_bake import bake

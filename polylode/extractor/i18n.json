@@ -1811,10 +1811,34 @@
   "ja": "ポーズ",
   "ko": "포즈"
  },
- "角色有姿勢時一起寫進 .glb（終末地的介面姿勢；分享的網頁可以切換）": {
-  "en": "Write a character's poses into the .glb when it has them (Endfield's character-screen poses; the shared page switches between them)",
-  "zh-CN": "角色有姿势时一起写进 .glb（终末地的界面姿势；分享的网页可以切换）",
-  "ja": "キャラクターにポーズがあれば .glb に書き込む（終末地の画面用ポーズ。共有ページで切り替え可能）",
-  "ko": "캐릭터에 포즈가 있으면 .glb에 함께 쓰기(종말지의 화면용 포즈, 공유 페이지에서 전환 가능)"
+ "寫入姿勢": {
+  "en": "Writing poses",
+  "zh-CN": "写入姿势",
+  "ja": "ポーズを書き込み中",
+  "ko": "포즈 쓰는 중"
+ },
+ "建立動作索引": {
+  "en": "Indexing the animation clips",
+  "zh-CN": "建立动作索引",
+  "ja": "モーションの索引を作成中",
+  "ko": "동작 색인 만드는 중"
+ },
+ "為 {0} 個 bundle 裡的動作建立名稱索引（第一次要幾分鐘）": {
+  "en": "Naming the animation clips in {0} bundles (a few minutes the first time)",
+  "zh-CN": "为 {0} 个 bundle 里的动作建立名称索引（第一次要几分钟）",
+  "ja": "{0} 個の bundle のモーションに名前の索引を作成中（初回は数分）",
+  "ko": "{0}개 bundle의 동작 이름 색인 만드는 중(처음에는 몇 분)"
+ },
+ "讀取器沒有解碼動作的功能（舊版），這次不寫姿勢": {
+  "en": "The reader cannot decode animations (an older build); no poses this time",
+  "zh-CN": "读取器没有解码动作的功能（旧版），这次不写姿势",
+  "ja": "リーダーがモーションをデコードできません（旧版）。今回はポーズを書き込みません",
+  "ko": "리더가 동작을 디코딩하지 못합니다(구버전). 이번에는 포즈를 쓰지 않습니다"
+ },
+ "角色有姿勢時一起寫進 .glb（終末地與少女前線 2；分享的網頁可以切換）": {
+  "en": "Write a character's poses into the .glb when it has them (Endfield, Girls' Frontline 2; the shared page switches between them)",
+  "zh-CN": "角色有姿势时一起写进 .glb（终末地与少女前线 2；分享的网页可以切换）",
+  "ja": "キャラクターにポーズがあれば .glb に書き込む（終末地・ドールズフロントライン2。共有ページで切り替え可能）",
+  "ko": "캐릭터에 포즈가 있으면 .glb에 함께 쓰기(종말지, 소녀전선 2; 공유 페이지에서 전환 가능)"
  }
 }

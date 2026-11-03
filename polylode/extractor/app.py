@@ -182,7 +182,7 @@ class SettingsPage(QWidget):
             self.format_boxes[key] = box
             formats.addWidget(box)
         form.addRow(_label("匯出格式"), formats)
-        self.poses = QCheckBox("角色有姿勢時一起寫進 .glb（終末地的介面姿勢；分享的網頁可以切換）")
+        self.poses = QCheckBox("角色有姿勢時一起寫進 .glb（終末地與少女前線 2；分享的網頁可以切換）")
         self.poses.setChecked(settings.poses)
         self.poses.toggled.connect(lambda _on: self._save())
         form.addRow(_label("姿勢"), self.poses)

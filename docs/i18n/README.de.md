@@ -144,7 +144,9 @@ erscheint in Discord als Karte mit dem Bild des Modells. Sonst ist nichts zu ins
 **Posen.** Die exportierte `.glb` einer Endfield-Figur enthält die Posen ihrer Charakterbildschirme (die im Spiel
 geloopten `ui`-Clips, beim ersten Mal aus der Installation dekodiert, etwa eine halbe Minute). Die geteilte Seite hat ein
 Menü **Pose** zum Wechseln, und ihre Karte zeigt die erste. **Settings → Poses** schaltet das ab; Vorschauen enthalten sie
-nie. Figuren aus Girls' Frontline 2 und Wuthering Waves haben noch keine.
+nie. Ein Outfit aus Girls' Frontline 2 enthält die
+Ruheposen, in denen es abseits des Kampfes gezeigt wird (Kaserne, Garderobe, Schlafzimmer, Abspann: die geloopten Clips);
+der erste Export benennt die Clips des Spiels einmal, ein paar Minuten. Figuren aus Wuthering Waves haben noch keine.
 
 Schon eine eigene Pages-Website? Trage ihren lokalen Klon unter **Settings → GitHub Pages site folder** ein: Teilen committet
 dann dort und pusht mit Git.
