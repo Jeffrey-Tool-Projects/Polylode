@@ -1498,5 +1498,155 @@
   "zh-CN": "变体没有顶点阶段",
   "ja": "バリアントに頂点ステージがありません",
   "ko": "변형에 정점 단계가 없음"
+ },
+ "分享到 GitHub Pages…": {
+  "en": "Share on GitHub Pages…",
+  "zh-CN": "分享到 GitHub Pages…",
+  "ja": "GitHub Pages で共有…",
+  "ko": "GitHub Pages에 공유…"
+ },
+ "把顯示中的 .glb 寫進你的 GitHub Pages 網站並推送；網址貼到 Discord 會顯示成卡片，點開可以轉動模型": {
+  "en": "Writes the .glb shown into your GitHub Pages site and pushes it; its link shows as a card in Discord and opens a page where the model turns",
+  "zh-CN": "把显示中的 .glb 写进你的 GitHub Pages 网站并推送；网址贴到 Discord 会显示成卡片，点开可以转动模型",
+  "ja": "表示中の .glb を GitHub Pages のサイトに書き込んでプッシュします。URL は Discord でカードとして表示され、開くとモデルを回せます",
+  "ko": "표시 중인 .glb를 GitHub Pages 사이트에 쓰고 푸시합니다. 주소는 Discord에서 카드로 보이고, 열면 모델을 돌려 볼 수 있습니다"
+ },
+ "分享到 GitHub Pages": {
+  "en": "Share on GitHub Pages",
+  "zh-CN": "分享到 GitHub Pages",
+  "ja": "GitHub Pages で共有",
+  "ko": "GitHub Pages에 공유"
+ },
+ "先開啟一個 .glb：網頁的 3D 檢視器讀的是 glTF。": {
+  "en": "Open a .glb first: the web page's 3D viewer reads glTF.",
+  "zh-CN": "先打开一个 .glb：网页的 3D 查看器读的是 glTF。",
+  "ja": "先に .glb を開いてください。Web ページの 3D ビューアーは glTF を読みます。",
+  "ko": "먼저 .glb를 여세요. 웹 페이지의 3D 뷰어는 glTF를 읽습니다."
+ },
+ "選你的 GitHub Pages 倉庫在本機的 clone（例：git clone https://github.com/<帳號>/<倉庫>）。": {
+  "en": "Choose your local clone of your GitHub Pages repository (e.g. git clone https://github.com/<account>/<repository>).",
+  "zh-CN": "选择你的 GitHub Pages 仓库在本机的 clone（例：git clone https://github.com/<账号>/<仓库>）。",
+  "ja": "GitHub Pages リポジトリのローカル clone を選んでください（例：git clone https://github.com/<アカウント>/<リポジトリ>）。",
+  "ko": "GitHub Pages 저장소의 로컬 clone을 선택하세요(예: git clone https://github.com/<계정>/<저장소>)."
+ },
+ "倉庫的 Settings → Pages 要設成從分支發布，模型才會出現在網址上。": {
+  "en": "Set the repository's Settings → Pages to deploy from a branch, or the models will not appear at its address.",
+  "zh-CN": "仓库的 Settings → Pages 要设成从分支发布，模型才会出现在网址上。",
+  "ja": "リポジトリの Settings → Pages をブランチから公開する設定にしないと、モデルは URL に出ません。",
+  "ko": "저장소의 Settings → Pages를 브랜치에서 배포하도록 설정해야 모델이 주소에 나타납니다."
+ },
+ "GitHub Pages 網站資料夾": {
+  "en": "GitHub Pages site folder",
+  "zh-CN": "GitHub Pages 网站文件夹",
+  "ja": "GitHub Pages サイトのフォルダー",
+  "ko": "GitHub Pages 사이트 폴더"
+ },
+ "你的 GitHub Pages 倉庫在本機的 clone；模型檢視器的「分享」寫進這裡並推送": {
+  "en": "Your local clone of your GitHub Pages repository; the model viewer's Share writes here and pushes",
+  "zh-CN": "你的 GitHub Pages 仓库在本机的 clone；模型查看器的「分享」写进这里并推送",
+  "ja": "GitHub Pages リポジトリのローカル clone。モデルビューアーの「共有」がここに書き込んでプッシュします",
+  "ko": "GitHub Pages 저장소의 로컬 clone. 모델 뷰어의 '공유'가 여기에 쓰고 푸시합니다"
+ },
+ "這個模型會推送到 GitHub，公開在 {0}，任何拿到網址的人都看得到、也下載得到。": {
+  "en": "This model will be pushed to GitHub and made public at {0}: anyone with the link can see and download it.",
+  "zh-CN": "这个模型会推送到 GitHub，公开在 {0}，任何拿到网址的人都看得到、也下载得到。",
+  "ja": "このモデルは GitHub にプッシュされ、{0} で公開されます。URL を知っている人は誰でも見て、ダウンロードできます。",
+  "ko": "이 모델은 GitHub에 푸시되어 {0}에 공개됩니다. 주소를 아는 사람은 누구나 보고 내려받을 수 있습니다."
+ },
+ "模型來自遊戲，公開前請自行確認可以分享。要繼續嗎？": {
+  "en": "The model comes from a game; make sure you may share it before publishing. Continue?",
+  "zh-CN": "模型来自游戏，公开前请自行确认可以分享。要继续吗？",
+  "ja": "モデルはゲームのものです。公開してよいか事前に確認してください。続けますか？",
+  "ko": "모델은 게임에서 나온 것입니다. 공개해도 되는지 먼저 확인하세요. 계속할까요?"
+ },
+ "分享 {0} 到 {1}": {
+  "en": "Sharing {0} on {1}",
+  "zh-CN": "分享 {0} 到 {1}",
+  "ja": "{0} を {1} で共有",
+  "ko": "{0}을(를) {1}에 공유"
+ },
+ "已分享：{0}（網址已複製）": {
+  "en": "Shared: {0} (link copied)",
+  "zh-CN": "已分享：{0}（网址已复制）",
+  "ja": "共有しました：{0}（URL をコピー済み）",
+  "ko": "공유됨: {0}(주소 복사됨)"
+ },
+ "分享沒有完成，原因寫在下方的紀錄。": {
+  "en": "The share did not finish; the log below says why.",
+  "zh-CN": "分享没有完成，原因写在下方的日志。",
+  "ja": "共有は完了しませんでした。理由は下のログにあります。",
+  "ko": "공유가 끝나지 않았습니다. 이유는 아래 로그에 있습니다."
+ },
+ "已推送，網址已複製到剪貼簿：": {
+  "en": "Pushed; the link is copied to the clipboard:",
+  "zh-CN": "已推送，网址已复制到剪贴板：",
+  "ja": "プッシュしました。URL をクリップボードにコピーしました：",
+  "ko": "푸시했습니다. 주소를 클립보드에 복사했습니다:"
+ },
+ "GitHub Pages 通常一兩分鐘後更新；貼到 Discord 會顯示成卡片。": {
+  "en": "GitHub Pages usually updates in a minute or two; pasted in Discord, the link shows as a card.",
+  "zh-CN": "GitHub Pages 通常一两分钟后更新；贴到 Discord 会显示成卡片。",
+  "ja": "GitHub Pages は通常 1〜2 分で更新されます。Discord に貼るとカードとして表示されます。",
+  "ko": "GitHub Pages는 보통 1~2분 뒤 갱신됩니다. Discord에 붙여 넣으면 카드로 보입니다."
+ },
+ "在瀏覽器開啟": {
+  "en": "Open in browser",
+  "zh-CN": "在浏览器打开",
+  "ja": "ブラウザーで開く",
+  "ko": "브라우저에서 열기"
+ },
+ "沒有找到 Git：分享到 GitHub Pages 需要安裝 Git": {
+  "en": "Git was not found: sharing on GitHub Pages needs Git installed",
+  "zh-CN": "没有找到 Git：分享到 GitHub Pages 需要安装 Git",
+  "ja": "Git が見つかりません。GitHub Pages での共有には Git が必要です",
+  "ko": "Git을 찾지 못했습니다. GitHub Pages 공유에는 Git이 필요합니다"
+ },
+ "git {0} 失敗：{1}": {
+  "en": "git {0} failed: {1}",
+  "zh-CN": "git {0} 失败：{1}",
+  "ja": "git {0} が失敗しました：{1}",
+  "ko": "git {0} 실패: {1}"
+ },
+ "網站資料夾的 origin 不是 GitHub 倉庫：{0}": {
+  "en": "The site folder's origin is not a GitHub repository: {0}",
+  "zh-CN": "网站文件夹的 origin 不是 GitHub 仓库：{0}",
+  "ja": "サイトのフォルダーの origin が GitHub リポジトリではありません：{0}",
+  "ko": "사이트 폴더의 origin이 GitHub 저장소가 아닙니다: {0}"
+ },
+ "網站資料夾不存在：{0}": {
+  "en": "The site folder does not exist: {0}",
+  "zh-CN": "网站文件夹不存在：{0}",
+  "ja": "サイトのフォルダーがありません：{0}",
+  "ko": "사이트 폴더가 없습니다: {0}"
+ },
+ "網站資料夾不能是本程式自己的資料夾：遊戲的模型不跟程式一起發布": {
+  "en": "The site folder cannot be this program's own folder: the games' models are not published with the program",
+  "zh-CN": "网站文件夹不能是本程序自己的文件夹：游戏的模型不跟程序一起发布",
+  "ja": "サイトのフォルダーにこのプログラム自身のフォルダーは使えません。ゲームのモデルはプログラムと一緒に公開しません",
+  "ko": "사이트 폴더는 이 프로그램 자신의 폴더일 수 없습니다. 게임 모델은 프로그램과 함께 공개하지 않습니다"
+ },
+ "只能分享 .glb（網頁的 3D 檢視器讀它）：{0}": {
+  "en": "Only a .glb can be shared (the web page's 3D viewer reads it): {0}",
+  "zh-CN": "只能分享 .glb（网页的 3D 查看器读它）：{0}",
+  "ja": "共有できるのは .glb だけです（Web の 3D ビューアーが読む形式）：{0}",
+  "ko": ".glb만 공유할 수 있습니다(웹 3D 뷰어가 읽는 형식): {0}"
+ },
+ "{0} 超過 GitHub 的單檔上限 100 MB，推送不上去": {
+  "en": "{0} is over GitHub's 100 MB file limit and cannot be pushed",
+  "zh-CN": "{0} 超过 GitHub 的单文件上限 100 MB，推送不上去",
+  "ja": "{0} は GitHub の 1 ファイル上限 100 MB を超えるため、プッシュできません",
+  "ko": "{0}은(는) GitHub의 파일당 한도 100 MB를 넘어 푸시할 수 없습니다"
+ },
+ "寫入 {0}": {
+  "en": "Writing into {0}",
+  "zh-CN": "写入 {0}",
+  "ja": "{0} に書き込み中",
+  "ko": "{0}에 쓰는 중"
+ },
+ "推送到 GitHub…": {
+  "en": "Pushing to GitHub…",
+  "zh-CN": "推送到 GitHub…",
+  "ja": "GitHub にプッシュ中…",
+  "ko": "GitHub에 푸시 중…"
  }
 }

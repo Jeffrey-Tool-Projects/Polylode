@@ -42,6 +42,9 @@ La fenêtre en anglais, prise pendant une vraie analyse et un vrai aperçu avec 
 - **Visionneuse de modèles.** Liste tous les modèles du dossier de sortie et ouvre tout `.glb`, `.gltf`, `.fbx` ou `.obj` (déposé, choisi, ou passé
   en `Polylode.exe <fichier>` pour servir de programme « Ouvrir avec ») : vues de face, de dos, de côté et de dessus, fil de fer, fond clair ou
   sombre, intensité de la lumière et contenu d'un glTF. Un modèle listé peut être envoyé à la corbeille.
+- **Partager sur Discord via GitHub Pages.** Discord n'affiche pas de modèle 3D : **Share on GitHub Pages…** de la
+  visionneuse écrit le `.glb` affiché dans votre propre site GitHub Pages, sous forme d'une page qui le fait tourner dans
+  n'importe quel navigateur, le pousse et copie le lien ; collé dans Discord, le lien s'affiche en carte avec l'image du modèle.
 - **Cinq langues.** English, 繁體中文, 简体中文, 日本語 et 한국어 ; il suit le système jusqu'à ce que vous en choisissiez une dans Paramètres, et le changement
   est immédiat.
 
@@ -118,6 +121,27 @@ fond et **Light** changent son rendu. Le panneau de droite liste ce que contient
 keys et le mélange de chaque matériau — et signale un fichier écrit selon d'anciennes règles, à exporter de nouveau.
 **Delete…** envoie le modèle, ses fichiers frères et son dossier de textures à la corbeille.
 
+### 7. Partager sur GitHub Pages (pour Discord)
+
+Discord ne peut pas afficher un modèle 3D : un `.glb` publié là n'est qu'un téléchargement. Polylode partage un modèle
+comme une page à part sur votre propre site GitHub Pages ; la page fait tourner le modèle dans n'importe quel navigateur,
+et son lien s'affiche dans Discord en carte avec l'image du modèle.
+
+1. Créez un dépôt GitHub **public** (Pages sur un dépôt privé demande une offre payante) et clonez-le, par exemple
+   `git clone https://github.com/<compte>/models`. Git doit être installé et pouvoir y pousser.
+2. Dans **Settings → Pages** du dépôt, choisissez **Deploy from a branch**, votre branche et `/ (root)`.
+3. Ouvrez un `.glb` dans la visionneuse et appuyez sur **Share on GitHub Pages…**. La première fois, il demande le
+   dossier du clone (aussi sous **Settings → GitHub Pages site folder**).
+4. Il indique l'adresse où le modèle sera public et demande avant de continuer, puis écrit `models/<nom>/` (le modèle,
+   une image de carte de 1200×630 dessinée comme l'aperçu, et la page) et la liste des modèles du site, ne commite que
+   ces fichiers et pousse.
+5. Le lien est copié : `https://<compte>.github.io/<dépôt>/models/<nom>/`. Pages met une ou deux minutes à se mettre à
+   jour ; collez-le ensuite dans Discord.
+
+Seul un `.glb` peut être partagé, jusqu'à 100 Mo (la limite par fichier de GitHub) ; partager à nouveau un modèle remplace
+sa page. Tout ce qui est partagé est public : les modèles viennent de jeux, assurez-vous d'avoir le droit de les partager.
+Le dossier du programme lui-même est refusé comme site.
+
 ### Dépannage
 
 - **Une explication ou un sélecteur de fichier s'ouvre avant une analyse, un aperçu ou un export** — un outil indispensable à la conversion n'est pas défini et n'était pas là où le programme cherche. Pour Wuthering Waves, c'est le fichier de clés AES : la fenêtre explique ce que c'est ; choisissez votre fichier de clés ou collez la clé (`0x` et 64 chiffres hexadécimaux), elle est enregistrée comme fichier de clés. Dans les deux cas, c'est retenu.
@@ -125,6 +149,9 @@ keys et le mélange de chaque matériau — et signale un fichier écrit selon d
 - **« This file's size could not be measured »** — la visionneuse n'a pas pu lire l'étendue du fichier (un FBX 7.5, par
   exemple) ; la vue est à l'origine, zoomez avec la molette.
 - **Aucun `.blend` écrit** — indiquez l'exécutable Blender dans **Settings**.
+- **« git push failed » lors d'un partage** — Git ne peut pas pousser vers le dépôt du site : connectez Git à GitHub (par
+  exemple avec Git Credential Manager) et vérifiez que vous pouvez pousser depuis ce dossier. **« The site folder's origin is
+  not a GitHub repository »** — le dossier doit être un clone d'un dépôt GitHub.
 - **Autre échec** — le journal en bas garde chaque ligne affichée par l'analyse ou l'export.
 
 ## Compiler depuis les sources

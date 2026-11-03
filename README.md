@@ -44,6 +44,9 @@ The English window, taken from a real scan and preview with `tools/screenshots.p
   (dropped, chosen, or passed as `Polylode.exe <file>` so it can be your "Open with" program): front, back, side
   and top views, wireframe, light or dark background, light strength, and what a glTF holds. A listed model can be
   deleted to the recycle bin.
+- **Share to Discord through GitHub Pages.** Discord shows no 3D model, so the viewer's **Share on GitHub Pages…**
+  writes the `.glb` shown into your own GitHub Pages site as a page that turns it in any browser, pushes it and
+  copies its link; pasted in Discord, the link shows as a card with the model's picture.
 - **Five languages.** English, 繁體中文, 简体中文, 日本語 and 한국어; it follows your system until you choose one in
   Settings, and switching applies at once.
 
@@ -117,6 +120,27 @@ and **Light** change how it is drawn. The panel on the right lists what a glTF h
 shape keys and each material's blending — and marks a file written by older rules, to be exported again.
 **Delete…** moves the model, its sibling files and its texture folder to the recycle bin.
 
+### 7. Sharing on GitHub Pages (for Discord)
+
+Discord cannot show a 3D model: a `.glb` posted there is only a download. Polylode shares a model as a page of its own
+on a GitHub Pages site of yours; the page turns the model in any browser, and its link shows in Discord as a card with
+the model's picture.
+
+1. Create a **public** GitHub repository (Pages on a private one needs a paid plan) and clone it, for example
+   `git clone https://github.com/<account>/models`. Git must be installed and able to push to it.
+2. In the repository's **Settings → Pages**, choose **Deploy from a branch**, your branch and `/ (root)`.
+3. Open a `.glb` in the model viewer and press **Share on GitHub Pages…**. The first time it asks for the clone's
+   folder (also under **Settings → GitHub Pages site folder**).
+4. It names the address the model will be public at and asks before going on, then writes `models/<name>/` (the
+   model, a 1200×630 card picture drawn as the preview shows it, and the page) and the site's list of models, commits
+   only those files and pushes.
+5. The link is copied: `https://<account>.github.io/<repository>/models/<name>/`. Pages takes a minute or two to
+   update; then paste it in Discord.
+
+Only `.glb` can be shared, up to 100 MB (GitHub's file limit); sharing a model again replaces its page. Everything
+shared is public: the models come from games, so make sure you may share them. The program's own folder is refused
+as a site.
+
 ### Troubleshooting
 
 - **A dialog or a file picker opens before a scan, preview or export** — a tool the conversion cannot run without is not set, and none was found where the program looks. For Wuthering Waves it is the AES keys file: the dialog says what it is; choose your keys file, or paste the key (`0x` and 64 hexadecimal digits) and it is saved as a keys file. Either way it is remembered.
@@ -124,6 +148,9 @@ shape keys and each material's blending — and marks a file written by older ru
 - **"This file's size could not be measured"** — the viewer could not read the file's extent (an FBX 7.5 file, for
   one); the view is at the origin, zoom with the wheel.
 - **No `.blend` written** — set the Blender executable under **Settings**.
+- **“git push failed” when sharing** — Git cannot push to the site's repository: sign in to GitHub in Git (for
+  example with Git Credential Manager) and check that you can push from that folder yourself. **“The site folder's
+  origin is not a GitHub repository”** — the folder must be a clone of a GitHub repository.
 - **Something else failed** — the log at the bottom keeps every line the scan or export printed.
 
 ## Building from source

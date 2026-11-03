@@ -9,6 +9,7 @@
 轉進自己的倉庫（`endfield_source.own_store`，§7.1455），遊戲讀的倉庫看不到。`Pipeline.run` 的 `admit` 仍是在 Avatar 讀到後、材質讀取前
 丟掉一個預製物的擴充點；`body_scope.MEN`（`hrole.MEN` 指向它）是 Free H 的男角。
 `polylode/extractor/viewer.py`（§7.1455）：匯出工具的模型檢視器頁（任何模型檔、固定視角、線框、背景、燈光、glTF 內容）。
+`polylode/extractor/share.py`：模型檢視器的「分享到 GitHub Pages」——把 `.glb` 寫成使用者自己 GitHub Pages 網站上的一頁（`model-viewer` 轉動模型、Open Graph 卡片圖由 `preview.snapshot` 離屏畫出），只提交那些檔案並推送；由 `--share <模型> <網站資料夾>` 這個獨立行程執行。網站是使用者指定的另一個倉庫，本程式自己的資料夾會被拒絕：遊戲的模型不隨程式發布。
 `polylode/extractor/preview.py`（§7.1455）：匯出前的 3D 預覽（只寫 `.glb` 的匯出工作＋Qt Quick 3D）。匯出工具三個來源都不判範圍、寫進自己的倉庫（終末地 `own_store`、GF2 `own_scope`，鳴潮本來就只寫 `assets_cache/wuthering_waves`）。
 `polylode/extractor/locate.py`（§7.1454）：從使用者選的資料夾或 Steam 遊戲庫找遊戲資料所在的那一層。
 `polylode/endfield/mapbuild.py`（§7.1452）：從遊戲安裝分批建終末地的 CAB／資產對照表（§7.1070 的 dev 腳本搬進套件）。

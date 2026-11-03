@@ -30,6 +30,7 @@
     <li><a href="#export">勾選與匯出</a></li>
     <li><a href="#open">開啟匯出的檔案</a></li>
     <li><a href="#viewer">模型檢視器</a></li>
+    <li><a href="#share">分享到 Discord</a></li>
     <li><a href="#trouble">疑難排解</a></li>
   </ol>
 </aside>
@@ -123,8 +124,30 @@
   <span class="ui">線框</span>、背景深淺與 <span class="ui">光</span> 改變畫法。右邊列出 glTF 的內容（網格、頂點、骨頭、形態鍵、各材質的混合方式），並標出用舊規則寫出、建議重新匯出的檔案。</p></div>
 <div class="step"><span class="n">3</span><strong class="title">刪除</strong>
   <p><span class="ui">刪除…</span> 會把模型、同名的檔案與它的貼圖資料夾移到資源回收筒，可以還原。</p></div>
+<div class="step"><span class="n">4</span><strong class="title">分享</strong>
+  <p><span class="ui">分享到 GitHub Pages…</span> 把顯示中的 <code>.glb</code> 放到你自己的網頁上，給 Discord 用：見
+  <a href="#share">分享到 Discord</a>。</p></div>
 
-<h2 id="trouble">9. 疑難排解</h2>
+<h2 id="share">9. 分享到 Discord（透過 GitHub Pages）</h2>
+<p>Discord 不能顯示 3D 模型，貼上去的 <code>.glb</code> 只是一個下載檔。Polylode 把模型分享成你自己 GitHub Pages 網站上的一個網頁：
+網頁在任何瀏覽器裡都能轉動模型，網址貼到 Discord 會顯示成帶模型圖片的卡片。</p>
+<div class="step"><span class="n">1</span><strong class="title">建一個公開倉庫並 clone 下來</strong>
+  <p>建一個<b>公開</b>的 GitHub 倉庫（私人倉庫的 Pages 需要付費方案），例如 <code>models</code>，再 clone 到本機：
+  <code>git clone https://github.com/&lt;帳號&gt;/models</code>。電腦要裝 Git，而且能推送到這個倉庫。</p></div>
+<div class="step"><span class="n">2</span><strong class="title">開啟 Pages</strong>
+  <p>在倉庫的 <span class="ui">Settings → Pages</span> 選 <span class="ui">Deploy from a branch</span>、你的分支與 <code>/ (root)</code>。</p></div>
+<div class="step"><span class="n">3</span><strong class="title">開啟一個 <code>.glb</code>，按 <span class="ui">分享到 GitHub Pages…</span></strong>
+  <p>在模型檢視器裡。第一次會問 clone 的資料夾，之後記在 <span class="ui">設定 → GitHub Pages 網站資料夾</span>。</p></div>
+<div class="step"><span class="n">4</span><strong class="title">確認</strong>
+  <p>它會先說模型會公開在哪個網址，問過你才繼續。接著寫入 <code>models/&lt;名稱&gt;/</code>：模型、照預覽畫出的 1200×630 卡片圖與網頁；
+  也更新網站首頁的模型清單。只提交這些檔案並推送，每一步都寫在記錄裡。</p></div>
+<div class="step"><span class="n">5</span><strong class="title">把網址貼到 Discord</strong>
+  <p>網址已複製到剪貼簿：<code>https://&lt;帳號&gt;.github.io/&lt;倉庫&gt;/models/&lt;名稱&gt;/</code>。GitHub Pages 通常一兩分鐘後更新。
+  在 Discord 會顯示成卡片；點開的網頁可以用滑鼠或手指轉動模型。</p></div>
+<div class="warn">分享出去的東西都是公開的，連模型檔也是。模型來自遊戲，請自行確認可以分享。只能分享 <code>.glb</code>，最大 100 MB（GitHub 的單檔上限）；
+同一個模型再分享一次會換掉它的網頁。本程式自己的資料夾不能當網站。</div>
+
+<h2 id="trouble">10. 疑難排解</h2>
 <table>
   <tr><th>狀況</th><th>處理</th></tr>
   <tr><td>掃描、預覽或匯出前跳出對話框或選檔視窗</td><td>缺少轉換需要的工具，而且程式在常用位置找不到。鳴潮通常是 AES 金鑰檔：選金鑰檔或貼上金鑰，之後會記住。</td></tr>
@@ -133,6 +156,9 @@
   <tr><td>檢視器顯示「量不到這個檔案的大小」</td><td>讀不到檔案範圍（例如 FBX 7.5），視角放在原點，用滾輪縮放。</td></tr>
   <tr><td>預覽和舊的匯出長得不一樣</td><td>程式更新後轉換規則可能改了：預覽按 <span class="ui">重新轉換</span>，匯出檔重新匯出一次。</td></tr>
   <tr><td>記錄寫「沒辦法畫出，設為不可見」</td><td>那個材質無法照遊戲的畫法寫出，程式會把它設為不可見並寫下原因，不會畫成一塊灰白。</td></tr>
+  <tr><td>分享時出現「git push 失敗」</td><td>Git 推送不到網站的倉庫：在 Git 登入 GitHub（例如 Git Credential Manager），並確認自己能從那個資料夾推送。</td></tr>
+  <tr><td>「網站資料夾的 origin 不是 GitHub 倉庫」</td><td>網站資料夾要是某個 GitHub 倉庫的 clone。</td></tr>
+  <tr><td>分享的網址沒有卡片，或網頁找不到</td><td>倉庫沒有開 Pages、免費方案下倉庫是私人的，或 Pages 還沒更新：等一兩分鐘。</td></tr>
   <tr><td>其他錯誤</td><td>下方記錄保留掃描與匯出輸出的每一行，可以從那裡看原因。</td></tr>
 </table>
 

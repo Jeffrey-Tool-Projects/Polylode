@@ -42,6 +42,9 @@ Das englische Fenster, aufgenommen bei einem echten Scan und einer echten Vorsch
 - **Modellbetrachter.** Listet alle Modelle im Ausgabeordner und öffnet jede `.glb`, `.gltf`, `.fbx` oder `.obj` (hineingezogen, gewählt oder als
   `Polylode.exe <Datei>`, damit es dein „Öffnen mit“-Programm sein kann): Vorder-, Rück-, Seiten- und Draufsicht, Drahtgitter, heller oder dunkler
   Hintergrund, Lichtstärke und der Inhalt eines glTF. Ein gelistetes Modell lässt sich in den Papierkorb löschen.
+- **Über GitHub Pages in Discord teilen.** Discord zeigt keine 3D-Modelle; **Share on GitHub Pages…** im Betrachter
+  schreibt die angezeigte `.glb` als Seite, die sie in jedem Browser dreht, in deine eigene GitHub-Pages-Website,
+  pusht sie und kopiert den Link; in Discord eingefügt, erscheint der Link als Karte mit dem Bild des Modells.
 - **Fünf Sprachen.** English, 繁體中文, 简体中文, 日本語 und 한국어; es folgt dem System, bis du in den Einstellungen eine wählst, und der Wechsel greift sofort.
 
 ## Download
@@ -119,6 +122,27 @@ Vertices, Knochen, Shape Keys und die Mischung jedes Materials — und markiert 
 die neu exportiert werden sollte. **Delete…** verschiebt das Modell, seine Geschwisterdateien und seinen Texturordner
 in den Papierkorb.
 
+### 7. Auf GitHub Pages teilen (für Discord)
+
+Discord kann kein 3D-Modell anzeigen: Eine dort gepostete `.glb` ist nur ein Download. Polylode teilt ein Modell als eigene
+Seite auf deiner GitHub-Pages-Website; die Seite dreht das Modell in jedem Browser, und ihr Link erscheint in Discord als
+Karte mit dem Bild des Modells.
+
+1. Lege ein **öffentliches** GitHub-Repository an (Pages für ein privates braucht einen kostenpflichtigen Plan) und klone
+   es, zum Beispiel `git clone https://github.com/<konto>/models`. Git muss installiert sein und dorthin pushen können.
+2. Wähle in **Settings → Pages** des Repositorys **Deploy from a branch**, deinen Branch und `/ (root)`.
+3. Öffne eine `.glb` im Modellbetrachter und drücke **Share on GitHub Pages…**. Beim ersten Mal fragt es nach dem Ordner
+   des Klons (auch unter **Settings → GitHub Pages site folder**).
+4. Es nennt die Adresse, unter der das Modell öffentlich wird, und fragt vor dem Weitermachen; dann schreibt es
+   `models/<name>/` (das Modell, ein Kartenbild 1200×630, gezeichnet wie die Vorschau, und die Seite) und die Modellliste
+   der Website, committet nur diese Dateien und pusht.
+5. Der Link ist kopiert: `https://<konto>.github.io/<repository>/models/<name>/`. Pages aktualisiert sich meist nach ein
+   bis zwei Minuten; danach in Discord einfügen.
+
+Nur `.glb` lässt sich teilen, bis 100 MB (GitHubs Dateigrenze); ein Modell erneut zu teilen ersetzt seine Seite. Alles
+Geteilte ist öffentlich: Die Modelle stammen aus Spielen, also stelle sicher, dass du sie teilen darfst. Der Ordner des
+Programms selbst wird als Website abgelehnt.
+
 ### Fehlerbehebung
 
 - **Vor einem Scan, einer Vorschau oder einem Export öffnet sich eine Erklärung oder Dateiauswahl** — ein Werkzeug, ohne das die Konvertierung nicht läuft, ist nicht gesetzt und lag nicht dort, wo das Programm sucht. Bei Wuthering Waves ist es die AES-Schlüsseldatei: Das Fenster erklärt sie; wähle deine Schlüsseldatei oder füge den Schlüssel ein (`0x` und 64 Hexadezimalziffern), er wird als Schlüsseldatei gespeichert. So oder so bleibt es gemerkt.
@@ -126,6 +150,9 @@ in den Papierkorb.
 - **„This file's size could not be measured“** — der Betrachter konnte die Ausdehnung der Datei nicht lesen (etwa bei
   einer FBX 7.5); die Ansicht steht am Ursprung, zoome mit dem Mausrad.
 - **Keine `.blend` geschrieben** — setze das Blender-Programm unter **Settings**.
+- **„git push failed“ beim Teilen** — Git kann nicht in das Repository der Website pushen: Melde Git bei GitHub an (zum
+  Beispiel mit dem Git Credential Manager) und prüfe, ob du aus diesem Ordner selbst pushen kannst. **„The site folder's
+  origin is not a GitHub repository“** — der Ordner muss ein Klon eines GitHub-Repositorys sein.
 - **Etwas anderes schlug fehl** — das Protokoll unten behält jede Zeile, die Scan oder Export ausgegeben haben.
 
 ## Aus den Quellen bauen

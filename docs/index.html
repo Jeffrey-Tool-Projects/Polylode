@@ -30,6 +30,7 @@
     <li><a href="#export">Ticking and exporting</a></li>
     <li><a href="#open">Opening the exported files</a></li>
     <li><a href="#viewer">The model viewer</a></li>
+    <li><a href="#share">Sharing on Discord</a></li>
     <li><a href="#trouble">Troubleshooting</a></li>
   </ol>
 </aside>
@@ -133,8 +134,34 @@ Endfield character's wings) and emission maps. An effect's light is written as e
   (meshes, vertices, bones, shape keys, each material's blending) and marks a file written by older rules, to be exported again.</p></div>
 <div class="step"><span class="n">3</span><strong class="title">Delete</strong>
   <p><span class="ui">Delete…</span> moves the model, its sibling files and its texture folder to the recycle bin.</p></div>
+<div class="step"><span class="n">4</span><strong class="title">Share</strong>
+  <p><span class="ui">Share on GitHub Pages…</span> puts the <code>.glb</code> shown on your own web page, for Discord: see
+  <a href="#share">Sharing on Discord</a>.</p></div>
 
-<h2 id="trouble">9. Troubleshooting</h2>
+<h2 id="share">9. Sharing on Discord (through GitHub Pages)</h2>
+<p>Discord cannot show a 3D model: a <code>.glb</code> posted there is only a download. Polylode shares a model as a page of its own on a
+GitHub Pages site of yours. The page turns the model in any browser, and its link shows in Discord as a card with the model's picture.</p>
+<div class="step"><span class="n">1</span><strong class="title">Make a public repository and clone it</strong>
+  <p>Create a <b>public</b> GitHub repository (Pages on a private one needs a paid plan), for example <code>models</code>, and clone it:
+  <code>git clone https://github.com/&lt;account&gt;/models</code>. Git must be installed and able to push to it.</p></div>
+<div class="step"><span class="n">2</span><strong class="title">Turn Pages on</strong>
+  <p>In the repository's <span class="ui">Settings → Pages</span>, choose <span class="ui">Deploy from a branch</span>, your branch and
+  <code>/ (root)</code>.</p></div>
+<div class="step"><span class="n">3</span><strong class="title">Open a <code>.glb</code> and press <span class="ui">Share on GitHub Pages…</span></strong>
+  <p>In the model viewer. The first time it asks for the clone's folder; it is kept under
+  <span class="ui">Settings → GitHub Pages site folder</span>.</p></div>
+<div class="step"><span class="n">4</span><strong class="title">Confirm</strong>
+  <p>It names the address the model will be public at and asks before going on. Then it writes <code>models/&lt;name&gt;/</code>: the
+  model, a 1200×630 card picture drawn as the preview shows it, and the page; and the site's front page listing every shared model. It
+  commits only those files and pushes; the log shows each step.</p></div>
+<div class="step"><span class="n">5</span><strong class="title">Paste the link in Discord</strong>
+  <p>The link is copied to the clipboard: <code>https://&lt;account&gt;.github.io/&lt;repository&gt;/models/&lt;name&gt;/</code>. Pages
+  takes a minute or two to update. In Discord it shows as a card; opened, the page turns the model with the mouse or a finger.</p></div>
+<div class="warn">Everything shared is public, model file included. The models come from games: make sure you may share them. Only
+<code>.glb</code> can be shared, up to 100 MB (GitHub's file limit); sharing a model again replaces its page. The program's own folder is
+refused as a site.</div>
+
+<h2 id="trouble">10. Troubleshooting</h2>
 <table>
   <tr><th>What you see</th><th>What to do</th></tr>
   <tr><td>A dialog or file picker opens before a scan, preview or export</td><td>A tool the conversion needs is not set and was not found where the program looks. For Wuthering Waves it is the AES keys file: choose it or paste the key; it is remembered.</td></tr>
@@ -143,6 +170,11 @@ Endfield character's wings) and emission maps. An effect's light is written as e
   <tr><td>"This file's size could not be measured" in the viewer</td><td>Its extent could not be read (an FBX 7.5 file, for one); the view is at the origin, zoom with the wheel.</td></tr>
   <tr><td>A preview and an older export look different</td><td>An update may have changed the rules: press <span class="ui">Convert again</span> for the preview and export the model again.</td></tr>
   <tr><td>"cannot be drawn, made invisible" in the log</td><td>That material could not be written as the game draws it; it is made invisible with its reason, never drawn as a grey surface.</td></tr>
+  <tr><td>"git push failed" when sharing</td><td>Git cannot push to the site's repository: sign in to GitHub in Git (for example with
+  Git Credential Manager) and check that you can push from that folder yourself.</td></tr>
+  <tr><td>"The site folder's origin is not a GitHub repository"</td><td>The site folder must be a clone of a GitHub repository.</td></tr>
+  <tr><td>A shared link shows no card, or the page is not found</td><td>Pages is not turned on for the repository, the repository is
+  private on a free plan, or Pages has not updated yet: wait a minute or two.</td></tr>
   <tr><td>Anything else</td><td>The log at the bottom keeps every line the scan or export printed.</td></tr>
 </table>
 

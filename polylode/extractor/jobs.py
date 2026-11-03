@@ -66,6 +66,11 @@ def scan_command(source: str, settings_file: Path) -> list[str]:
     return _start("--scan", source, str(settings_file))
 
 
+def share_command(model: Path, site: Path) -> list[str]:
+    """The model shared on the GitHub Pages site cloned at *site* (``share.run_share``)."""
+    return _start("--share", str(model), str(site))
+
+
 def keys_command(settings_file: Path, public: bool = False) -> list[str]:
     return _start("--download-wuwa-keys" if public else "--discover-wuwa-keys", str(settings_file))
 

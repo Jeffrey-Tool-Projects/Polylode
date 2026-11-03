@@ -24,7 +24,9 @@ TITLE = "Polylode"
 #: drawn by ``tools/make_extractor_icon.py``; the packaged program's own icon is its ``icon.ico``
 ICON = Path(__file__).with_name("icon.png")
 #: Tools every source shares.
-COMMON = (PathSpec("blender", "Blender 執行檔", "file", "blender.exe（4.x 或 5.x）；.blend 需要，.glb／FBX 有它時多做讀回核對"),)
+COMMON = (PathSpec("blender", "Blender 執行檔", "file", "blender.exe（4.x 或 5.x）；.blend 需要，.glb／FBX 有它時多做讀回核對"),
+          PathSpec("pages_site", "GitHub Pages 網站資料夾", "dir",
+                   "你的 GitHub Pages 倉庫在本機的 clone；模型檢視器的「分享」寫進這裡並推送"))
 FORMATS = (("glb", "glTF（.glb，貼圖內嵌）"), ("fbx", "FBX（貼圖內嵌）"),
            ("blend", "Blender（.blend，貼圖打包在檔內，需 Blender）"))
 

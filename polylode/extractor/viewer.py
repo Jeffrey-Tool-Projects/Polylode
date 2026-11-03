@@ -11,8 +11,8 @@ import json
 import struct
 from pathlib import Path
 
-from PySide6.QtCore import QFile, Qt
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import QFile, QProcess, Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox, QFileDialog, QMessageBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit,
     QPushButton, QSlider, QSplitter, QVBoxLayout, QWidget,
@@ -151,6 +151,11 @@ class ViewerPage(QWidget):
         buttons.addWidget(remove)
         files_layout.addLayout(buttons)
         QShortcut(QKeySequence.Delete, self.files, self.delete_selected)
+        self.share_button = QPushButton("分享到 GitHub Pages…")
+        self.share_button.setToolTip("把顯示中的 .glb 寫進你的 GitHub Pages 網站並推送；網址貼到 Discord 會顯示成卡片，點開可以轉動模型")
+        self.share_button.clicked.connect(self.share)
+        files_layout.addWidget(self.share_button)
+        self.share_process: QProcess | None = None
 
         centre = QWidget()
         centre_layout = QVBoxLayout(centre)
@@ -255,6 +260,75 @@ class ViewerPage(QWidget):
         if failed:
             QMessageBox.warning(self, "刪除模型", "這些沒能移到資源回收筒：\n" + "\n".join(map(str, failed)))
         self.refresh()
+
+    def share(self) -> None:
+        """The model shown, on the user's GitHub Pages site (``share``): asked for the site's folder once, told
+        that the model becomes public, then written and pushed by a job of its own, its address copied."""
+        path = self.panel.current
+        if path is None or Path(path).suffix.lower() != ".glb":
+            QMessageBox.information(self, tr("分享到 GitHub Pages"), tr("先開啟一個 .glb：網頁的 3D 檢視器讀的是 glTF。"))
+            return
+        settings = self.window_.settings
+        site = settings.tool("pages_site")
+        if site is None or not site.is_dir():
+            QMessageBox.information(self, tr("分享到 GitHub Pages"), tr(
+                "選你的 GitHub Pages 倉庫在本機的 clone（例：git clone https://github.com/<帳號>/<倉庫>）。\n"
+                "倉庫的 Settings → Pages 要設成從分支發布，模型才會出現在網址上。"))
+            chosen = QFileDialog.getExistingDirectory(self, tr("GitHub Pages 網站資料夾"))
+            if not chosen:
+                return
+            self.window_.settings_page.set_path("pages_site", chosen)
+            settings.tools["pages_site"] = chosen
+            site = Path(chosen)
+        from . import share
+        try:
+            url = share.check_site(site)
+        except share.ShareError as failure:
+            QMessageBox.warning(self, tr("分享到 GitHub Pages"), tr(str(failure)))
+            return
+        page = f"{url}{share.MODELS}/{share.slug(Path(path))}/"
+        if QMessageBox.question(self, tr("分享到 GitHub Pages"), tr(
+                f"這個模型會推送到 GitHub，公開在 {page}，任何拿到網址的人都看得到、也下載得到。\n"
+                "模型來自遊戲，公開前請自行確認可以分享。要繼續嗎？")) != QMessageBox.StandardButton.Yes:
+            return
+        from . import jobs
+        self.share_button.setEnabled(False)
+        self.window_.log(f"分享 {Path(path).name} 到 {site}")
+        self.share_url, self.share_error = "", ""
+        self.share_process = QProcess(self)
+        self.share_process.setProcessChannelMode(QProcess.MergedChannels)
+        self.share_process.readyReadStandardOutput.connect(self._share_output)
+        self.share_process.finished.connect(self._share_done)
+        program, *arguments = jobs.share_command(Path(path), site)
+        self.share_process.start(program, arguments)
+
+    def _share_output(self) -> None:
+        for raw in bytes(self.share_process.readAllStandardOutput()).decode("utf-8", "replace").splitlines():
+            kind, _, text = raw.partition(" ")
+            if kind == "URL":
+                self.share_url = text
+            elif kind == "ERROR":
+                self.share_error = text
+                self.window_.log(f"  錯誤：{text}")
+            elif kind == "LOG":
+                self.window_.log(f"  {text}")
+
+    def _share_done(self, code: int, _status) -> None:
+        self.share_button.setEnabled(True)
+        self.share_process = None
+        if code != 0 or not self.share_url:
+            QMessageBox.warning(self, tr("分享到 GitHub Pages"),
+                                tr(self.share_error) or tr("分享沒有完成，原因寫在下方的紀錄。"))
+            return
+        QGuiApplication.clipboard().setText(self.share_url)
+        self.window_.log(f"  已分享：{self.share_url}（網址已複製）")
+        box = QMessageBox(QMessageBox.Information, tr("分享到 GitHub Pages"), tr(
+            f"已推送，網址已複製到剪貼簿：\n{self.share_url}\n\nGitHub Pages 通常一兩分鐘後更新；貼到 Discord 會顯示成卡片。"),
+            QMessageBox.Ok, self)
+        open_button = box.addButton(tr("在瀏覽器開啟"), QMessageBox.ActionRole)
+        box.exec()
+        if box.clickedButton() is open_button:
+            QDesktopServices.openUrl(QUrl(self.share_url))
 
     def _filter(self, text: str) -> None:
         for row in range(self.files.count()):

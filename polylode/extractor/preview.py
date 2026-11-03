@@ -102,56 +102,108 @@ def use_opengl() -> None:
     QQuickWindow.setGraphicsApi(QSGRendererInterface.OpenGL)
 
 
+class Offscreen:
+    """``preview.qml`` drawn with no window at all (``QQuickRenderControl`` into an OpenGL framebuffer), the way
+    the window draws it.  Needs a ``QGuiApplication``; :attr:`failure` says why it could not start."""
+
+    def __init__(self, width: int = 64, height: int = 64):
+        from PySide6.QtCore import QSize
+        from PySide6.QtGui import QOffscreenSurface, QOpenGLContext
+        from PySide6.QtOpenGL import QOpenGLFramebufferObject
+        from PySide6.QtQml import QQmlComponent, QQmlEngine
+        from PySide6.QtQuick import QQuickGraphicsDevice, QQuickRenderControl, QQuickRenderTarget, QQuickWindow
+        self.failure, self.root = "", None
+        self.context = QOpenGLContext()
+        if not self.context.create():
+            self.failure = "no OpenGL context"
+            return
+        self.surface = QOffscreenSurface()
+        self.surface.setFormat(self.context.format())
+        self.surface.create()
+        self.control = QQuickRenderControl()
+        self.window = QQuickWindow(self.control)
+        self.window.setGraphicsDevice(QQuickGraphicsDevice.fromOpenGLContext(self.context))
+        self.context.makeCurrent(self.surface)
+        if not self.control.initialize():
+            self.failure = "the render control did not start"
+            return
+        size = QSize(width, height)
+        self.target = QOpenGLFramebufferObject(size, QOpenGLFramebufferObject.CombinedDepthStencil)
+        self.window.setRenderTarget(QQuickRenderTarget.fromOpenGLTexture(self.target.texture(), size))
+        self.window.setGeometry(0, 0, width, height)
+        self.engine = QQmlEngine()
+        # kept: a component collected when this returns takes the item it made with it
+        self.component = QQmlComponent(self.engine, QUrl.fromLocalFile(str(QML)))
+        self.root = self.component.create()
+        if self.root is None:
+            self.failure = "; ".join(e.toString() for e in self.component.errors()) or "no root item"
+            return
+        self.root.setParentItem(self.window.contentItem())
+        self.root.setWidth(width)
+        self.root.setHeight(height)
+
+    def frame(self) -> None:
+        from PySide6.QtGui import QGuiApplication
+        QGuiApplication.instance().processEvents()
+        self.context.makeCurrent(self.surface)
+        self.control.polishItems()
+        self.control.beginFrame()
+        self.control.sync()
+        self.control.render()
+        self.control.endFrame()
+
+    def load(self, path: Path, seconds: float = 30) -> str:
+        """*path* shown, framed as the window frames it; the loader's state once it has settled."""
+        import time
+        box = model_bounds(path)
+        self.root.setProperty("framed", box is not None)
+        if box is not None:
+            self.root.setProperty("frameLow", QVector3D(*box[0]))
+            self.root.setProperty("frameHigh", QVector3D(*box[1]))
+        self.root.setProperty("source", QUrl.fromLocalFile(str(path)))
+        deadline = time.monotonic() + seconds
+        while True:
+            self.frame()
+            state = self.root.property("state_")
+            if state not in ("", "loading") or time.monotonic() > deadline:
+                return state
+            time.sleep(0.02)
+
+    def image(self):
+        """The frame now drawn, as a ``QImage`` (a few frames first: the view settles its framing)."""
+        for _ in range(6):
+            self.frame()
+        self.context.makeCurrent(self.surface)
+        return self.target.toImage()
+
+
 def load_check(glb: Path, seconds: float = 30) -> dict:
-    """``preview.qml`` loading *glb* the way the window does, drawn off-screen with no window at all
-    (``QQuickRenderControl`` into an OpenGL framebuffer): its loader state and size.
+    """``preview.qml`` loading *glb* the way the window does, drawn off-screen (:class:`Offscreen`): its loader
+    state and size.
 
     The packaged program's ``--selftest`` reads a triangle with it: a missing Qt Quick 3D module or
     importer plugin only shows when a file is actually loaded.  Needs a ``QGuiApplication``.
     """
-    import time
-    from PySide6.QtCore import QSize
-    from PySide6.QtGui import QGuiApplication, QOffscreenSurface, QOpenGLContext
-    from PySide6.QtOpenGL import QOpenGLFramebufferObject
-    from PySide6.QtQml import QQmlComponent, QQmlEngine
-    from PySide6.QtQuick import QQuickGraphicsDevice, QQuickRenderControl, QQuickRenderTarget, QQuickWindow
-    app = QGuiApplication.instance()
-    context = QOpenGLContext()
-    if not context.create():
-        return {"state": "no OpenGL context", "size": 0.0}
-    surface = QOffscreenSurface()
-    surface.setFormat(context.format())
-    surface.create()
-    control = QQuickRenderControl()
-    window = QQuickWindow(control)
-    window.setGraphicsDevice(QQuickGraphicsDevice.fromOpenGLContext(context))
-    context.makeCurrent(surface)
-    if not control.initialize():
-        return {"state": "the render control did not start", "size": 0.0}
-    size = QSize(64, 64)
-    target = QOpenGLFramebufferObject(size, QOpenGLFramebufferObject.CombinedDepthStencil)
-    window.setRenderTarget(QQuickRenderTarget.fromOpenGLTexture(target.texture(), size))
-    window.setGeometry(0, 0, size.width(), size.height())
-    engine = QQmlEngine()
-    component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML)))
-    root = component.create()
-    if root is None:
-        return {"state": "; ".join(e.toString() for e in component.errors()) or "no root item", "size": 0.0}
-    root.setParentItem(window.contentItem())
-    root.setProperty("source", QUrl.fromLocalFile(str(glb)))
-    deadline = time.monotonic() + seconds
-    while True:
-        app.processEvents()
-        context.makeCurrent(surface)
-        control.polishItems()
-        control.beginFrame()
-        control.sync()
-        control.render()
-        control.endFrame()
-        state = root.property("state_")
-        if state not in ("", "loading") or time.monotonic() > deadline:
-            return {"state": state, "size": float(root.property("size"))}
-        time.sleep(0.02)
+    view = Offscreen()
+    if view.failure:
+        return {"state": view.failure, "size": 0.0}
+    state = view.load(glb, seconds)
+    return {"state": state, "size": float(view.root.property("size"))}
+
+
+def snapshot(path: Path, out: Path, width: int, height: int, seconds: float = 120) -> Path:
+    """*path* drawn as the preview shows it, from the front and framed whole, into the image *out*.
+    Raises ``ValueError`` when the file does not load.  Needs a ``QGuiApplication``."""
+    view = Offscreen(width, height)
+    if view.failure:
+        raise ValueError(view.failure)
+    state = view.load(shown_copy(path), seconds)
+    if state != "ready":
+        raise ValueError(f"{Path(path).name} did not load: {state}")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if not view.image().save(str(out)):
+        raise ValueError(f"{out} could not be written")
+    return out
 
 
 #: display copies kept (:func:`shown_copy`): the newest few, a viewer goes back and forth between files

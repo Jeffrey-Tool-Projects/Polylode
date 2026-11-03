@@ -41,6 +41,9 @@ La ventana en inglés, tomada de un escaneo y una vista previa reales con `tools
 - **Visor de modelos.** Lista todos los modelos de tu carpeta de salida y abre cualquier `.glb`, `.gltf`, `.fbx` u `.obj` (arrastrado, elegido o
   pasado como `Polylode.exe <archivo>` para usarlo en «Abrir con»): vistas frontal, trasera, laterales y superior, malla de alambre, fondo claro u
   oscuro, intensidad de la luz y el contenido de un glTF. Un modelo de la lista puede enviarse a la papelera.
+- **Compartir en Discord mediante GitHub Pages.** Discord no muestra modelos 3D, así que **Share on GitHub Pages…**
+  del visor escribe el `.glb` mostrado en tu propio sitio de GitHub Pages como una página que lo gira en cualquier
+  navegador, lo sube y copia el enlace; pegado en Discord, el enlace se ve como una tarjeta con la imagen del modelo.
 - **Cinco idiomas.** English, 繁體中文, 简体中文, 日本語 y 한국어; sigue el idioma del sistema hasta que elijas uno en Ajustes, y el cambio es inmediato.
 
 ## Descarga
@@ -114,6 +117,27 @@ la ventana o iniciando `Polylode.exe <archivo>` (para usarlo en «Abrir con») p
 y la mezcla de cada material— y marca un archivo escrito con reglas antiguas, que conviene exportar de nuevo.
 **Delete…** envía el modelo, sus archivos hermanos y su carpeta de texturas a la papelera.
 
+### 7. Compartir en GitHub Pages (para Discord)
+
+Discord no puede mostrar un modelo 3D: un `.glb` publicado allí es solo una descarga. Polylode comparte un modelo como una
+página propia en un sitio de GitHub Pages tuyo; la página gira el modelo en cualquier navegador y su enlace se ve en Discord
+como una tarjeta con la imagen del modelo.
+
+1. Crea un repositorio de GitHub **público** (Pages en uno privado requiere un plan de pago) y clónalo, por ejemplo
+   `git clone https://github.com/<cuenta>/models`. Git debe estar instalado y poder subir (push) a él.
+2. En **Settings → Pages** del repositorio, elige **Deploy from a branch**, tu rama y `/ (root)`.
+3. Abre un `.glb` en el visor y pulsa **Share on GitHub Pages…**. La primera vez pide la carpeta del clon (también en
+   **Settings → GitHub Pages site folder**).
+4. Indica la dirección donde el modelo será público y pregunta antes de seguir; luego escribe `models/<nombre>/` (el
+   modelo, una imagen de tarjeta de 1200×630 dibujada como la vista previa y la página) y la lista de modelos del sitio,
+   confirma solo esos archivos y los sube.
+5. El enlace queda copiado: `https://<cuenta>.github.io/<repositorio>/models/<nombre>/`. Pages tarda uno o dos minutos en
+   actualizarse; después pégalo en Discord.
+
+Solo se puede compartir `.glb`, hasta 100 MB (el límite por archivo de GitHub); compartir de nuevo un modelo reemplaza su
+página. Todo lo compartido es público: los modelos vienen de juegos, así que asegúrate de que puedes compartirlos. La
+carpeta del propio programa se rechaza como sitio.
+
 ### Solución de problemas
 
 - **Se abre un aviso o un selector de archivos antes de un escaneo, vista previa o exportación** — falta una herramienta sin la que la conversión no puede funcionar y no estaba donde busca el programa. En Wuthering Waves es el archivo de claves AES: el aviso explica qué es; elige tu archivo de claves o pega la clave (`0x` y 64 dígitos hexadecimales) y se guarda como archivo de claves. En ambos casos se recuerda.
@@ -121,6 +145,9 @@ y la mezcla de cada material— y marca un archivo escrito con reglas antiguas, 
 - **«This file's size could not be measured»** — el visor no pudo leer la extensión del archivo (por ejemplo, un FBX
   7.5); la vista está en el origen, acerca con la rueda.
 - **No se escribe el `.blend`** — indica el ejecutable de Blender en **Settings**.
+- **“git push failed” al compartir** — Git no puede subir al repositorio del sitio: inicia sesión en GitHub desde Git (por
+  ejemplo con Git Credential Manager) y comprueba que puedes subir desde esa carpeta. **“The site folder's origin is not a
+  GitHub repository”** — la carpeta debe ser un clon de un repositorio de GitHub.
 - **Otro fallo** — el registro de abajo guarda cada línea que imprimió el escaneo o la exportación.
 
 ## Compilar desde el código
