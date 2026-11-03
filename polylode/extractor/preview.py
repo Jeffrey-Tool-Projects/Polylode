@@ -26,8 +26,9 @@ QML = Path(__file__).with_name("preview.qml")
 #: the writers' rules a cached preview was made with: raised when what a .glb holds changes, so an earlier
 #: preview is not shown again (2: overlays as their tint by coverage; 3: GF2 eye layers and transparency,
 #: WuWa translucency, §7.1455; 5: vertex colours kept out of COLOR_0, which hid
-#: GF2's characters, and GF2's lower LOD levels hidden; 6: Wuthering Waves split by material)
-CACHE_VERSION = 6
+#: GF2's characters, and GF2's lower LOD levels hidden; 6: Wuthering Waves split by material; 7: Wuthering
+#: Waves' cut-outs from the game's shader, parallax fur as strand layers)
+CACHE_VERSION = 7
 
 
 def cache_folder(model: Model) -> Path:
@@ -39,6 +40,27 @@ def cache_folder(model: Model) -> Path:
 def cached(model: Model) -> Path | None:
     """The ``.glb`` an earlier preview of *model* wrote, when there is one."""
     return next(iter(sorted(cache_folder(model).rglob("*.glb"))), None)
+
+
+def fresh_folder(model: Model) -> Path:
+    """Where a preview made again is written, beside the cache: the earlier one stays until it is replaced."""
+    folder = cache_folder(model)
+    return folder.with_name(folder.name + ".new")
+
+
+def adopt(model: Model, written: Path) -> Path:
+    """The preview made again in :func:`fresh_folder` (*written* in it) made *model*'s cached one: the earlier
+    folder removed and the new one put in its place.  When the earlier one cannot be removed (a file in it
+    held open), the new one is shown from where it was written and the cache keeps the earlier."""
+    import shutil
+    folder, fresh = cache_folder(model), fresh_folder(model)
+    try:
+        if folder.exists():
+            shutil.rmtree(folder)
+        fresh.replace(folder)
+    except OSError:
+        return Path(written)
+    return folder / Path(written).relative_to(fresh)
 
 
 def preview_settings(settings: S.Settings) -> S.Settings:

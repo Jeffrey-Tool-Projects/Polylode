@@ -35,7 +35,7 @@ La ventana en inglés, tomada de un escaneo y una vista previa reales con `tools
 - **Materiales como los dibujan los juegos.** Recortes, transparencia, capas de sombra de ojos y de brillo ocular se escriben con las reglas leídas de los
   shaders de cada juego. Donde glTF/FBX no pueden mezclar una capa, su efecto se hornea en la textura de debajo; el `.blend` conserva las capas reales. En Wuthering Waves, la cobertura de los recortes sale de ejecutar el shader compilado del propio juego, y el pelaje con paralaje se construye como capas de mechones.
 - **Vista previa antes de exportar.** Selecciona una fila y pulsa Vista previa (o doble clic): el modelo se convierte a `.glb` en una caché y se
-  muestra junto a la lista; botón izquierdo para girar, derecho para desplazar, rueda para acercar.
+  muestra junto a la lista; botón izquierdo para girar, derecho para desplazar, rueda para acercar. **Convert again** la rehace tras actualizar el programa o los archivos del juego.
 - **Visor de modelos.** Lista todos los modelos de tu carpeta de salida y abre cualquier `.glb`, `.gltf`, `.fbx` u `.obj` (arrastrado, elegido o
   pasado como `Polylode.exe <archivo>` para usarlo en «Abrir con»): vistas frontal, trasera, laterales y superior, malla de alambre, fondo claro u
   oscuro, intensidad de la luz y el contenido de un glTF. Un modelo de la lista puede enviarse a la papelera.
@@ -92,6 +92,9 @@ Elige una fila —el buscador filtra por personaje, atuendo o id— y pulsa **Pr
 vista previa de un modelo lo convierte (de segundos a un minuto, con su propia barra); después, seleccionar la fila lo
 muestra desde la caché al instante. En la vista: **arrastrar con el izquierdo** gira, **con el derecho** desplaza y la
 **rueda** acerca. Cada modelo se encuadra entero y centrado al cargarse.
+
+Una vista previa se queda como se hizo la primera vez. **Convert again** vuelve a convertir la fila elegida —tras
+actualizar Polylode o el juego— y sustituye la guardada cuando la nueva termina; hasta entonces se conserva la anterior.
 
 ### 5. Exportar
 

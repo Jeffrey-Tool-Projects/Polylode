@@ -36,7 +36,7 @@ La fenêtre en anglais, prise pendant une vraie analyse et un vrai aperçu avec 
   lues dans les shaders de chaque jeu. Là où glTF/FBX ne peuvent pas mélanger un calque, son effet est cuit dans la texture en dessous ; le `.blend`
   garde de vrais calques. Pour Wuthering Waves, la couverture des découpes vient de l'exécution du shader compilé du jeu, et la fourrure en parallaxe est construite en couches de mèches.
 - **Aperçu avant export.** Sélectionnez une ligne et cliquez sur Aperçu (ou double-cliquez) : le modèle est converti en `.glb` dans un cache et
-  affiché à côté de la liste — bouton gauche pour tourner, droit pour déplacer, molette pour zoomer.
+  affiché à côté de la liste — bouton gauche pour tourner, droit pour déplacer, molette pour zoomer. **Convert again** le refait après une mise à jour du programme ou des fichiers du jeu.
 - **Visionneuse de modèles.** Liste tous les modèles du dossier de sortie et ouvre tout `.glb`, `.gltf`, `.fbx` ou `.obj` (déposé, choisi, ou passé
   en `Polylode.exe <fichier>` pour servir de programme « Ouvrir avec ») : vues de face, de dos, de côté et de dessus, fil de fer, fond clair ou
   sombre, intensité de la lumière et contenu d'un glTF. Un modèle listé peut être envoyé à la corbeille.
@@ -96,6 +96,9 @@ Choisissez une ligne — la recherche filtre par personnage, tenue ou id — et 
 Le premier aperçu d'un modèle le convertit (de quelques secondes à une minute, avec sa propre barre) ; ensuite,
 sélectionner la ligne l'affiche aussitôt depuis le cache. Dans la vue : **glisser avec le bouton gauche** fait tourner,
 **avec le droit** déplace, la **molette** zoome. Chaque modèle est cadré entier et centré au chargement.
+
+Un aperçu reste tel qu'il a été fait la première fois. **Convert again** convertit à nouveau la ligne choisie — après une
+mise à jour de Polylode ou du jeu — et remplace celui du cache une fois le nouveau prêt ; d'ici là, l'ancien est gardé.
 
 ### 5. Exporter
 

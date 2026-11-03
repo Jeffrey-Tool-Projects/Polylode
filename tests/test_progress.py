@@ -1,5 +1,6 @@
 """Progress of a long step: the converters' reports, a job's PROGRESS lines and the window's bar."""
 import json
+from pathlib import Path
 
 from polylode.core import progress
 from polylode.extractor import jobs
@@ -338,5 +339,45 @@ def test_a_pasted_key_becomes_a_keys_file_and_a_wrong_file_is_asked_again(tmp_pa
     picks = iter([str(other), str(saved)])
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a: (next(picks), ""))
     assert page._ask_tool(W.KEYS, None) == saved and len(warned) == 2
+    window.close()
+    del qt
+
+
+def test_a_preview_made_again_replaces_the_cached_one_only_when_done(tmp_path, monkeypatch):
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    monkeypatch.setenv("ISLANDLIFE_DERIVED_ROOT", str(tmp_path / "derived"))
+    from PySide6.QtWidgets import QApplication
+    from polylode.extractor import app as A
+    from polylode.extractor import preview
+    monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    S.save(S.Settings())
+    model = Model("wuwa", "R2T1XinMd10011", "心", "x", {})
+    old = preview.cache_folder(model) / "old.glb"
+    old.parent.mkdir(parents=True)
+    old.write_bytes(b"old")
+    qt = QApplication.instance() or QApplication([])
+    window = A.Window()
+    page = next(window.pages.widget(i) for i in range(window.pages.count())
+                if getattr(getattr(window.pages.widget(i), "source", None), "id", "") == "wuwa")
+    page.models = [model]
+    monkeypatch.setattr(page, "_selected", lambda: model)
+    monkeypatch.setattr(page, "ask_tools", lambda: True)
+    shown, started = [], []
+    monkeypatch.setattr(page.preview_panel, "show_file", lambda path, caption: shown.append(Path(path)))
+    monkeypatch.setattr(A.QProcess, "start", lambda self, program, arguments: started.append(arguments))
+    page.preview()
+    assert shown == [old] and not started                     # cached: shown, nothing converted
+    page.preview(again=True)
+    job = json.loads(Path(started[0][-1]).read_text(encoding="utf-8"))
+    assert Path(job["output"]) == preview.fresh_folder(model)  # converted beside the cache, which stays
+    assert old.is_file() and not page.again_button.isEnabled()
+    new = preview.fresh_folder(model) / "R2T1XinMd10011.glb"
+    new.write_bytes(b"new")
+    page.preview_written = new
+    page._preview_done(0, None)
+    assert shown[-1] == preview.cache_folder(model) / "R2T1XinMd10011.glb" and shown[-1].read_bytes() == b"new"
+    assert not old.exists() and not preview.fresh_folder(model).exists() and page.again_button.isEnabled()
+    assert preview.cached(model) == shown[-1]
+    page.preview_process = None
     window.close()
     del qt

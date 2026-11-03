@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from . import i18n, jobs, locate
 from .i18n import tr
 from . import settings as S
-from .preview import PreviewPanel, cache_folder, cached, preview_settings
+from .preview import PreviewPanel, adopt, cache_folder, cached, fresh_folder, preview_settings
 from .sources import Model, PathSpec, registry
 from .stepbar import StepBar
 
@@ -246,6 +246,10 @@ class SourcePage(QWidget):
         self.preview_button.setToolTip("轉出選取那一列的 .glb 並在右邊顯示（雙擊一列也可以）")
         self.preview_button.clicked.connect(self.preview)
         tools.addWidget(self.preview_button)
+        self.again_button = QPushButton("重新轉換")
+        self.again_button.setToolTip("不用之前的預覽，重新轉換選取那一列並顯示（程式或遊戲檔更新後用）")
+        self.again_button.clicked.connect(lambda: self.preview(again=True))
+        tools.addWidget(self.again_button)
         self.export_button = QPushButton("匯出勾選的模型")
         self.export_button.setObjectName("primary")
         self.export_button.clicked.connect(self.export)
@@ -477,6 +481,7 @@ class SourcePage(QWidget):
         self.keys_button.setEnabled(False)
         self.download_keys_button.setEnabled(False)
         self.preview_button.setEnabled(False)
+        self.again_button.setEnabled(False)
         self.export_button.setEnabled(False)
         self.process = QProcess(self)
         self.lines = Lines()
@@ -517,7 +522,8 @@ class SourcePage(QWidget):
         self.status.setText(tr("AES 金鑰已取得" if ok else "取得 AES 金鑰失敗，見下方記錄"))
         self.process.deleteLater()
         self.process = None
-        for button in (self.scan_button, self.keys_button, self.download_keys_button, self.preview_button, self.export_button):
+        for button in (self.scan_button, self.keys_button, self.download_keys_button, self.preview_button,
+                       self.again_button, self.export_button):
             button.setEnabled(True)
 
     def stop_key_discovery(self) -> None:
@@ -551,13 +557,14 @@ class SourcePage(QWidget):
         if path is not None and self.preview_process is None:
             self.preview_panel.show_file(path, f"{model.character}　{model.outfit}（之前的預覽）")
 
-    def preview(self) -> None:
-        """The selected row as a turnable model: from the cache, or converted to .glb by a job of its own."""
+    def preview(self, again: bool = False) -> None:
+        """The selected row as a turnable model: from the cache, or converted to .glb by a job of its own —
+        *again*: converted even when cached, into a folder of its own that replaces the cached one when done."""
         model = self._selected()
         if model is None:
             QMessageBox.information(self, TITLE, "先在表格選一列。")
             return
-        path = cached(model)
+        path = None if again else cached(model)
         if path is not None:
             self.preview_panel.show_file(path, f"{model.character}　{model.outfit}（之前的預覽）")
             return
@@ -566,14 +573,18 @@ class SourcePage(QWidget):
         self.window_.settings_page._save()
         if not self.ask_tools():
             return
-        folder = cache_folder(model)
+        folder = fresh_folder(model) if again else cache_folder(model)
+        if again and folder.exists():
+            import shutil
+            shutil.rmtree(folder, ignore_errors=True)       # what an earlier try left
         folder.mkdir(parents=True, exist_ok=True)
         job = jobs.write_job(Path(tempfile.gettempdir()) / f"extractor_preview_{model.source}.json", model,
                              preview_settings(self.window_.settings), folder, ["glb"])
-        self.preview_model, self.preview_written = model, None
+        self.preview_model, self.preview_written, self.preview_again = model, None, again
         self.preview_panel.show_message(f"轉換 {model.character}　{model.outfit} 以預覽（第一次要幾十秒到幾分鐘）…")
         self.preview_panel.steps.start("轉換模型以預覽")
         self.preview_button.setEnabled(False)
+        self.again_button.setEnabled(False)
         self.preview_process = QProcess(self)
         self.preview_lines = Lines()
         self.preview_process.setProcessChannelMode(QProcess.MergedChannels)
@@ -582,7 +593,7 @@ class SourcePage(QWidget):
         self.preview_process.errorOccurred.connect(
             lambda _error: failed_start(self.preview_process) and self._preview_done(-1, None))
         program, *arguments = jobs.command(job)
-        self.window_.log(f"預覽 {model.ident}")
+        self.window_.log(f"重新轉換預覽 {model.ident}" if again else f"預覽 {model.ident}")
         self.preview_process.start(program, arguments)
 
     def _preview_output(self) -> None:
@@ -609,12 +620,15 @@ class SourcePage(QWidget):
         if code == -1:
             self.preview_panel.show_message(f"無法啟動預覽：{self.preview_process.errorString()}")
         elif written is not None and written.is_file():
+            if getattr(self, "preview_again", False):
+                written = adopt(model, written)
             self.preview_panel.show_file(written, f"{model.character}　{model.outfit}")
         else:
             self.preview_panel.show_message(f"預覽失敗：{self.preview_error or '沒有寫出 .glb'}")
         self.preview_error = ""
         self.preview_process = None
         self.preview_button.setEnabled(True)
+        self.again_button.setEnabled(True)
 
     def _tick_visible(self, state) -> None:
         for row in range(self.proxy.rowCount()):
