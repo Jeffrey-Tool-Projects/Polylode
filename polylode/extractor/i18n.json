@@ -1559,18 +1559,6 @@
   "ja": "共有は完了しませんでした。理由は下のログにあります。",
   "ko": "공유가 끝나지 않았습니다. 이유는 아래 로그에 있습니다."
  },
- "已推送，網址已複製到剪貼簿：": {
-  "en": "Pushed; the link is copied to the clipboard:",
-  "zh-CN": "已推送，网址已复制到剪贴板：",
-  "ja": "プッシュしました。URL をクリップボードにコピーしました：",
-  "ko": "푸시했습니다. 주소를 클립보드에 복사했습니다:"
- },
- "GitHub Pages 通常一兩分鐘後更新；貼到 Discord 會顯示成卡片。": {
-  "en": "GitHub Pages usually updates in a minute or two; pasted in Discord, the link shows as a card.",
-  "zh-CN": "GitHub Pages 通常一两分钟后更新；贴到 Discord 会显示成卡片。",
-  "ja": "GitHub Pages は通常 1〜2 分で更新されます。Discord に貼るとカードとして表示されます。",
-  "ko": "GitHub Pages는 보통 1~2분 뒤 갱신됩니다. Discord에 붙여 넣으면 카드로 보입니다."
- },
  "在瀏覽器開啟": {
   "en": "Open in browser",
   "zh-CN": "在浏览器打开",
@@ -1846,5 +1834,53 @@
   "zh-CN": "没有解码动作用的 ACL 程序库（{0}），这次不写姿势",
   "ja": "モーションをデコードする ACL ライブラリがありません（{0}）。今回はポーズを書き込みません",
   "ko": "동작을 디코딩할 ACL 라이브러리가 없습니다({0}). 이번에는 포즈를 쓰지 않습니다"
+ },
+ "等 GitHub Pages 發佈這個網頁…": {
+  "en": "Waiting for GitHub Pages to publish the page…",
+  "zh-CN": "等 GitHub Pages 发布这个网页…",
+  "ja": "GitHub Pages がページを公開するのを待っています…",
+  "ko": "GitHub Pages가 페이지를 게시하길 기다리는 중…"
+ },
+ "網頁已上線": {
+  "en": "The page is live",
+  "zh-CN": "网页已上线",
+  "ja": "ページが公開されました",
+  "ko": "페이지가 게시되었습니다"
+ },
+ "GitHub Pages 還沒發佈完成": {
+  "en": "GitHub Pages has not finished publishing",
+  "zh-CN": "GitHub Pages 还没发布完成",
+  "ja": "GitHub Pages の公開がまだ終わっていません",
+  "ko": "GitHub Pages 게시가 아직 끝나지 않았습니다"
+ },
+ "網頁已上線，網址已複製到剪貼簿：": {
+  "en": "The page is live; the link is copied to the clipboard:",
+  "zh-CN": "网页已上线，网址已复制到剪贴板：",
+  "ja": "ページが公開されました。URL をクリップボードにコピーしました：",
+  "ko": "페이지가 게시되었습니다. 주소를 클립보드에 복사했습니다:"
+ },
+ "貼到 Discord 會顯示成卡片。": {
+  "en": "Pasted in Discord, it shows as a card.",
+  "zh-CN": "贴到 Discord 会显示成卡片。",
+  "ja": "Discord に貼るとカードとして表示されます。",
+  "ko": "Discord에 붙여 넣으면 카드로 보입니다."
+ },
+ "已推送，但 GitHub Pages 還沒發佈完成。網址已複製到剪貼簿：": {
+  "en": "Pushed, but GitHub Pages has not finished publishing. The link is copied to the clipboard:",
+  "zh-CN": "已推送，但 GitHub Pages 还没发布完成。网址已复制到剪贴板：",
+  "ja": "プッシュしましたが、GitHub Pages の公開はまだ終わっていません。URL をクリップボードにコピーしました：",
+  "ko": "푸시했지만 GitHub Pages 게시가 아직 끝나지 않았습니다. 주소를 클립보드에 복사했습니다:"
+ },
+ "等網頁打得開再貼到 Discord（新倉庫第一次可能要幾分鐘）。": {
+  "en": "Paste it in Discord once the page opens (a new repository's first site can take a few minutes).",
+  "zh-CN": "等网页打得开再贴到 Discord（新仓库第一次可能要几分钟）。",
+  "ja": "ページが開けるようになってから Discord に貼ってください（新しいリポジトリの初回は数分かかることがあります）。",
+  "ko": "페이지가 열리면 Discord에 붙여 넣으세요(새 저장소의 첫 게시는 몇 분 걸릴 수 있습니다)."
+ },
+ "如果先貼了而沒有卡片，在網址後面加上 ?1 再貼一次：Discord 會記住沒有卡片的結果一陣子。": {
+  "en": "If you pasted it earlier and got no card, paste it again with ?1 added at the end: Discord remembers a link with no card for a while.",
+  "zh-CN": "如果先贴了而没有卡片，在网址后面加上 ?1 再贴一次：Discord 会记住没有卡片的结果一阵子。",
+  "ja": "先に貼ってカードが出なかった場合は、URL の末尾に ?1 を付けて貼り直してください。Discord はカードなしの結果をしばらく覚えています。",
+  "ko": "먼저 붙여 넣어 카드가 없었다면 주소 끝에 ?1을 붙여 다시 붙여 넣으세요. Discord는 카드 없는 결과를 한동안 기억합니다."
  }
 }

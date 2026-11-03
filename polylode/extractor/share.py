@@ -262,9 +262,51 @@ def write_model(model: Path, site: Path, url: str, title: str = "",
     return page_url, [folder, site / "index.html", site / LIST, site / ".nojekyll"]
 
 
-def publish(model: Path, site: Path, log=print, push: bool = True) -> str:
+#: how long a share waits for its page to be served, and how often it looks: seconds.  Pages builds a push in about
+#: half a minute; a repository's first site took longer, and a link pasted before then is a 404 with no card
+LIVE_WAIT, LIVE_EVERY = 300, 10
+
+
+def shared_stamp(folder: Path) -> str:
+    """When the model in *folder* (``models/<name>/``) was shared: its ``model.json``'s ``shared``."""
+    return json.loads((Path(folder) / "model.json").read_text(encoding="utf-8"))["shared"]
+
+
+def wait_live(page_url: str, stamp: str, log=print, wait: float = LIVE_WAIT, every: float = LIVE_EVERY,
+              fetch=None, sleep=None) -> bool:
+    """Is *page_url* serving this share — its ``model.json`` saying it was shared at *stamp* — within *wait*
+    seconds?  Asked every *every* seconds, past the CDN's cache (a query of the time); an earlier share of the same
+    model answers 200 with the old file, so a status alone does not say."""
+    import time
+    import urllib.request
+
+    def get(url: str) -> bytes | None:
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Polylode"}), timeout=30) as r:
+                return r.read()
+        except OSError:
+            return None
+
+    fetch, sleep = fetch or get, sleep or time.sleep
+    log("等 GitHub Pages 發佈這個網頁…")
+    deadline = time.monotonic() + wait
+    while True:
+        body = fetch(f"{page_url}model.json?t={time.time_ns()}")
+        try:
+            if body is not None and json.loads(body).get("shared") == stamp:
+                log("網頁已上線")
+                return True
+        except ValueError:
+            pass
+        if time.monotonic() >= deadline:
+            log("GitHub Pages 還沒發佈完成")
+            return False
+        sleep(every)
+
+
+def publish(model: Path, site: Path, log=print, push: bool = True) -> tuple[str, bool]:
     """*model* shared on the Pages site cloned at *site*: written, committed (only its files) and pushed.
-    Its page's address."""
+    Its page's address, and whether the page was being served before the wait ran out (``wait_live``)."""
     site = Path(site)
     url = check_site(site)
     log(f"寫入 {site}")
@@ -273,23 +315,25 @@ def publish(model: Path, site: Path, log=print, push: bool = True) -> str:
     _git(site, "add", "--", *paths)
     if _git(site, "status", "--porcelain", "--", *paths):
         _git(site, "commit", "-m", f"Share {slug(Path(model))}", "--", *paths)
-    if push:
-        log("推送到 GitHub…")
-        _git(site, "push", "origin", "HEAD")
-    return page_url
+    if not push:
+        return page_url, False
+    log("推送到 GitHub…")
+    _git(site, "push", "origin", "HEAD")
+    return page_url, wait_live(page_url, shared_stamp(written[0]), log)
 
 
 def run_share(model: str, site: str) -> int:
-    """``--share <model> <site>``: the window's share job, its lines as a job's (``LOG``, ``ERROR``) and the
-    page's address as ``URL <address>``."""
+    """``--share <model> <site>``: the window's share job, its lines as a job's (``LOG``, ``ERROR``), whether
+    the page is served yet as ``LIVE yes|no`` and its address as ``URL <address>``."""
     from PySide6.QtGui import QGuiApplication
     from .preview import use_opengl
     use_opengl()
     QGuiApplication.instance() or QGuiApplication([])
     try:
-        url = publish(Path(model), Path(site), log=lambda line: print(f"LOG {line}", flush=True))
+        url, live = publish(Path(model), Path(site), log=lambda line: print(f"LOG {line}", flush=True))
     except (ShareError, ValueError, OSError, RuntimeError) as failure:
         print(f"ERROR {failure}", flush=True)
         return 1
+    print(f"LIVE {'yes' if live else 'no'}", flush=True)
     print(f"URL {url}", flush=True)
     return 0

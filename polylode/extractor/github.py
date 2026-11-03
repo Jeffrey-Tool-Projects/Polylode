@@ -24,7 +24,7 @@ import urllib.request
 from pathlib import Path
 
 from ..core.paths import _platform_user_root
-from .share import LIST, ShareError, slug, write_model
+from .share import LIST, ShareError, shared_stamp, slug, wait_live, write_model
 
 #: Polylode's OAuth app (device flow enabled)
 CLIENT_ID = "Ov23li8eFLr9Qb5BbBll"
@@ -247,8 +247,9 @@ def commit(token: str, login: str, branch: str, files: dict[str, Path], message:
     return made
 
 
-def publish(model: Path, announce, log=print) -> tuple[str, str]:
-    """*model* shared through the user's account: ``(page address, settings page left to open or "")``."""
+def publish(model: Path, announce, log=print) -> tuple[str, str, bool]:
+    """*model* shared through the user's account: ``(page address, settings page left to open or "", served yet)``;
+    with Pages off there is nothing to wait for."""
     token, login = signed_in(announce, log)
     branch = repository(token, login, log)
     url = pages_url(login)
@@ -261,7 +262,9 @@ def publish(model: Path, announce, log=print) -> tuple[str, str]:
                 files[local.relative_to(staging).as_posix()] = local
         log("推送到 GitHub…")
         commit(token, login, branch, files, f"Share {slug(Path(model))}", log)
-    return page_url, pages(token, login, branch, log)
+        stamp = shared_stamp(written[0])
+    settings_page = pages(token, login, branch, log)
+    return page_url, settings_page, False if settings_page else wait_live(page_url, stamp, log)
 
 
 def run_share(model: str) -> int:
@@ -276,13 +279,14 @@ def run_share(model: str) -> int:
         print(f"LOG {line}", flush=True)
 
     try:
-        url, settings_page = publish(Path(model), lambda code, address: print(f"DEVICE {code} {address}", flush=True),
-                                     log)
+        url, settings_page, live = publish(
+            Path(model), lambda code, address: print(f"DEVICE {code} {address}", flush=True), log)
     except (ShareError, ValueError, OSError, RuntimeError) as failure:
         print(f"ERROR {failure}", flush=True)
         return 1
     if settings_page:
         print(f"PAGES {settings_page}", flush=True)
+    print(f"LIVE {'yes' if live else 'no'}", flush=True)
     print(f"URL {url}", flush=True)
     return 0
 

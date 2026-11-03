@@ -50,7 +50,11 @@ def test_a_shared_model_is_written_committed_alone_and_pushed(tmp_path, monkeypa
     _git(site, "add", "notes.txt")                                     # staged by the user: stays out
     model = preview.triangle_glb(tmp_path / "c_X_slg_skin_0123456789.glb")
     lines = []
-    url = share.publish(model, site, log=lines.append)
+    waited = []
+    monkeypatch.setattr(share, "wait_live", lambda url, stamp, log: waited.append((url, stamp)) or True)
+    url, live = share.publish(model, site, log=lines.append)
+    assert live and waited == [(url, json.loads((site / "models" / "c_x_slg_skin" / "model.json").read_text(
+        encoding="utf-8"))["shared"])]                                 # waited for this share's own stamp
     assert url == "https://me.github.io/models/models/c_x_slg_skin/"
     folder = site / "models" / "c_x_slg_skin"
     assert (folder / "model.glb").read_bytes() == model.read_bytes()
@@ -82,3 +86,19 @@ def test_the_card_is_drawn_in_the_first_pose_and_the_page_lists_the_poses(tmp_pa
     assert np.allclose(gltf["nodes"][channel["target"]["node"]][channel["target"]["path"]], first)
     page = share._page("x", "https://me.github.io/models/models/x/")
     assert "availableAnimations" in page and 'id="pose"' in page and "autoplay" in page
+
+
+def test_a_share_is_live_once_the_page_serves_its_own_stamp_not_an_earlier_one():
+    answers = iter([None, b'{"shared": "earlier"}', b'{"shared": "now"}'])
+    asked, slept = [], []
+
+    def fetch(url):
+        asked.append(url)
+        return next(answers)
+
+    assert share.wait_live("https://me.github.io/m/models/x/", "now", log=lambda _l: None, fetch=fetch,
+                           sleep=slept.append, every=10)
+    assert len(asked) == 3 and all(u.startswith("https://me.github.io/m/models/x/model.json?t=") for u in asked)
+    assert len(set(asked)) == 3 and slept == [10, 10]                    # each ask past the cache, a pause between
+    assert not share.wait_live("https://me.github.io/m/models/x/", "now", log=lambda _l: None,
+                               fetch=lambda _u: b'{"shared": "earlier"}', sleep=lambda _s: None, wait=0)

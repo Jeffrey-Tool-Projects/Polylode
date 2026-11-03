@@ -295,7 +295,7 @@ class ViewerPage(QWidget):
             return
         self.share_button.setEnabled(False)
         self.window_.log(f"分享 {Path(path).name} 到 {where}")
-        self.share_url, self.share_error, self.share_settings = "", "", ""
+        self.share_url, self.share_error, self.share_settings, self.share_live = "", "", "", False
         self.sign_in_box = None
         self.share_process = QProcess(self)
         self.share_process.setProcessChannelMode(QProcess.MergedChannels)
@@ -309,6 +309,8 @@ class ViewerPage(QWidget):
             kind, _, text = raw.partition(" ")
             if kind == "URL":
                 self.share_url = text
+            elif kind == "LIVE":
+                self.share_live = text == "yes"
             elif kind == "PAGES":
                 self.share_settings = text
             elif kind == "DEVICE":
@@ -355,7 +357,13 @@ class ViewerPage(QWidget):
             return
         QGuiApplication.clipboard().setText(self.share_url)
         self.window_.log(f"  已分享：{self.share_url}（網址已複製）")
-        text = f"已推送，網址已複製到剪貼簿：\n{self.share_url}\n\nGitHub Pages 通常一兩分鐘後更新；貼到 Discord 會顯示成卡片。"
+        # a link pasted before Pages serves it is a 404 and Discord shows no card, then keeps that answer a while
+        if self.share_live:
+            text = f"網頁已上線，網址已複製到剪貼簿：\n{self.share_url}\n\n貼到 Discord 會顯示成卡片。"
+        else:
+            text = (f"已推送，但 GitHub Pages 還沒發佈完成。網址已複製到剪貼簿：\n{self.share_url}\n\n"
+                    "等網頁打得開再貼到 Discord（新倉庫第一次可能要幾分鐘）。\n"
+                    "如果先貼了而沒有卡片，在網址後面加上 ?1 再貼一次：Discord 會記住沒有卡片的結果一陣子。")
         if self.share_settings:
             text += ("\n\n這個倉庫的 GitHub Pages 還沒開啟：按「開啟 Pages 設定」，"
                      "Source 選 Deploy from a branch、分支選 main、資料夾 / (root)，按 Save。只需要做一次。")

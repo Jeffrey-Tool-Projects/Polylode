@@ -114,7 +114,8 @@ def test_the_token_is_kept_encrypted_for_this_user_and_forgotten(fake, tmp_path)
 def test_a_share_signs_in_makes_the_repository_and_commits_the_page(fake, tmp_path):
     told = []
     first = preview.triangle_glb(tmp_path / "c_A_slg_skin_0123456789.glb")
-    url, settings = github.publish(first, lambda code, address: told.append(code), log=lambda _l: None)
+    url, settings, live = github.publish(first, lambda code, address: told.append(code), log=lambda _l: None)
+    assert not live                                  # Pages is off: nothing to wait for
     assert told == ["WDJB-MJHT"] and github.account() == "Someone"
     assert url == "https://someone.github.io/polylode-models/models/c_a_slg_skin/"
     assert settings == "https://github.com/Someone/polylode-models/settings/pages"   # the one click left
