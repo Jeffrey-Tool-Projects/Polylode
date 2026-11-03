@@ -28,7 +28,8 @@ READER = PathSpec("wuwa_reader", "鳴潮讀取器（wuwa.exe 或 wuwa.dll）", "
                   required=True, bundled="wuwa_reader")
 DOTNET = PathSpec("dotnet", ".NET 10 執行環境資料夾", "dir", "含 dotnet.exe 的資料夾；打包版留空用內建的",
                   required=True, bundled="dotnet")
-KEYS = PathSpec("wuwa_keys", "鳴潮 AES 金鑰檔", "file", "含 mainKey 與 dynamicKeys 的 JSON", required=True)
+KEYS = PathSpec("wuwa_keys", "鳴潮 AES 金鑰檔", "file", "含 mainKey 與 dynamicKeys 的 JSON", required=True,
+                pasted=True, explain='鳴潮的遊戲檔是加密的，讀取需要你這個用戶端版本的 AES 金鑰（mainKey：0x 加 64 位十六進位數字）。程式不附帶金鑰，也不會從遊戲裡取出金鑰。\n\n你可以選擇你已有的金鑰檔（含 mainKey 與 dynamicKeys 的 JSON），或直接貼上金鑰字串，程式會替你存成金鑰檔。\n\n之後把金鑰檔放在 %LOCALAPPDATA%\\Polylode、程式旁、安裝資料夾、下載、文件或桌面，程式就會自動找到。遊戲更新後金鑰可能會變，到時換上新版本的金鑰即可。')
 BLENDER = PathSpec("blender", "Blender 執行檔", "file")
 MODEL_TABLE_JSON = "model_config/package.json"
 
@@ -101,6 +102,37 @@ def find_reader() -> Path | None:
         if path.is_file():
             return path
     return None
+
+
+def keys_from_text(text: str) -> dict:
+    """What the user pasted as a keys file's content: the whole JSON, or the main key alone (``0x`` and 64
+    hexadecimal digits, the ``0x`` optional); ``ValueError`` saying what is wrong otherwise."""
+    text = text.strip()
+    if text.startswith("{"):
+        try:
+            data = json.loads(text)
+        except ValueError:
+            raise ValueError("貼上的 JSON 讀不出來") from None
+    else:
+        data = {"mainKey": text, "dynamicKeys": []}
+    if not isinstance(data, dict) or not isinstance(data.get("dynamicKeys", []), list):
+        raise ValueError("金鑰檔要有 mainKey 與 dynamicKeys（清單）")
+    key = str(data.get("mainKey", ""))
+    digits = key[2:] if key.lower().startswith("0x") else key
+    if len(digits) != 64 or any(c not in "0123456789abcdefABCDEF" for c in digits):
+        raise ValueError("mainKey 要是 0x 加 64 位十六進位數字")
+    return {"mainKey": "0x" + digits.upper(), "dynamicKeys": data.get("dynamicKeys", [])}
+
+
+def paste_keys(text: str) -> Path:
+    """Write what the user pasted (``keys_from_text``) as ``wuwa_keys.json`` in the program's data folder,
+    one of the places ``find_keys`` looks; the file."""
+    from ..core.paths import _platform_user_root
+    data = keys_from_text(text)
+    path = _platform_user_root() / "wuwa_keys.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return path
 
 
 def find_keys(settings) -> Path | None:
@@ -194,6 +226,15 @@ class WuwaSource:
         if key == READER.key:
             return find_reader()
         return None
+
+    def tool_problem(self, key: str, path: Path) -> str | None:
+        """Why *path* cannot be the tool *key*, or None."""
+        if key == KEYS.key and not is_keys_file(path):
+            return "這不是金鑰檔：需要含 mainKey（0x 加 64 位十六進位）與 dynamicKeys 的 JSON"
+        return None
+
+    def paste_wuwa_keys(self, text: str) -> Path:
+        return paste_keys(text)
 
     def scan(self, settings, log: Log) -> list[Model]:
         root = extract_config(settings, log)

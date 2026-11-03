@@ -316,16 +316,55 @@ class SourcePage(QWidget):
                 self.window_.settings_page.set_path(spec.key, str(found))
                 self.window_.log(f"[{self.source.label}] 找到{spec.label}：{found}")
                 continue
+            chosen = self._ask_tool(spec, current)
+            if not chosen:
+                self.status.setText(tr(f"還沒有選{spec.label}，沒有轉換"))
+                return False
+            self.window_.settings_page.set_path(spec.key, str(chosen))
+        self.window_.settings_page._save()
+        return True
+
+    def _how(self, spec: PathSpec) -> str | None:
+        """How the user gives *spec*: "file" or "paste" after its explanation (``PathSpec.explain``), or None."""
+        if not spec.explain:
+            return "file"
+        box = QMessageBox(QMessageBox.Icon.Information, tr(spec.label), tr(spec.explain), parent=self)
+        choose = box.addButton(tr("選擇檔案…"), QMessageBox.ButtonRole.AcceptRole)
+        paste = box.addButton(tr("貼上金鑰…"), QMessageBox.ButtonRole.ActionRole) if spec.pasted else None
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.exec()
+        clicked = box.clickedButton()
+        return "file" if clicked is choose else "paste" if paste is not None and clicked is paste else None
+
+    def _ask_tool(self, spec: PathSpec, current: Path | None) -> Path | None:
+        """*spec* from the user — a file or folder chosen, or text pasted (``PathSpec.pasted``) — checked by the
+        source (``tool_problem``) and asked again until it passes or the user stops."""
+        problem_of = getattr(self.source, "tool_problem", None)
+        while True:
+            how = self._how(spec)
+            if how is None:
+                return None
+            if how == "paste":
+                text, ok = QInputDialog.getMultiLineText(self, tr(spec.label), tr("貼上金鑰字串，或整個金鑰檔的 JSON："))
+                if not ok or not text.strip():
+                    continue
+                try:
+                    return getattr(self.source, f"paste_{spec.key}")(text)
+                except ValueError as wrong:
+                    QMessageBox.warning(self, tr(spec.label), tr(str(wrong)))
+                    continue
             title = tr(f"選擇{spec.label}") + (f"（{tr(spec.hint)}）" if spec.hint else "")
             start = str(current.parent) if current is not None else ""
             chosen = (QFileDialog.getExistingDirectory(self, title, start) if spec.kind == "dir"
                       else QFileDialog.getOpenFileName(self, title, start)[0])
             if not chosen:
-                self.status.setText(tr(f"還沒有選{spec.label}，沒有轉換"))
-                return False
-            self.window_.settings_page.set_path(spec.key, chosen)
-        self.window_.settings_page._save()
-        return True
+                if not spec.explain:
+                    return None
+                continue
+            problem = problem_of(spec.key, Path(chosen)) if problem_of is not None else None
+            if problem is None:
+                return Path(chosen)
+            QMessageBox.warning(self, tr(spec.label), tr(problem))
 
     def scan(self) -> None:
         if self.process is not None:

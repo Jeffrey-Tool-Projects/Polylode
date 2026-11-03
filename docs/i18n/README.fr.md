@@ -115,8 +115,7 @@ keys et le mélange de chaque matériau — et signale un fichier écrit selon d
 
 ### Dépannage
 
-- **Un sélecteur de fichier s'ouvre avant un aperçu ou un export** — un outil indispensable à la conversion n'est pas
-  défini ; pour Wuthering Waves, c'est le fichier de clés AES, et aucun n'était là où il cherche. Choisissez-le une fois, il est retenu.
+- **Une explication ou un sélecteur de fichier s'ouvre avant une analyse, un aperçu ou un export** — un outil indispensable à la conversion n'est pas défini et n'était pas là où le programme cherche. Pour Wuthering Waves, c'est le fichier de clés AES : la fenêtre explique ce que c'est ; choisissez votre fichier de clés ou collez la clé (`0x` et 64 chiffres hexadécimaux), elle est enregistrée comme fichier de clés. Dans les deux cas, c'est retenu.
 - **« …has not been set » ou « …is not there »** dans le journal — corrigez ce chemin dans **Settings**.
 - **« This file's size could not be measured »** — la visionneuse n'a pas pu lire l'étendue du fichier (un FBX 7.5, par
   exemple) ; la vue est à l'origine, zoomez avec la molette.

@@ -114,7 +114,7 @@ shape keys and each material's blending — and marks a file written by older ru
 
 ### Troubleshooting
 
-- **A file picker opens before a preview or export** — a tool the conversion cannot run without is not set; for Wuthering Waves it is the AES keys file, and none was found where it looks. Pick it once and it is remembered.
+- **A dialog or a file picker opens before a scan, preview or export** — a tool the conversion cannot run without is not set, and none was found where the program looks. For Wuthering Waves it is the AES keys file: the dialog says what it is; choose your keys file, or paste the key (`0x` and 64 hexadecimal digits) and it is saved as a keys file. Either way it is remembered.
 - **"…has not been set" or "…is not there"** in the log — fix that path under **Settings**.
 - **"This file's size could not be measured"** — the viewer could not read the file's extent (an FBX 7.5 file, for
   one); the view is at the origin, zoom with the wheel.

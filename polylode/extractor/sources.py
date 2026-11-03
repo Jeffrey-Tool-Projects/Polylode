@@ -30,6 +30,11 @@ class PathSpec:
     required: bool = False
     #: the ``bundled`` function naming the tool this program carries, what an empty field means
     bundled: str = ""
+    #: what the tool is and where it comes from, shown before the user is asked for it
+    explain: str = ""
+    #: the source's method that turns pasted text into the tool's file (``paste_<key>``): the user may paste
+    #: instead of choosing a file
+    pasted: bool = False
 
 
 @dataclass(frozen=True)

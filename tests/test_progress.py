@@ -181,7 +181,8 @@ def test_a_preview_or_export_asks_for_each_required_tool_it_lacks_once(tmp_path,
     page = next(window.pages.widget(i) for i in range(window.pages.count())
                 if getattr(getattr(window.pages.widget(i), "source", None), "id", "") == "wuwa")
     reader, keys = tmp_path / "wuwa.exe", tmp_path / "keys.json"
-    reader.write_bytes(b""), keys.write_text("{}")
+    reader.write_bytes(b""), keys.write_text(json.dumps({"mainKey": "0x" + "cd" * 32, "dynamicKeys": []}))
+    monkeypatch.setattr(page, "_how", lambda spec: "file")      # the keys' explanation: "choose a file"
     asked = []
     answers = iter([str(reader), str(keys)])
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a: (asked.append(a[1]) or next(answers), ""))
@@ -189,7 +190,7 @@ def test_a_preview_or_export_asks_for_each_required_tool_it_lacks_once(tmp_path,
     assert len(asked) == 2 and S.load().tools["wuwa_reader"] == str(reader) and S.load().tools["wuwa_keys"] == str(keys)
     assert page.ask_tools() and len(asked) == 2                 # set and there: not asked again
     keys.unlink()
-    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a: ("", ""))
+    monkeypatch.setattr(page, "_how", lambda spec: None)        # the explanation cancelled
     assert not page.ask_tools()                                 # gone and not given: nothing converted
     window.close()
     del qt
@@ -203,7 +204,7 @@ def test_a_tool_the_program_carries_is_not_asked_for(tmp_path, monkeypatch):
     monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
     S.save(S.Settings())
     reader, keys = tmp_path / "wuwa.exe", tmp_path / "keys.json"
-    reader.write_bytes(b""), keys.write_text("{}")
+    reader.write_bytes(b""), keys.write_text(json.dumps({"mainKey": "0x" + "cd" * 32, "dynamicKeys": []}))
     monkeypatch.setattr(bundled, "wuwa_reader", lambda: reader)
     monkeypatch.setattr(bundled, "dotnet", lambda: tmp_path)          # .NET is there: not what this asks about
     from polylode.extractor import wuwa_source
@@ -212,6 +213,7 @@ def test_a_tool_the_program_carries_is_not_asked_for(tmp_path, monkeypatch):
     window = A.Window()
     page = next(window.pages.widget(i) for i in range(window.pages.count())
                 if getattr(getattr(window.pages.widget(i), "source", None), "id", "") == "wuwa")
+    monkeypatch.setattr(page, "_how", lambda spec: "file")
     asked = []
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a: (asked.append(a[1]) or str(keys), ""))
     assert page.ask_tools() and len(asked) == 1                  # the keys only: the reader is carried
@@ -296,3 +298,45 @@ def test_a_reader_built_in_the_checkout_is_found(tmp_path, monkeypatch):
     built.parent.mkdir(parents=True)
     built.write_bytes(b"")
     assert W.find_reader() == built
+
+
+def test_a_pasted_key_becomes_a_keys_file_and_a_wrong_file_is_asked_again(tmp_path, monkeypatch):
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    import pytest
+    from PySide6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
+    from polylode.core import paths
+    from polylode.extractor import app as A
+    from polylode.extractor import wuwa_source as W
+    assert W.keys_from_text("ab" * 32) == {"mainKey": "0x" + "AB" * 32, "dynamicKeys": []}
+    whole = json.dumps({"mainKey": "0x" + "01" * 32, "dynamicKeys": [{"guid": "g", "key": "k"}]})
+    assert W.keys_from_text(whole)["dynamicKeys"] == [{"guid": "g", "key": "k"}]
+    for wrong in ("0x1234", "{not json", '{"mainKey": "0x' + "zz" * 32 + '", "dynamicKeys": []}'):
+        with pytest.raises(ValueError):
+            W.keys_from_text(wrong)
+
+    monkeypatch.setattr(paths, "_platform_user_root", lambda: tmp_path / "data")
+    monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    S.save(S.Settings())
+    qt = QApplication.instance() or QApplication([])
+    window = A.Window()
+    page = next(window.pages.widget(i) for i in range(window.pages.count())
+                if getattr(getattr(window.pages.widget(i), "source", None), "id", "") == "wuwa")
+    warned = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warned.append(a[2]))
+    # pasted: a bad key is refused with its reason, the next one is saved where find_keys looks
+    hows = iter(["paste", "paste"])
+    monkeypatch.setattr(page, "_how", lambda spec: next(hows))
+    pasted = iter([("0x12", True), ("cd" * 32, True)])
+    monkeypatch.setattr(QInputDialog, "getMultiLineText", lambda *a: next(pasted))
+    saved = page._ask_tool(W.KEYS, None)
+    assert saved == tmp_path / "data" / "wuwa_keys.json" and W.is_keys_file(saved) and len(warned) == 1
+    # chosen: a JSON that is not a keys file is refused, the next pick passes
+    other = tmp_path / "other.json"
+    other.write_text('{"a": 1}')
+    hows = iter(["file", "file"])
+    monkeypatch.setattr(page, "_how", lambda spec: next(hows))
+    picks = iter([str(other), str(saved)])
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a: (next(picks), ""))
+    assert page._ask_tool(W.KEYS, None) == saved and len(warned) == 2
+    window.close()
+    del qt

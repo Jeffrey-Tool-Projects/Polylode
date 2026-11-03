@@ -116,8 +116,7 @@ in den Papierkorb.
 
 ### Fehlerbehebung
 
-- **Vor einer Vorschau oder einem Export öffnet sich eine Dateiauswahl** — ein Werkzeug, ohne das die Konvertierung
-  nicht läuft, ist nicht gesetzt; bei Wuthering Waves ist es die AES-Schlüsseldatei, und dort, wo es sucht, lag keine. Einmal gewählt, bleibt sie gemerkt.
+- **Vor einem Scan, einer Vorschau oder einem Export öffnet sich eine Erklärung oder Dateiauswahl** — ein Werkzeug, ohne das die Konvertierung nicht läuft, ist nicht gesetzt und lag nicht dort, wo das Programm sucht. Bei Wuthering Waves ist es die AES-Schlüsseldatei: Das Fenster erklärt sie; wähle deine Schlüsseldatei oder füge den Schlüssel ein (`0x` und 64 Hexadezimalziffern), er wird als Schlüsseldatei gespeichert. So oder so bleibt es gemerkt.
 - **„…has not been set“ oder „…is not there“** im Protokoll — korrigiere diesen Pfad unter **Settings**.
 - **„This file's size could not be measured“** — der Betrachter konnte die Ausdehnung der Datei nicht lesen (etwa bei
   einer FBX 7.5); die Ansicht steht am Ursprung, zoome mit dem Mausrad.

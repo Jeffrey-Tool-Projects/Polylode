@@ -111,8 +111,7 @@ y la mezcla de cada material— y marca un archivo escrito con reglas antiguas, 
 
 ### Solución de problemas
 
-- **Se abre un selector de archivos antes de una vista previa o exportación** — falta una herramienta sin la que la
-  conversión no puede funcionar; en Wuthering Waves es el archivo de claves AES, y no había ninguno donde busca. Elígelo una vez y se recuerda.
+- **Se abre un aviso o un selector de archivos antes de un escaneo, vista previa o exportación** — falta una herramienta sin la que la conversión no puede funcionar y no estaba donde busca el programa. En Wuthering Waves es el archivo de claves AES: el aviso explica qué es; elige tu archivo de claves o pega la clave (`0x` y 64 dígitos hexadecimales) y se guarda como archivo de claves. En ambos casos se recuerda.
 - **«…has not been set» o «…is not there»** en el registro — corrige esa ruta en **Settings**.
 - **«This file's size could not be measured»** — el visor no pudo leer la extensión del archivo (por ejemplo, un FBX
   7.5); la vista está en el origen, acerca con la rueda.
