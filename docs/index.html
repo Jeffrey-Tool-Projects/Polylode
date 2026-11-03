@@ -160,13 +160,14 @@ requests).</p>
 <div class="step"><span class="n">5</span><strong class="title">Paste the link in Discord</strong>
   <p>The link is copied: <code>https://&lt;account&gt;.github.io/polylode-models/models/&lt;name&gt;/</code>. Pages takes a minute or two to
   update. In Discord it shows as a card; opened, the page turns the model with the mouse or a finger.</p></div>
-<div class="note"><b>Poses.</b> An Endfield character's exported <code>.glb</code> carries the poses its character screens hold (the
-game's looping <code>ui</code> clips, decoded from the install the first time, about half a minute). The shared page has a
+<div class="note"><b>Poses.</b> An exported <code>.glb</code> carries every pose its character screens play: the poses held
+there come first and the moves between them follow (an Endfield character's <code>ui</code> clips, decoded from the install the
+first time, about half a minute; a Girls' Frontline 2 outfit's clips off the battlefield — barracks, wardrobe, bedroom, ending —,
+named once at the first export, a few minutes; a Wuthering Waves character's <code>CommonAnim/UiAnim</code> clips on its own
+skeleton, decoded with the reader built from this version, an older reader leaves them out). The shared page has a
 <span class="ui">Pose</span> menu to switch between them, and its card shows the first one. <span class="ui">Settings → Poses</span>
-turns this off; previews never include them. A Girls' Frontline 2 outfit carries the idles it is shown in off the battlefield (barracks,
-wardrobe, bedroom, ending: the clips the game loops); the first export names the game's clips once, a few minutes. A Wuthering Waves character
-carries the poses its character screens loop (<code>CommonAnim/UiAnim</code>: the clips on its own skeleton that end where
-they start), decoded with the reader built from this version (an older reader leaves them out).</div>
+turns this off; previews never include them. Only the keys a pose needs are written (a key is left out where the motion between
+its neighbours is within 0.1 mm and 0.01°), so a model with thirty-odd poses stays well under GitHub's 100 MB a file.</div>
 <div class="note">Already have a Pages site? Set <span class="ui">Settings → GitHub Pages site folder</span> to its local clone: sharing then
 commits there and pushes with Git instead.</div>
 <div class="warn">Everything shared is public, model file included. The models come from games: make sure you may share them. Only

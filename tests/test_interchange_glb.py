@@ -319,3 +319,16 @@ def test_rotation_matrices_become_the_quaternions_that_give_them_back():
     assert np.allclose(glb._quaternions(np.eye(3)), [0, 0, 0, 1])
     half = Rotation.from_euler("x", 180, degrees=True).as_matrix()       # w = 0: another branch picks it
     assert np.allclose(Rotation.from_quat(glb._quaternions(half)).as_matrix(), half)
+
+
+def test_only_the_keys_linear_interpolation_needs_are_kept_and_the_rest_lie_within_tolerance():
+    from polylode.interchange import glb as G
+    straight = np.linspace([0, 0, 0], [1, 2, 3], 50)
+    assert G.keys(straight, 1e-4).tolist() == [0, 49]                  # a straight move is its two ends
+    frames = np.arange(400)
+    curve = np.stack([np.sin(frames / 120) * .1, np.cos(frames / 90) * .05, frames / 4000], axis=1)
+    kept = G.keys(curve, 1e-4)
+    assert kept[0] == 0 and kept[-1] == 399 and len(kept) < len(curve) / 2
+    rebuilt = np.stack([np.interp(frames, kept, curve[kept, c]) for c in range(3)], axis=1)
+    assert np.abs(rebuilt - curve).max() <= 1e-4                       # what glTF draws between them
+    assert G.keys(curve[:2], 1e-4).tolist() == [0, 1]

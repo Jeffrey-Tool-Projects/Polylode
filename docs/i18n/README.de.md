@@ -141,14 +141,15 @@ erscheint in Discord als Karte mit dem Bild des Modells. Es wird nichts geklont;
    nur einmal. (Es aus dem Programm einzuschalten bräuchte Zugriff auf alle deine privaten Repositorys; das verlangt es nicht.)
 5. Pages aktualisiert sich meist nach ein bis zwei Minuten; danach den Link in Discord einfügen.
 
-**Posen.** Die exportierte `.glb` einer Endfield-Figur enthält die Posen ihrer Charakterbildschirme (die im Spiel
-geloopten `ui`-Clips, beim ersten Mal aus der Installation dekodiert, etwa eine halbe Minute). Die geteilte Seite hat ein
-Menü **Pose** zum Wechseln, und ihre Karte zeigt die erste. **Settings → Poses** schaltet das ab; Vorschauen enthalten sie
-nie. Ein Outfit aus Girls' Frontline 2 enthält die
-Ruheposen, in denen es abseits des Kampfes gezeigt wird (Kaserne, Garderobe, Schlafzimmer, Abspann: die geloopten Clips);
-der erste Export benennt die Clips des Spiels einmal, ein paar Minuten. Eine Figur aus Wuthering Waves enthält die Posen,
-die ihre Charakterbildschirme loopen (`CommonAnim/UiAnim`: die Clips auf ihrem eigenen Skelett, die enden, wo sie
-beginnen), dekodiert mit dem Lesegerät dieser Version (ein älteres lässt sie weg).
+**Posen.** Eine exportierte `.glb` enthält jede Pose, die ihre Charakterbildschirme abspielen: zuerst die Posen,
+in denen die Figur dort verharrt, danach die Übergänge zwischen ihnen (die `ui`-Clips einer Endfield-Figur, beim ersten
+Mal aus der Installation dekodiert, etwa eine halbe Minute; die Clips eines Outfits aus Girls' Frontline 2 abseits des
+Kampfes — Kaserne, Garderobe, Schlafzimmer, Abspann —, beim ersten Export einmal benannt, ein paar Minuten; die
+`CommonAnim/UiAnim`-Clips einer Figur aus Wuthering Waves auf ihrem eigenen Skelett, dekodiert mit dem Lesegerät dieser
+Version, ein älteres lässt sie weg). Die geteilte Seite hat ein Menü **Pose** zum Wechseln, und ihre Karte zeigt die
+erste. **Settings → Poses** schaltet das ab; Vorschauen enthalten sie nie. Geschrieben werden nur die Schlüssel, die eine
+Pose braucht (ein Schlüssel entfällt, wo die Bewegung zwischen seinen Nachbarn innerhalb von 0,1 mm und 0,01° bleibt),
+so bleibt ein Modell mit dreißig und mehr Posen weit unter GitHubs 100 MB pro Datei.
 
 Schon eine eigene Pages-Website? Trage ihren lokalen Klon unter **Settings → GitHub Pages site folder** ein: Teilen committet
 dann dort und pusht mit Git.

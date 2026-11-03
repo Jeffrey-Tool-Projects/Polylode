@@ -2,9 +2,10 @@
 
 The game's character screens play an actor's own clips from its ``animations/ui`` folder: transitions between the
 screens (``ui_overview_to_equip``) and the poses held on each (``ui_overview_loop``, ``ui_relax_loop``,
-``uiteam_idle_01``…).  The held ones are the clips the game loops — the clip's own ``m_LoopTime``
-(:attr:`clips.Stored.loop`), not its name: on endminm 10 of the 24 ``ui`` clips loop, every ``*_loop`` and
-``uiteam_idle_*``.  Those are what a viewer can switch between.
+``uiteam_idle_01``…).  Every one of them is written, the transitions too (the owner wants every pose, 2026-11-04);
+the held ones — the clips the game loops, the clip's own ``m_LoopTime`` (:attr:`clips.Stored.loop`), not its name:
+on endminm 10 of the 24 ``ui`` clips, every ``*_loop`` and ``uiteam_idle_*`` — come first, so a viewer opens on a
+pose rather than a move between two.
 
 Each is played on the item's own skeleton the way the runtime plays it (:func:`actor.build_skeleton`,
 :func:`clips.to_animation`, ``Skeleton.evaluate``), and every frame is kept as the exported bones' frames: the
@@ -85,15 +86,12 @@ def frames(clip: clips.Stored, skeleton, nodes: list[str], paths: dict) -> np.nd
 
 
 def add(document_path: Path, scene: RS.Scene, nodes: dict, extra: dict, fetch=None, log=print) -> int:
-    """The looping display clips of the scene's model added to the document at *document_path* as animations
-    (``document["animations"]``: name, rate, frames; ``arrays["anim<k>"]`` their bone frames); how many."""
+    """The display clips of the scene's model, held ones first, added to the document at *document_path* as
+    animations (``document["animations"]``: name, rate, frames; ``arrays["anim<k>"]`` their bone frames); how many."""
     model = str(extra.get("model") or "")
     ids = ensure(model, fetch, log)
-    held = []
-    for ident in ids:
-        clip = clips.read(ident)
-        if clip.loop and clip.frames > 1:
-            held.append(clip)
+    held = sorted((clips.read(ident) for ident in ids), key=lambda clip: not clip.loop)
+    held = [clip for clip in held if clip.frames >= 1]
     if not held:
         return 0
     document_path = Path(document_path)

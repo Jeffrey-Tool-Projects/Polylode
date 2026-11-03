@@ -3,8 +3,9 @@
 A character's role folder has ``CommonAnim/UiAnim``: the clips its character screens play (``Ui_Weapon_Start``,
 ``Ui_Weapon_Loop``, ``Ui_Weapon_End``, ``Team_Stand1``…).  Unreal's ``AnimSequence`` has no loop flag (the animation
 blueprint decides), so what is read is the motion itself: **a held pose ends where it starts** — its last frame is
-its first, within :data:`LOOP_CM` and :data:`LOOP_DEGREES` on every keyed bone — and a transition does not.  Only
-clips made on the model's own skeleton are taken (``Stand1`` is made on another character's, and an additive clip is
+its first, within :data:`LOOP_CM` and :data:`LOOP_DEGREES` on every keyed bone — and a transition does not.  Every
+clip is written, the transitions too (the owner wants every pose, 2026-11-04), the held ones first.  Only clips made
+on the model's own skeleton are taken (``Stand1`` is made on another character's, and an additive clip is
 a difference, not a pose).
 
 The game compresses them with Unreal's ACL plugin, a codec CUE4Parse does not decode here (its ACL needs the native
@@ -89,11 +90,12 @@ def holds(record: dict, frames: np.ndarray) -> bool:
 
 
 def chosen(records: list[tuple[dict, np.ndarray]], package: str) -> list[tuple[dict, np.ndarray]]:
-    """The held poses among *records*: on the model's own skeleton, not additive, ending where they start."""
+    """The poses among *records*, held ones first: on the model's own skeleton and not additive."""
     own = model_folder(package)
-    return [(r, f) for r, f in records
-            if own and own.lower() in str(r.get("skeleton", "")).replace("\\", "/").lower()
-            and not r.get("additive") and holds(r, f)]
+    found = [(r, f) for r, f in records
+             if own and own.lower() in str(r.get("skeleton", "")).replace("\\", "/").lower()
+             and not r.get("additive") and len(f)]
+    return sorted(found, key=lambda item: not holds(*item))
 
 
 def _native_local(transform: np.ndarray) -> np.ndarray:
@@ -101,6 +103,24 @@ def _native_local(transform: np.ndarray) -> np.ndarray:
     out = np.eye(4)
     out[:3, :3] = C @ Rotation.from_quat(transform[:4]).as_matrix() @ np.diag(transform[7:10]) @ C.T
     out[:3, 3] = transform[4:7] @ C.T * .01
+    return out
+
+
+#: a clip's scale below this on any axis hides the bone (a transition does, ``Ui_Chip_End`` on Xin)
+HIDDEN_SCALE = 1e-4
+
+
+def _local(transform: np.ndarray, rest_local: np.ndarray) -> np.ndarray:
+    """A clip's local for one bone, as :func:`_native_local`; a bone the clip scales to nothing keeps its rest scale.
+
+    The exported animation carries translation and rotation only (``interchange.glb``), so a clip's scale never
+    reaches the file; a scale of 0 would also leave its world frame no rotation to keep (:func:`_rigid`).  The
+    bone takes the clip's rotation and position, at the scale it has at rest."""
+    if np.abs(transform[7:10]).min() >= HIDDEN_SCALE:
+        return _native_local(transform)
+    out = _native_local(np.concatenate([transform[:7], [1.0, 1.0, 1.0]]))
+    u, _s, vt = np.linalg.svd(rest_local[:3, :3])
+    out[:3, :3] = out[:3, :3] @ (u @ vt).T @ rest_local[:3, :3]            # the rest's scale, its rotation taken out
     return out
 
 
@@ -126,14 +146,14 @@ def frames(record: dict, values: np.ndarray, bones: list[dict], native_rest: np.
     for frame in range(len(values)):
         world = []
         for i, bone in enumerate(bones):
-            local = _native_local(values[frame, driven[i]]) if i in driven else rest_local[i]
+            local = _local(values[frame, driven[i]], rest_local[i]) if i in driven else rest_local[i]
             world.append(world[bone["parent"]] @ local if bone["parent"] >= 0 else local)
         out[frame] = np.stack([_rigid(w) for w in world])
     return out
 
 
 def add(case: Path, records: list[tuple[dict, np.ndarray]], package: str, log=print) -> int:
-    """The held poses among *records* (the reader's ``anim`` output for the model's ``UiAnim`` clips) added to the
+    """The poses among *records* (the reader's ``anim`` output for the model's ``UiAnim`` clips) added to the
     case's document as animations, as ``endfield.poses.add`` does; how many."""
     document_path = Path(case) / "source_document.json"
     document = json.loads(document_path.read_text(encoding="utf-8"))

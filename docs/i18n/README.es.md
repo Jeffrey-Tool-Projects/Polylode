@@ -136,14 +136,15 @@ enlace se ve en Discord como una tarjeta con la imagen del modelo. No se clona n
    `/ (root)` y Save, una sola vez. (Activarlo desde el programa requeriría acceso a todos tus repositorios privados, y no lo pide.)
 5. Pages tarda uno o dos minutos en actualizarse; después pega el enlace en Discord.
 
-**Poses.** El `.glb` exportado de un personaje de Endfield lleva las poses de sus pantallas de personaje (los clips `ui`
-en bucle del juego, decodificados de la instalación la primera vez, en medio minuto). La página compartida tiene un menú
-**Pose** para cambiar entre ellas, y su tarjeta muestra la primera. **Settings → Poses** lo desactiva; las vistas previas
-nunca las incluyen. Un atuendo de Girls' Frontline 2 lleva
-las poses de espera en que se muestra fuera del combate (cuartel, vestuario, dormitorio, final: los clips en bucle); la
-primera exportación nombra una vez los clips del juego, unos minutos. Un personaje de Wuthering Waves lleva las poses
-que sus pantallas repiten en bucle (`CommonAnim/UiAnim`: los clips de su propio esqueleto que terminan donde empiezan),
-decodificadas con el lector de esta versión (uno anterior las omite).
+**Poses.** Un `.glb` exportado lleva todas las poses que reproducen sus pantallas de personaje: primero las poses que
+se mantienen allí y después las transiciones entre ellas (los clips `ui` de un personaje de Endfield, decodificados de la
+instalación la primera vez, en medio minuto; los clips fuera del combate de un atuendo de Girls' Frontline 2 —cuartel,
+vestuario, dormitorio, final—, nombrados una vez en la primera exportación, unos minutos; los clips `CommonAnim/UiAnim`
+de un personaje de Wuthering Waves sobre su propio esqueleto, decodificados con el lector de esta versión, uno anterior
+los omite). La página compartida tiene un menú **Pose** para cambiar entre ellas, y su tarjeta muestra la primera.
+**Settings → Poses** lo desactiva; las vistas previas nunca las incluyen. Solo se escriben las claves que una pose
+necesita (se omite una clave cuando el movimiento entre sus vecinas queda dentro de 0,1 mm y 0,01°), así que un modelo
+con más de treinta poses queda muy por debajo de los 100 MB por archivo de GitHub.
 
 ¿Ya tienes un sitio de Pages? Pon su clon local en **Settings → GitHub Pages site folder**: entonces compartir confirma allí
 y sube con Git.

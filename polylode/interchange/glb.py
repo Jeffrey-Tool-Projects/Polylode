@@ -27,7 +27,10 @@ colour, an empty pass), that becomes ``alphaMode``.  A part hidden at rest is no
 
 Animations: a scene that carries clips (``document["animations"]``, each one's bone frames per frame in
 ``arrays["anim<k>"]``, in the space of ``bone_rest``: an Endfield character's display poses, ``endfield/poses``)
-writes each as a glTF animation, the bones' local translation and rotation per frame on one shared time track.
+writes each as a glTF animation, the bones' local translation and rotation.  A key is kept only where leaving it
+out would move its bone by more than :data:`KEY_METRES` or turn it by more than :data:`KEY_QUATERNION` from the
+line glTF draws between the keys kept (:func:`keys`): written whole, every bone at every frame, a GF2 outfit's 34
+poses came to 105 MB, over GitHub's 100 MB a file.
 glTF animates only a node given as translation, rotation and scale, so its bones are written that way instead of
 as a ``matrix`` — exact for those frames, which are rigid (``rigscene.rest_matrix``); a channel is written only for
 a bone the clip moves off its rest.
@@ -232,6 +235,34 @@ def _material(name: str, record: dict, folder: Path, builder: _Builder, gltf: di
 
 #: how far a channel may stay from the bone's rest and not be written: metres, and quaternion components
 STILL = 1e-6
+#: how far a dropped key may sit from the line between the keys kept: metres of translation, and quaternion
+#: components (1e-4 is about 0.01°)
+KEY_METRES, KEY_QUATERNION = 1e-4, 1e-4
+
+
+def keys(values: np.ndarray, tolerance: float) -> np.ndarray:
+    """The frames of *values* ``(frames, n)`` to keep as keys: the first, the last, and every frame whose leaving out
+    would put the line between the keys kept further than *tolerance* from it (Ramer–Douglas–Peucker, each
+    component's distance on its own); the frames left out are within *tolerance* of that line."""
+    count = len(values)
+    if count <= 2:
+        return np.arange(count)
+    kept = np.zeros(count, dtype=bool)
+    kept[[0, -1]] = True
+    spans = [(0, count - 1)]
+    while spans:
+        a, b = spans.pop()
+        if b - a < 2:
+            continue
+        t = (np.arange(a + 1, b) - a)[:, None] / (b - a)
+        line = values[a] + t * (values[b] - values[a])
+        error = np.abs(values[a + 1:b] - line).max(axis=1)
+        worst = int(np.argmax(error))
+        if error[worst] > tolerance:
+            middle = a + 1 + worst
+            kept[middle] = True
+            spans += [(a, middle), (middle, b)]
+    return np.flatnonzero(kept)
 
 
 def _quaternions(rotation: np.ndarray) -> np.ndarray:
@@ -286,15 +317,20 @@ def _animations(document: dict, arrays, rest: np.ndarray, builder: _Builder, fir
         for f in range(1, len(rotation)):
             flip = np.sum(rotation[f] * rotation[f - 1], axis=-1) < 0
             rotation[f, flip] *= -1
-        times = builder.accessor(np.arange(len(frames)) / float(record["rate"]), FLOAT, bounds=True)
+        seconds = np.arange(len(frames)) / float(record["rate"])
+        times = {}                                          # one time accessor per set of keys kept
         channels, samplers = [], []
         for bone in range(len(rest)):
             moved_t = np.abs(translation[:, bone] - rest_t[bone]).max() > STILL
             near = np.minimum(np.abs(rotation[:, bone] - rest_q[bone]), np.abs(rotation[:, bone] + rest_q[bone]))
-            for path, values, moved in (("translation", translation[:, bone], moved_t),
-                                        ("rotation", rotation[:, bone], near.max() > STILL)):
+            for path, values, moved, tolerance in (("translation", translation[:, bone], moved_t, KEY_METRES),
+                                                   ("rotation", rotation[:, bone], near.max() > STILL, KEY_QUATERNION)):
                 if moved:
-                    samplers.append({"input": times, "output": builder.accessor(values, FLOAT),
+                    kept = keys(values, tolerance)
+                    marks = kept.tobytes()
+                    if marks not in times:
+                        times[marks] = builder.accessor(seconds[kept], FLOAT, bounds=True)
+                    samplers.append({"input": times[marks], "output": builder.accessor(values[kept], FLOAT),
                                      "interpolation": "LINEAR"})
                     channels.append({"sampler": len(samplers) - 1, "target": {"node": first + bone, "path": path}})
         if channels:

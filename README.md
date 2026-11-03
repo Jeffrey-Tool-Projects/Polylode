@@ -141,14 +141,14 @@ as a card with the model's picture. No clone is made; only a file over 12 MB nee
    which it does not ask for.)
 5. Pages takes a minute or two to update; then paste the link in Discord.
 
-**Poses.** An Endfield character's exported `.glb` carries the poses its character screens hold (the game's looping
-`ui` clips, decoded from the install the first time, about half a minute). The shared page has a **Pose** menu to
-switch between them, and its card shows the first one. **Settings → Poses** turns this off; previews never include
-them. A Girls' Frontline 2 outfit carries the idles
-it is shown in off the battlefield (barracks, wardrobe, bedroom, ending: the clips the game loops); the first export
-names the game's clips once, a few minutes. A Wuthering Waves character carries the
-poses its character screens loop (`CommonAnim/UiAnim`: the clips on its own skeleton that end where they start),
-decoded with the reader built from this version (an older reader leaves them out).
+**Poses.** An exported `.glb` carries every pose its character screens play: the poses held there come first
+and the moves between them follow (an Endfield character's `ui` clips, decoded from the install the first time, about
+half a minute; a Girls' Frontline 2 outfit's clips off the battlefield — barracks, wardrobe, bedroom, ending —, named
+once at the first export, a few minutes; a Wuthering Waves character's `CommonAnim/UiAnim` clips on its own skeleton,
+decoded with the reader built from this version, an older reader leaves them out). The shared page has a **Pose** menu
+to switch between them, and its card shows the first one. **Settings → Poses** turns this off; previews never include
+them. Only the keys a pose needs are written (a key is left out where the motion between its neighbours is within
+0.1 mm and 0.01°), so a model with thirty-odd poses stays well under GitHub's 100 MB a file.
 
 Already have a Pages site? Set **Settings → GitHub Pages site folder** to its local clone: sharing then commits there
 and pushes with Git instead.

@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation
 from polylode.wuthering_waves import poses as W
 
 
-def test_a_held_wuwa_pose_ends_where_it_starts_on_the_models_own_skeleton():
+def test_every_wuwa_pose_on_the_models_own_skeleton_is_taken_held_ones_first():
     package = "Client/Content/Aki/Character/Role/FemaleXL/Xin/R2T1XinMd10011/Model/R2T1XinMd10011.uasset"
     assert W.ui_folder(package) == "Client/Content/Aki/Character/Role/FemaleXL/Xin/CommonAnim/UiAnim/"
     rest = np.array([0, 0, 0, 1, 0, 0, 10, 1, 1, 1], dtype=np.float64)
@@ -16,8 +16,9 @@ def test_a_held_wuwa_pose_ends_where_it_starts_on_the_models_own_skeleton():
     own = {"bones": ["Hips"], "keyed": [True], "additive": False,
            "skeleton": "Client/Content/Aki/Character/Role/FemaleXL/Xin/R2T1XinMd10011/Model/R2T1XinMd10011_Skeleton"}
     other = dict(own, skeleton="Client/Content/Aki/Character/Role/FemaleXL/BaiLian/R2T1BaiLianMd10011/Model/S")
-    picked = W.chosen([(own, loop), (own, start), (other, loop), (dict(own, additive=True), loop)], package)
-    assert len(picked) == 1 and picked[0][1] is loop
+    picked = W.chosen([(own, start), (own, loop), (other, loop), (dict(own, additive=True), loop)], package)
+    assert [f for _r, f in picked] == [loop, start]                       # the transition too, after the held pose
+    assert W.holds(own, loop) and not W.holds(own, start)
 
 
 def test_a_wuwa_frame_is_made_as_the_cases_rest_is(tmp_path):
@@ -105,3 +106,17 @@ def test_missing_acl_decoder_reports_that_poses_cannot_be_exported(tmp_path, mon
     monkeypatch.setattr(source, "require", lambda *args: (_ for _ in ()).throw(ExtractorError("missing")))
     with pytest.raises(ExtractorError, match="ACL.*AnimeStudio"):
         source._poses_of(None, package, tmp_path, tmp_path / "poses", lambda message: None)
+
+
+def test_a_bone_a_clip_scales_to_nothing_keeps_its_rest_scale_and_the_clips_turn():
+    # a transition hides a part by scaling its bone to 0: its world frame had no rotation left and the export failed
+    record = {"bones": ["Hips", "Prop"], "keyed": [True, True]}
+    bones = [{"name": "Hips", "parent": -1}, {"name": "Prop", "parent": 0}]
+    native = np.stack([np.eye(4), np.eye(4)])
+    native[1, :3, 3] = [0, 0, .5]
+    turn = Rotation.from_euler("z", 30, degrees=True).as_quat()
+    values = np.array([[[0, 0, 0, 1, 0, 0, 0, 1, 1, 1], [*turn, 0, 0, 50, 0, 0, 0]]], dtype=np.float64)
+    frames = W.frames(record, values, bones, native)
+    assert np.isfinite(frames).all()
+    shown = W.frames(record, np.concatenate([values[:, :, :7], np.ones((1, 2, 3))], axis=2), bones, native)
+    assert np.allclose(frames, shown, atol=1e-6)                       # as if the clip had kept the scale at 1

@@ -2,10 +2,11 @@
 
 An outfit's clips are named after it (``c_NikketaSSR0102_…``).  Those with ``_slg_`` are the combat model's (run,
 fire, cover…); the others are what the outfit is shown in off the battlefield: ``BarrackIdle``, ``Cloth_Idle``,
-``EndingIdle``, ``Bedroom_0N_Idle``, and the transitions between them.  The held ones are the clips the game loops
-(``m_LoopTime``, as Endfield's): on Nikketa's SSR0102 the eight idles, not the transitions nor the camera moves
-(``…_Camera``, which loop no more than a transition does).  A clip whose transform curves mostly miss the outfit's
-nodes (fewer than :data:`BOUND`: the ``…_Gen`` ones bind none) is not one of its poses.
+``EndingIdle``, ``Bedroom_0N_Idle``, and the transitions between them.  Every one is written, the transitions too
+(the owner wants every pose, 2026-11-04); the held ones — the clips the game loops (``m_LoopTime``, as Endfield's:
+on Nikketa's SSR0102 the eight idles) — come first.  A clip whose transform curves mostly miss the outfit's nodes
+(fewer than :data:`BOUND`: the ``…_Gen`` ones bind none, a ``…_Camera`` one moves the camera) is not one of its
+poses.
 
 The bundle index already lists every clip (``bundles.scan``: one ``AnimationClip`` container each) but not by name;
 :func:`index` names them once, opening only the bundles that hold clips, and again only for a bundle that changed.
@@ -112,7 +113,7 @@ def bound(tree: dict, paths: dict) -> float:
 
 def add(document_path: Path, scene, nodes: dict, extra: dict, ident: str, install: Path, rows: list[dict],
         log=print) -> int:
-    """The outfit's held display poses added to the document at *document_path* as animations
+    """The outfit's display poses, held ones first, added to the document at *document_path* as animations
     (``endfield.poses.add`` writes the same fields); how many."""
     import numpy as np
     paths = extra.get("paths") or {}
@@ -123,8 +124,6 @@ def add(document_path: Path, scene, nodes: dict, extra: dict, ident: str, instal
         except (LookupError, ValueError, OSError) as failure:
             log(f"  {row['name']}：{failure}")
             continue
-        if not tree["m_MuscleClip"].get("m_LoopTime"):
-            continue
         try:
             if bound(tree, paths) < BOUND:
                 continue
@@ -132,6 +131,7 @@ def add(document_path: Path, scene, nodes: dict, extra: dict, ident: str, instal
             log(f"  {row['name']}：{failure}")
             continue
         held.append((row["name"], tree))
+    held.sort(key=lambda item: not item[1]["m_MuscleClip"].get("m_LoopTime"))
     if not held:
         return 0
     from ..endfield.poses import labels

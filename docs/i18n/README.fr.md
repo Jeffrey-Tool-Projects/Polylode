@@ -140,14 +140,15 @@ navigateur, et son lien s'affiche dans Discord en carte avec l'image du modèle.
    et Save, une seule fois. (L'activer depuis le programme demanderait l'accès à tous vos dépôts privés, ce qu'il ne demande pas.)
 5. Pages met une ou deux minutes à se mettre à jour ; collez ensuite le lien dans Discord.
 
-**Poses.** Le `.glb` exporté d'un personnage d'Endfield porte les poses de ses écrans de personnage (les clips `ui` en
-boucle du jeu, décodés depuis l'installation la première fois, en une demi-minute). La page partagée a un menu **Pose**
-pour passer de l'une à l'autre, et sa carte montre la première. **Settings → Poses** le désactive ; les aperçus ne les
-contiennent jamais. Une tenue de Girls' Frontline 2 porte
-les poses d'attente où elle est montrée hors combat (caserne, garde-robe, chambre, fin : les clips en boucle) ; le premier
-export nomme une fois les clips du jeu, quelques minutes. Un personnage de Wuthering Waves porte les
-poses que ses écrans jouent en boucle (`CommonAnim/UiAnim` : les clips sur son propre squelette qui finissent où ils
-commencent), décodées avec le lecteur de cette version (un lecteur plus ancien les omet).
+**Poses.** Un `.glb` exporté porte toutes les poses que jouent ses écrans de personnage : d'abord les poses tenues,
+puis les transitions entre elles (les clips `ui` d'un personnage d'Endfield, décodés depuis l'installation la première
+fois, en une demi-minute ; les clips hors combat d'une tenue de Girls' Frontline 2 — caserne, garde-robe, chambre, fin —,
+nommés une fois au premier export, quelques minutes ; les clips `CommonAnim/UiAnim` d'un personnage de Wuthering Waves sur
+son propre squelette, décodés avec le lecteur de cette version, un lecteur plus ancien les omet). La page partagée a un
+menu **Pose** pour passer de l'une à l'autre, et sa carte montre la première. **Settings → Poses** le désactive ; les
+aperçus ne les contiennent jamais. Seules les clés dont une pose a besoin sont écrites (une clé est omise là où le
+mouvement entre ses voisines reste dans 0,1 mm et 0,01°), si bien qu'un modèle d'une trentaine de poses reste bien
+sous les 100 Mo par fichier de GitHub.
 
 Vous avez déjà un site Pages ? Indiquez son clone local dans **Settings → GitHub Pages site folder** : le partage y commite
 alors et pousse avec Git.

@@ -11,7 +11,7 @@
 `polylode/extractor/viewer.py`（§7.1455）：匯出工具的模型檢視器頁（任何模型檔、固定視角、線框、背景、燈光、glTF 內容）。
 `polylode/extractor/share.py`：模型檢視器的「分享到 GitHub Pages」——把 `.glb` 寫成使用者自己 GitHub Pages 網站上的一頁（`model-viewer` 轉動模型、Open Graph 卡片圖由 `preview.snapshot` 離屏畫出），只提交那些檔案並推送；由 `--share <模型> <網站資料夾>` 這個獨立行程執行。網站是使用者指定的另一個倉庫，本程式自己的資料夾會被拒絕：遊戲的模型不隨程式發布。
 `polylode/extractor/github.py`：沒有指定網站資料夾時的分享——GitHub 的裝置登入（Polylode 的 OAuth app，只要 `public_repo`；授權以 DPAPI 加密存在使用者資料夾），在使用者自己的帳號建立公開倉庫 `polylode-models`，用 Git Data API 把 `share.write_model` 寫出的檔案提交成一個 commit（有檔案超過 `BLOB_LIMIT` 時改用 `push_with_git`：不含檔案的淺層 fetch、裸索引、推送；GitHub 對太大的上傳回 401，所以 401 先問 `/user` 才放掉授權）；由 `--share-github <模型>` 執行。開啟 Pages 的 API 要 `repo` 權限，程式不要求，改成先看網站有沒有回應、試一次 API，不行就給使用者 Settings → Pages 的連結。
-`polylode/endfield/poses.py`：終末地角色的介面姿勢（遊戲循環播放的 `ui` clip）在匯出時寫進場景文件，`interchange/glb` 寫成 glTF animation；分享的網頁可以切換。
+`polylode/endfield/poses.py`：終末地角色的介面姿勢（全部 `ui` clip，遊戲循環播放的排前面；少女前線 2 與鳴潮的 `poses.py` 同樣全部寫、停留的排前面）在匯出時寫進場景文件，`interchange/glb` 寫成 glTF animation，只留線性內插需要的關鍵格（`glb.keys`）；分享的網頁可以切換。
 `polylode/extractor/preview.py`（§7.1455）：匯出前的 3D 預覽（只寫 `.glb` 的匯出工作＋Qt Quick 3D）。3D 檢視跑在自己的行程（`view_host.py`，`--view-host`）：Qt Quick 3D 在算圖的執行緒上一次讀完整個模型（21 MB 的模型一格卡 2.4 秒），放在視窗的行程裡會卡住整個視窗；`PreviewPanel` 用 `QWindow.fromWinId` 把它的視窗嵌進來，屬性與視角以每行一個 JSON 指令傳過去。顯示用的複本與模型範圍、檢視器的清單與檔案摘要都在背景執行緒讀（`preview.background`），讀完才交回視窗的執行緒。匯出工具三個來源都不判範圍、寫進自己的倉庫（終末地 `own_store`、GF2 `own_scope`，鳴潮本來就只寫 `assets_cache/wuthering_waves`）。
 `polylode/extractor/locate.py`（§7.1454）：從使用者選的資料夾或 Steam 遊戲庫找遊戲資料所在的那一層。
 `polylode/endfield/mapbuild.py`（§7.1452）：從遊戲安裝分批建終末地的 CAB／資產對照表（§7.1070 的 dev 腳本搬進套件）。
