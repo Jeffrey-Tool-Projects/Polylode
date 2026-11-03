@@ -64,3 +64,21 @@ def test_a_shared_model_is_written_committed_alone_and_pushed(tmp_path, monkeypa
     assert "notes.txt" not in pushed and "models/c_x_slg_skin/model.glb" in pushed   # only the model's files
     with pytest.raises(share.ShareError, match="只能分享 .glb"):
         share.publish(tmp_path / "x.fbx", site, push=False)
+
+
+def test_the_card_is_drawn_in_the_first_pose_and_the_page_lists_the_poses(tmp_path):
+    import numpy as np
+    from polylode.interchange import glb as G
+    from tests.test_interchange_glb import _read, _scene, _turn
+    document, arrays = _scene(tmp_path)
+    rest = arrays["bone_rest"]
+    arrays["anim0"] = np.stack([np.stack([rest[0], rest[1] @ _turn(a)]) for a in (0.5, 1.0)]).astype(np.float32)
+    document["animations"] = [{"name": "relax", "rate": 30.0, "frames": 2}]
+    G.write(document, arrays, tmp_path, tmp_path / "posed.glb")
+    held = share.posed(tmp_path / "posed.glb", tmp_path / "held.glb")
+    gltf, accessor, _view = _read(held)
+    (channel,) = gltf["animations"][0]["channels"]
+    first = accessor(gltf["animations"][0]["samplers"][channel["sampler"]]["output"])[0]
+    assert np.allclose(gltf["nodes"][channel["target"]["node"]][channel["target"]["path"]], first)
+    page = share._page("x", "https://me.github.io/models/models/x/")
+    assert "availableAnimations" in page and 'id="pose"' in page and "autoplay" in page

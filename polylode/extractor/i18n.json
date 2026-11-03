@@ -1792,5 +1792,29 @@
   "zh-CN": "上传 {0}",
   "ja": "{0} をアップロード中",
   "ko": "{0} 올리는 중"
+ },
+ "從安裝解碼 {0} 個介面動作": {
+  "en": "Decoding {0} character-screen clips from the install",
+  "zh-CN": "从安装解码 {0} 个界面动作",
+  "ja": "インストールから画面用モーション {0} 個をデコード中",
+  "ko": "설치에서 화면용 동작 {0}개 디코딩 중"
+ },
+ "寫入姿勢 {0}（{1} 格）": {
+  "en": "Writing pose {0} ({1} frames)",
+  "zh-CN": "写入姿势 {0}（{1} 帧）",
+  "ja": "ポーズ {0} を書き込み中（{1} フレーム）",
+  "ko": "포즈 {0} 쓰는 중({1}프레임)"
+ },
+ "姿勢": {
+  "en": "Poses",
+  "zh-CN": "姿势",
+  "ja": "ポーズ",
+  "ko": "포즈"
+ },
+ "角色有姿勢時一起寫進 .glb（終末地的介面姿勢；分享的網頁可以切換）": {
+  "en": "Write a character's poses into the .glb when it has them (Endfield's character-screen poses; the shared page switches between them)",
+  "zh-CN": "角色有姿势时一起写进 .glb（终末地的界面姿势；分享的网页可以切换）",
+  "ja": "キャラクターにポーズがあれば .glb に書き込む（終末地の画面用ポーズ。共有ページで切り替え可能）",
+  "ko": "캐릭터에 포즈가 있으면 .glb에 함께 쓰기(종말지의 화면용 포즈, 공유 페이지에서 전환 가능)"
  }
 }

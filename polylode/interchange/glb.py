@@ -24,6 +24,13 @@ image is converted to PNG) with its Unity scale and offset as
 kept in ``extras`` by name, not reinterpreted.  Where a scene says how a
 material blends (Wuthering Waves: masked with a cutoff, a constant glass
 colour, an empty pass), that becomes ``alphaMode``.  A part hidden at rest is not written (``shown``).
+
+Animations: a scene that carries clips (``document["animations"]``, each one's bone frames per frame in
+``arrays["anim<k>"]``, in the space of ``bone_rest``: an Endfield character's display poses, ``endfield/poses``)
+writes each as a glTF animation, the bones' local translation and rotation per frame on one shared time track.
+glTF animates only a node given as translation, rotation and scale, so its bones are written that way instead of
+as a ``matrix`` — exact for those frames, which are rigid (``rigscene.rest_matrix``); a channel is written only for
+a bone the clip moves off its rest.
 """
 from __future__ import annotations
 
@@ -223,6 +230,78 @@ def _material(name: str, record: dict, folder: Path, builder: _Builder, gltf: di
     return material
 
 
+#: how far a channel may stay from the bone's rest and not be written: metres, and quaternion components
+STILL = 1e-6
+
+
+def _quaternions(rotation: np.ndarray) -> np.ndarray:
+    """Rotation matrices ``(..., 3, 3)`` as unit quaternions ``(..., 4)``, ``x y z w`` (glTF's order)."""
+    m = np.asarray(rotation, dtype=np.float64)
+    trace = m[..., 0, 0] + m[..., 1, 1] + m[..., 2, 2]
+    # each of the four forms is taken where its divisor is largest (Shepperd), so none divides by a small number
+    candidates = np.stack([
+        np.stack([m[..., 2, 1] - m[..., 1, 2], m[..., 0, 2] - m[..., 2, 0], m[..., 1, 0] - m[..., 0, 1], 1 + trace], -1),
+        np.stack([1 + m[..., 0, 0] - m[..., 1, 1] - m[..., 2, 2], m[..., 0, 1] + m[..., 1, 0], m[..., 0, 2] + m[..., 2, 0],
+                  m[..., 2, 1] - m[..., 1, 2]], -1),
+        np.stack([m[..., 0, 1] + m[..., 1, 0], 1 - m[..., 0, 0] + m[..., 1, 1] - m[..., 2, 2], m[..., 1, 2] + m[..., 2, 1],
+                  m[..., 0, 2] - m[..., 2, 0]], -1),
+        np.stack([m[..., 0, 2] + m[..., 2, 0], m[..., 1, 2] + m[..., 2, 1], 1 - m[..., 0, 0] - m[..., 1, 1] + m[..., 2, 2],
+                  m[..., 1, 0] - m[..., 0, 1]], -1)], -2)
+    pick = np.argmax(np.stack([trace, m[..., 0, 0], m[..., 1, 1], m[..., 2, 2]], -1), axis=-1)
+    q = np.take_along_axis(candidates, pick[..., None, None], axis=-2)[..., 0, :]
+    q /= np.linalg.norm(q, axis=-1, keepdims=True)
+    return np.where(q[..., 3:] < 0, -q, q)
+
+
+def _trs(local: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Local frames ``(..., 4, 4)`` as translation, rotation (``xyzw``) and scale (each axis's length)."""
+    scale = np.linalg.norm(local[..., :3, :3], axis=-2)
+    return local[..., :3, 3], _quaternions(local[..., :3, :3] / scale[..., None, :]), scale
+
+
+def _trs_node(local: np.ndarray) -> dict:
+    translation, rotation, scale = _trs(local)
+    node = {"translation": translation.tolist(), "rotation": rotation.tolist()}
+    if np.abs(scale - 1).max() > STILL:
+        node["scale"] = scale.tolist()
+    return node
+
+
+def _animations(document: dict, arrays, rest: np.ndarray, builder: _Builder, first: int) -> list[dict]:
+    """``document["animations"]`` as glTF animations of the bone nodes (numbered from *first*)."""
+    parents = np.array([bone["parent"] for bone in document["bones"]])
+    child = parents >= 0
+    rest_local = rest.copy()
+    rest_local[child] = np.linalg.solve(rest[parents[child]], rest[child])
+    rest_t, rest_q, _rest_s = _trs(rest_local)
+    out = []
+    for k, record in enumerate(document["animations"]):
+        frames = np.einsum("ij,fnjk->fnik", TO_Y_UP, np.asarray(arrays[f"anim{k}"], dtype=np.float64))
+        if frames.shape[1:] != rest.shape:
+            raise GlbError(f"animation {record['name']}: {frames.shape[1]} bones for {len(rest)}")
+        local = frames.copy()
+        local[:, child] = np.linalg.solve(frames[:, parents[child]], frames[:, child])
+        translation, rotation, _scale = _trs(local)
+        # one hemisphere along the clip, so interpolation between frames takes the short way
+        for f in range(1, len(rotation)):
+            flip = np.sum(rotation[f] * rotation[f - 1], axis=-1) < 0
+            rotation[f, flip] *= -1
+        times = builder.accessor(np.arange(len(frames)) / float(record["rate"]), FLOAT, bounds=True)
+        channels, samplers = [], []
+        for bone in range(len(rest)):
+            moved_t = np.abs(translation[:, bone] - rest_t[bone]).max() > STILL
+            near = np.minimum(np.abs(rotation[:, bone] - rest_q[bone]), np.abs(rotation[:, bone] + rest_q[bone]))
+            for path, values, moved in (("translation", translation[:, bone], moved_t),
+                                        ("rotation", rotation[:, bone], near.max() > STILL)):
+                if moved:
+                    samplers.append({"input": times, "output": builder.accessor(values, FLOAT),
+                                     "interpolation": "LINEAR"})
+                    channels.append({"sampler": len(samplers) - 1, "target": {"node": first + bone, "path": path}})
+        if channels:
+            out.append({"name": record["name"], "channels": channels, "samplers": samplers})
+    return out
+
+
 def shown(document: dict, arrays) -> tuple[dict, dict]:
     """*document* and *arrays* with only the parts shown at rest, numbered again, and the materials they use.
 
@@ -258,6 +337,7 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
             "extensionsUsed": set()}
     bones = document["bones"]
     rest = np.einsum("ij,njk->nik", TO_Y_UP, np.asarray(arrays["bone_rest"], dtype=np.float64))
+    animated = bool(document.get("animations"))
     if len(rest) != len(bones):
         raise GlbError(f"{len(rest)} rest frames for {len(bones)} bones")
     root = {"name": document["name"], "children": [], "extras": {"humanoid": document.get("humanoid", {})}}
@@ -268,7 +348,7 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
         if not -1 <= parent < index:
             raise GlbError(f"bone {bone['name']} comes before its parent")
         local = rest[index] if parent < 0 else np.linalg.solve(rest[parent], rest[index])
-        node = {"name": bone["name"], "matrix": _column_major(local)}
+        node = {"name": bone["name"], **(_trs_node(local) if animated else {"matrix": _column_major(local)})}
         if bone.get("native_name"):
             node["extras"] = {"native_name": bone["native_name"]}
         gltf["nodes"].append(node)
@@ -363,6 +443,8 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
         gltf["nodes"].append(node)
         gltf["scenes"][0]["nodes"].append(len(gltf["nodes"]) - 1)
 
+    if animated:
+        gltf["animations"] = _animations(document, arrays, rest, builder, first)
     for key in ("textures", "images", "materials"):
         if not gltf[key]:
             del gltf[key]

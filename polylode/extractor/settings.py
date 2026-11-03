@@ -21,6 +21,9 @@ class Settings:
     language: str = ""
     #: ``.glb`` needs no Blender (``interchange.glb``); ``.blend`` and FBX do
     formats: list = field(default_factory=lambda: ["glb"])
+    #: a character's display poses written into its ``.glb`` as animations, where the game has them
+    #: (``endfield/poses``); a preview leaves them out (``preview.preview_settings``)
+    poses: bool = True
 
     def install(self, source: str) -> Path | None:
         value = self.installs.get(source)
@@ -37,7 +40,7 @@ def load(path: Path | None = None) -> Settings:
         data = json.loads(Path(path or SETTINGS).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return Settings()
-    known = {key: data[key] for key in ("installs", "tools", "output", "formats") if key in data}
+    known = {key: data[key] for key in ("installs", "tools", "output", "formats", "poses") if key in data}
     return Settings(**known)
 
 

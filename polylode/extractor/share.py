@@ -107,14 +107,37 @@ def _page(title: str, url: str) -> str:
   header h1 {{ font-size: 17px; margin: 0; font-weight: 600; overflow-wrap: anywhere; }}
   header a {{ color: #8ab4ff; pointer-events: auto; font-size: 13px; }}
   .hint {{ position: fixed; bottom: 10px; left: 0; right: 0; text-align: center; color: #9aa0ad; font-size: 13px; }}
+  .poses {{ position: fixed; top: 52px; left: 16px; display: flex; gap: 8px; align-items: center; font-size: 14px; }}
+  .poses select {{ background: #262a33; color: inherit; border: 1px solid #3a3f4b; border-radius: 6px;
+                  padding: 4px 8px; font: inherit; max-width: 70vw; }}
 </style>
 </head>
 <body>
 <model-viewer src="model.glb" poster="card.png" alt="{title}" camera-controls auto-rotate auto-rotate-delay="0"
               rotation-per-second="20deg" touch-action="pan-y" interaction-prompt="none"
-              environment-image="neutral" exposure="1" shadow-intensity="0.6"></model-viewer>
+              environment-image="neutral" exposure="1" shadow-intensity="0.6" autoplay></model-viewer>
 <header><h1>{title}</h1><a href="../../">All models</a></header>
+<label class="poses" hidden>Pose <select id="pose"></select></label>
 <div class="hint">Drag to turn · right-drag to pan · scroll or pinch to zoom</div>
+<script type="module">
+  // the model's poses are its animations (the game's display poses, written by the exporter): one is played at a
+  // time, the first from the start; a model with none shows no picker
+  const viewer = document.querySelector("model-viewer");
+  const box = document.querySelector(".poses");
+  const pick = document.getElementById("pose");
+  viewer.addEventListener("load", () => {{
+    const names = viewer.availableAnimations;
+    if (!names.length) return;
+    for (const name of names) pick.add(new Option(name, name));
+    pick.value = viewer.animationName || names[0];
+    box.hidden = false;
+  }});
+  pick.addEventListener("change", () => {{
+    viewer.animationName = pick.value;
+    viewer.currentTime = 0;
+    viewer.play();
+  }});
+</script>
 </body>
 </html>
 """
@@ -174,6 +197,38 @@ def _index(entries: list[dict], url: str) -> str:
 """
 
 
+def posed(glb: Path, out: Path, animation: int = 0) -> Path:
+    """*glb* held in the first frame of its *animation*: each animated node's translation, rotation or scale set to
+    that frame's value, the rest of the file as it is (only its JSON chunk changes).  A file with no animation is
+    copied.  The card is drawn from it, so a character with poses is shown in one rather than at its bind pose:
+    the preview's loader plays no animation."""
+    import struct
+    data = Path(glb).read_bytes()
+    length = struct.unpack_from("<I", data, 12)[0]
+    document = json.loads(data[20:20 + length])
+    animations = document.get("animations") or []
+    if animation >= len(animations):
+        shutil.copyfile(glb, out)
+        return out
+    binary = data[20 + length + 8:]
+    widths = {"VEC3": 3, "VEC4": 4, "SCALAR": 1}
+    for channel in animations[animation]["channels"]:
+        accessor = document["accessors"][animations[animation]["samplers"][channel["sampler"]]["output"]]
+        view = document["bufferViews"][accessor["bufferView"]]
+        start = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
+        width = widths[accessor["type"]]
+        first = list(struct.unpack_from(f"<{width}f", binary, start))
+        node = document["nodes"][channel["target"]["node"]]
+        node.pop("matrix", None)
+        node[channel["target"]["path"]] = first
+    text = json.dumps(document, ensure_ascii=False).encode("utf-8")
+    text += b" " * (-len(text) % 4)
+    rest = data[20 + length:]
+    Path(out).write_bytes(struct.pack("<III", 0x46546C67, 2, 20 + len(text) + len(rest))
+                          + struct.pack("<II", len(text), 0x4E4F534A) + text + rest)
+    return Path(out)
+
+
 def write_model(model: Path, site: Path, url: str, title: str = "",
                 others: list[dict] | None = None) -> tuple[str, list[Path]]:
     """*model* (a ``.glb``) written into *site* as its page, with the site's front page and list; the page's
@@ -191,7 +246,9 @@ def write_model(model: Path, site: Path, url: str, title: str = "",
     folder = site / MODELS / name
     folder.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(shown, folder / "model.glb")
-    preview.snapshot(shown, folder / "card.png", *CARD)
+    import tempfile
+    with tempfile.TemporaryDirectory() as scratch:
+        preview.snapshot(posed(shown, Path(scratch) / "posed.glb"), folder / "card.png", *CARD)
     title = title or re.sub(r"_[0-9a-f]{10}$", "", model.stem)
     page_url = f"{url}{MODELS}/{name}/"
     (folder / "index.html").write_text(_page(title, page_url), encoding="utf-8")

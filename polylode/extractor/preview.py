@@ -65,8 +65,10 @@ def adopt(model: Model, written: Path) -> Path:
 
 
 def preview_settings(settings: S.Settings) -> S.Settings:
-    """*settings* for a preview job: ``.glb`` only, and no Blender (its read-back takes minutes)."""
-    return replace(settings, formats=["glb"], tools={k: v for k, v in settings.tools.items() if k != "blender"})
+    """*settings* for a preview job: ``.glb`` only, no Blender (its read-back takes minutes) and no poses (decoding
+    and playing a character's clips adds tens of seconds; the preview is drawn at rest)."""
+    return replace(settings, formats=["glb"], tools={k: v for k, v in settings.tools.items() if k != "blender"},
+                   poses=False)
 
 
 def triangle_glb(path: Path) -> Path:

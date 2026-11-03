@@ -154,7 +154,8 @@ class EndfieldSource:
                 if key in result.empty:
                     raise ExtractorError(f"{model.ident} 沒有網格")
             return write_files(model.ident, blender, output, formats, log,
-                               shaders=lambda names: self._fetch_shaders(settings, names, log))
+                               shaders=lambda names: self._fetch_shaders(settings, names, log),
+                               poses=(lambda: self._pipeline(settings, log)) if settings.poses else None)
 
     def _fetch_shaders(self, settings, names: list[str], log: Log) -> None:
         """The shaders *names* taken from the installation into the store's cache (once)."""
@@ -165,7 +166,7 @@ class EndfieldSource:
 
 
 def write_files(ident: str, blender: Path | None, output: Path, formats: list[str], log: Log,
-                shaders=None) -> list[Path]:
+                shaders=None, poses=None) -> list[Path]:
     """Write the stored *ident* in *formats* and read each back; the files, or why not.
 
     ``.glb`` and FBX are written here (``interchange``), the ``.blend`` by Blender; the images are inside
@@ -194,7 +195,8 @@ def write_files(ident: str, blender: Path | None, output: Path, formats: list[st
         written.append(Path(row["fbx"]).with_suffix(".blend"))
     if any(kind in formats for kind in ("glb", "fbx")):
         progress.step("組合場景")
-        _scene, document = FX.scene_document(target, output, None, shaders, log)
+        _scene, document = FX.scene_document(target, output, None, shaders, log,
+                                             poses if "glb" in formats else None)
         try:
             written += write_own(formats, document, output / folder, target.stem, blender, log)
         finally:

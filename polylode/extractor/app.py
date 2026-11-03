@@ -182,6 +182,10 @@ class SettingsPage(QWidget):
             self.format_boxes[key] = box
             formats.addWidget(box)
         form.addRow(_label("匯出格式"), formats)
+        self.poses = QCheckBox("角色有姿勢時一起寫進 .glb（終末地的介面姿勢；分享的網頁可以切換）")
+        self.poses.setChecked(settings.poses)
+        self.poses.toggled.connect(lambda _on: self._save())
+        form.addRow(_label("姿勢"), self.poses)
         layout.addLayout(form)
         layout.addStretch(1)
 
@@ -225,6 +229,8 @@ class SettingsPage(QWidget):
         self.settings.output = self.output.value() if hasattr(self, "output") else self.settings.output
         if hasattr(self, "format_boxes"):
             self.settings.formats = [key for key, box in self.format_boxes.items() if box.isChecked()]
+        if hasattr(self, "poses"):
+            self.settings.poses = self.poses.isChecked()
         S.save(self.settings)
 
 

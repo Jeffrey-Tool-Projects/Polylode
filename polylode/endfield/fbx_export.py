@@ -150,10 +150,12 @@ def blender_run(blender: Path, mode: str, document: Path, fbx: Path) -> dict:
     return report
 
 
-def scene_document(target: Target, out_dir: Path, pipeline, shaders=None, log=print) -> tuple:
+def scene_document(target: Target, out_dir: Path, pipeline, shaders=None, log=print, poses=None) -> tuple:
     """*target*'s scene, its maps copied to ``<out_dir>/<folder>/textures``, and its interchange document there,
     every material drawable: an effect run as the game compiled it, an emission baked (``vfx_bake``; *shaders*
-    fetches a shader the cache lacks)."""
+    fetches a shader the cache lacks).  With *poses* (what opens the pipeline when the clips are not decoded yet),
+    the character's display poses go in as animations (``poses``)."""
+    from . import poses as P
     from . import vfx_bake
     pieces, nodes, extra = load(target, pipeline)
     scene = RS.scene_of(pieces, nodes, target.stem)
@@ -161,6 +163,8 @@ def scene_document(target: Target, out_dir: Path, pipeline, shaders=None, log=pr
     copy_textures(scene, folder)
     document = RS.write(scene, folder, target.stem, extra, target.source)
     vfx_bake.complete(document, shaders, log)
+    if poses is not None:
+        P.add(document, scene, nodes, extra, poses, log)
     return scene, document
 
 

@@ -136,6 +136,11 @@ enlace se ve en Discord como una tarjeta con la imagen del modelo. No hay que in
    `/ (root)` y Save, una sola vez. (Activarlo desde el programa requeriría acceso a todos tus repositorios privados, y no lo pide.)
 5. Pages tarda uno o dos minutos en actualizarse; después pega el enlace en Discord.
 
+**Poses.** El `.glb` exportado de un personaje de Endfield lleva las poses de sus pantallas de personaje (los clips `ui`
+en bucle del juego, decodificados de la instalación la primera vez, en medio minuto). La página compartida tiene un menú
+**Pose** para cambiar entre ellas, y su tarjeta muestra la primera. **Settings → Poses** lo desactiva; las vistas previas
+nunca las incluyen. Los personajes de Girls' Frontline 2 y Wuthering Waves aún no tienen.
+
 ¿Ya tienes un sitio de Pages? Pon su clon local en **Settings → GitHub Pages site folder**: entonces compartir confirma allí
 y sube con Git.
 

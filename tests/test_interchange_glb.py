@@ -270,3 +270,52 @@ def test_a_part_hidden_at_rest_is_left_out_of_the_glb_with_the_materials_only_it
     assert "KHR_node_visibility" not in gltf.get("extensionsUsed", [])
     position = gltf["meshes"][0]["primitives"][0]["attributes"]["POSITION"]
     assert len(accessor(position)) == 4                                # the shown part's own vertices
+
+
+def _turn(angle):
+    """A rotation of *angle* radians about Z, as a 4×4 (the scene is Z up)."""
+    c, s = np.cos(angle), np.sin(angle)
+    m = np.eye(4)
+    m[:2, :2] = [[c, -s], [s, c]]
+    return m
+
+
+def test_a_scenes_poses_are_animations_of_its_bones_and_the_bones_are_written_as_trs(tmp_path):
+    document, arrays = _scene(tmp_path)
+    rest = arrays["bone_rest"]
+    # two frames: the spine turned 30° then 60° about its parent's Z; the root holds its rest
+    frames = np.stack([np.stack([rest[0], rest[0] @ np.linalg.solve(rest[0], rest[1]) @ _turn(a)])
+                       for a in (np.pi / 6, np.pi / 3)]).astype(np.float32)
+    arrays["anim0"] = frames
+    document["animations"] = [{"name": "relax", "rate": 30.0, "frames": 2}]
+    glb.write(document, arrays, tmp_path, tmp_path / "posed.glb")
+    gltf, accessor, _view = _read(tmp_path / "posed.glb")
+    spine = gltf["nodes"][2]
+    assert "matrix" not in spine and {"translation", "rotation"} <= set(spine)   # glTF animates only TRS nodes
+    rest_local = np.linalg.solve(glb.TO_Y_UP @ rest[0], glb.TO_Y_UP @ rest[1])
+    assert np.allclose(spine["rotation"], glb._quaternions(rest_local[:3, :3]))
+    (animation,) = gltf["animations"]
+    assert animation["name"] == "relax"
+    channels = {(c["target"]["node"], c["target"]["path"]): animation["samplers"][c["sampler"]]
+                for c in animation["channels"]}
+    assert set(channels) == {(2, "rotation")}                       # only what the pose moves off its rest
+    sampler = channels[(2, "rotation")]
+    assert np.allclose(accessor(sampler["input"]).ravel(), [0, 1 / 30])
+    posed = glb.TO_Y_UP @ frames[1].astype(np.float64)
+    expected = glb._quaternions(np.linalg.solve(posed[0], posed[1])[:3, :3])
+    assert np.allclose(accessor(sampler["output"])[1], expected, atol=1e-6)
+    # without poses the bones stay matrices
+    del document["animations"]
+    glb.write(document, arrays, tmp_path, tmp_path / "still.glb")
+    still, _a, _v = _read(tmp_path / "still.glb")
+    assert "matrix" in still["nodes"][2] and "animations" not in still
+
+
+def test_rotation_matrices_become_the_quaternions_that_give_them_back():
+    from scipy.spatial.transform import Rotation
+    turns = Rotation.random(200, random_state=7)
+    quats = glb._quaternions(turns.as_matrix())
+    assert np.allclose(Rotation.from_quat(quats).as_matrix(), turns.as_matrix(), atol=1e-9)
+    assert np.allclose(glb._quaternions(np.eye(3)), [0, 0, 0, 1])
+    half = Rotation.from_euler("x", 180, degrees=True).as_matrix()       # w = 0: another branch picks it
+    assert np.allclose(Rotation.from_quat(glb._quaternions(half)).as_matrix(), half)
