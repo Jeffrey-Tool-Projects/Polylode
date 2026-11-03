@@ -2,6 +2,8 @@
 
 [English](../../README.md) · **繁體中文** · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Français](README.fr.md) · [Deutsch](README.de.md)
 
+**一步一步的使用教學：** [https://je-chen.github.io/Polylode/zh-TW/](https://je-chen.github.io/Polylode/zh-TW/)
+
 Polylode 從你安裝的遊戲裡把角色模型挖出來——從礦脈（*lode*）裡挖出多邊形（*poly*gon）——寫成帶貼圖、帶骨架、到處都能開的檔案：
 glTF（`.glb`）、FBX 與 Blender（`.blend`）。它是 Windows 桌面程式，有視窗、能用滑鼠轉動的預覽，以及模型檢視器。
 

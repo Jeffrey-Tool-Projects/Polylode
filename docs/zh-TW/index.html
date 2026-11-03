@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polylode 使用教學</title>
+<meta name="description" content="一步一步教你用 Polylode 把已安裝遊戲的角色模型匯出成 glTF、FBX 與 Blender 檔。">
+<link rel="stylesheet" href="../assets/guide.css">
+</head>
+<body>
+<header class="top">
+  <div class="inner">
+    <a class="brand" href="./">Polylode 使用教學</a>
+    <nav>
+      <a href="../">English</a>
+      <a class="current" href="./">繁體中文</a>
+      <a href="https://github.com/JE-Chen/Polylode">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="layout">
+<aside class="toc">
+  <ol>
+    <li><a href="#download">下載與啟動</a></li>
+    <li><a href="#settings">基本設定</a></li>
+    <li><a href="#games">各遊戲的準備</a></li>
+    <li><a href="#scan">掃描安裝</a></li>
+    <li><a href="#preview">搜尋與預覽</a></li>
+    <li><a href="#export">勾選與匯出</a></li>
+    <li><a href="#open">開啟匯出的檔案</a></li>
+    <li><a href="#viewer">模型檢視器</a></li>
+    <li><a href="#trouble">疑難排解</a></li>
+  </ol>
+</aside>
+
+<main>
+<h1>Polylode 使用教學</h1>
+<p class="lead">Polylode 會從你電腦上已安裝的遊戲讀出角色模型，寫成帶貼圖與骨架的 glTF（<code>.glb</code>）、FBX 與 Blender（<code>.blend</code>）檔。
+目前支援《明日方舟：終末地》、《少女前線 2：追放》、《鳴潮》，以及已轉換好的模型。下面照實際使用的順序一步一步說明。</p>
+
+<h2 id="download">1. 下載與啟動</h2>
+<div class="step"><span class="n">1</span><strong class="title">下載</strong>
+  <p>到 <a href="https://github.com/JE-Chen/Polylode/releases">Releases</a> 下載最新的 <code>Polylode-&lt;版本&gt;-windows-x64.zip</code>。</p></div>
+<div class="step"><span class="n">2</span><strong class="title">解壓縮</strong>
+  <p>解壓到任何資料夾都可以，例如 <code>D:\Tools\Polylode</code>。不需要安裝，裡面已經附上需要的工具：AnimeStudio（終末地用）、鳴潮讀取器、.NET 10 執行環境，
+  以及給沒有顯示卡驅動的電腦用的軟體 OpenGL。</p></div>
+<div class="step"><span class="n">3</span><strong class="title">執行 <code>Polylode.exe</code></strong>
+  <p>視窗語言預設跟隨 Windows；要換的話到 <span class="ui">設定 → 語言</span>，切換後立即生效（English、繁體中文、简体中文、日本語、한국어）。</p></div>
+<div class="note">需求：Windows 10 或 11（64 位元）。只有要輸出 <code>.blend</code> 時才需要 Blender 4.x 或 5.x。設定與所有快取都放在 <code>%LOCALAPPDATA%\Polylode</code>。</div>
+
+<h2 id="settings">2. 基本設定</h2>
+<p>打開 <span class="ui">設定</span> 頁。設定在輸入時就會存下來，不必另外按儲存。</p>
+<figure><img src="../images/settings.png" alt="設定頁"><figcaption>設定頁：安裝資料夾、工具、輸出與語言（英文介面）</figcaption></figure>
+<div class="step"><span class="n">1</span><strong class="title">輸出資料夾</strong>
+  <p>匯出的檔案放這裡，每個模型一個資料夾：<code>&lt;輸出資料夾&gt;\&lt;遊戲&gt;\&lt;模型編號&gt;\</code>。</p></div>
+<div class="step"><span class="n">2</span><strong class="title">匯出格式</strong>
+  <p>勾選要的格式：<code>.glb</code>、FBX、<code>.blend</code>，可以多選。<code>.glb</code> 與 FBX 由 Polylode 自己寫，不需要 Blender。</p></div>
+<div class="step"><span class="n">3</span><strong class="title">Blender 執行檔（選填）</strong>
+  <p>只有要 <code>.blend</code> 時才需要，指到 <code>blender.exe</code>。設定之後，每個 <code>.glb</code> 與 FBX 也會在 Blender 裡讀回核對一次，確認檔案正確。</p></div>
+<div class="step"><span class="n">4</span><strong class="title">安裝資料夾與工具</strong>
+  <p>可以先留空。第一次掃描時程式會詢問，並列出它在 Steam 遊戲庫裡找到的安裝；選遊戲本身的資料夾、上一層或裡面的資料夾都可以，旁邊打勾表示路徑存在。
+  工具欄位留空就會用程式附帶的版本。</p></div>
+
+<h2 id="games">3. 各遊戲的準備</h2>
+<table>
+  <tr><th>遊戲</th><th>需要準備</th><th>第一次掃描</th></tr>
+  <tr><td>明日方舟：終末地</td><td>只要安裝資料夾</td><td>從安裝建立資產對照表，要數十分鐘，分批進行；中途關掉不會損失，下次掃描接著做。</td></tr>
+  <tr><td>少女前線 2：追放</td><td>只要安裝資料夾</td><td>建立 bundle 索引（幾分鐘），並檢查哪些根節點是角色模型。</td></tr>
+  <tr><td>鳴潮</td><td>安裝資料夾＋你自己的 <b>AES 金鑰檔</b></td><td>從封存檔讀出角色表。</td></tr>
+</table>
+<h3>鳴潮的 AES 金鑰</h3>
+<p>鳴潮的檔案是加密的，需要符合你遊戲版本的金鑰；程式不能附帶它。金鑰檔是一個 JSON，含 <code>mainKey</code> 與 <code>dynamicKeys</code>。</p>
+<div class="step"><span class="n">1</span><strong class="title">放到程式找得到的地方</strong>
+  <p>第一次預覽或匯出前，程式會在這些地方找已有的金鑰檔：程式旁邊、它的資料夾、遊戲安裝資料夾與上一層、下載、文件、桌面。找到就直接用。</p></div>
+<div class="step"><span class="n">2</span><strong class="title">找不到時會跳出說明</strong>
+  <p>對話框會說明需要什麼。你可以選金鑰檔，或直接貼上金鑰（<code>0x</code> 加 64 個十六進位字元），程式會存成金鑰檔，之後記住。</p></div>
+
+<h2 id="scan">4. 掃描安裝</h2>
+<div class="step"><span class="n">1</span><strong class="title">打開遊戲的分頁，按 <span class="ui">掃描安裝</span></strong>
+  <p>狀態列下方的進度條會顯示目前步驟，能計數的步驟會顯示數量。</p></div>
+<figure><img src="../images/scan.png" alt="掃描安裝"><figcaption>掃描中：每個能計數的步驟都有自己的進度條</figcaption></figure>
+<div class="step"><span class="n">2</span><strong class="title">之後的掃描會沿用結果</strong>
+  <p>遊戲沒更新前，之後掃描都很快。遊戲更新後請重新掃描；GF2 若在掃描後安裝有變，預覽或匯出時會提醒。</p></div>
+
+<h2 id="preview">5. 搜尋與預覽</h2>
+<div class="step"><span class="n">1</span><strong class="title">找到模型</strong>
+  <p>在搜尋框（<span class="ui">搜尋角色、衣裝或編號…</span>）輸入角色名、衣裝或編號來篩選清單。</p></div>
+<div class="step"><span class="n">2</span><strong class="title">選一列，按 <span class="ui">預覽</span>（或雙擊）</strong>
+  <p>第一次預覽會先轉換（幾秒到一分鐘，有自己的進度條）；之後選到這一列就直接從快取顯示。模型載入時會自動置中並框住整個模型。</p></div>
+<div class="step"><span class="n">3</span><strong class="title">操作</strong>
+  <p><kbd>左鍵拖曳</kbd> 旋轉、<kbd>右鍵拖曳</kbd> 平移、<kbd>滾輪</kbd> 縮放。</p></div>
+<div class="step"><span class="n">4</span><strong class="title">更新後按 <span class="ui">重新轉換</span></strong>
+  <p>預覽會保持第一次轉換的樣子。更新了 Polylode 或遊戲之後，按 <span class="ui">重新轉換</span> 重做；新的完成才會取代舊的，失敗時舊的仍保留。</p></div>
+<figure><img src="../images/preview.png" alt="模型清單與預覽"><figcaption>模型清單與預覽，視角自動對準整個模型</figcaption></figure>
+
+<h2 id="export">6. 勾選與匯出</h2>
+<div class="step"><span class="n">1</span><strong class="title">勾選模型</strong>
+  <p>勾選要匯出的列；<span class="ui">全選</span>、<span class="ui">全不選</span> 只作用在搜尋後看得到的列。</p></div>
+<div class="step"><span class="n">2</span><strong class="title">按 <span class="ui">匯出勾選的模型</span></strong>
+  <p>下方佇列一次處理一個：⏳ 等待、▶ 進行中、✓ 已寫出、✗ 失敗（旁邊的記錄會寫原因）。佇列下的進度條數模型，再下面一條顯示正在寫的那個模型的步驟。
+  匯出進行中關閉視窗會先詢問。</p></div>
+<div class="step"><span class="n">3</span><strong class="title">到輸出資料夾拿檔案</strong>
+  <p>檔案在 <code>&lt;輸出資料夾&gt;\&lt;遊戲&gt;\&lt;模型編號&gt;\</code>。貼圖都包在檔案裡；旁邊的 <code>.json</code> 記錄骨頭路徑與每個材質的原始數值。</p></div>
+
+<h2 id="open">7. 開啟匯出的檔案</h2>
+<table>
+  <tr><th>格式</th><th>適合</th><th>說明</th></tr>
+  <tr><td><code>.glb</code></td><td>任何 3D 軟體、網頁檢視器</td><td>只放畫面上看得到的部件，在哪個軟體開都和預覽一樣。</td></tr>
+  <tr><td>FBX</td><td>Blender、Unity、Maya 等</td><td>另外保留隱藏的部件（較低細節層級、可替換部件的其他版本），開啟後是隱藏狀態，需要時再打開。</td></tr>
+  <tr><td><code>.blend</code></td><td>Blender</td><td>和 FBX 一樣保留隱藏部件，材質疊層保持真正的分層。</td></tr>
+</table>
+<div class="note">材質照遊戲的畫法寫出：裁切、半透明、眼影與眼睛高光疊層、特效材質（例如終末地角色的翅膀）與發光貼圖。
+特效的光在 glTF／FBX 裡寫成「發光」，所以在場景沒有燈光時也看得到。</div>
+
+<h2 id="viewer">8. 模型檢視器</h2>
+<figure><img src="../images/viewer.png" alt="模型檢視器"><figcaption>模型檢視器與檔案內容</figcaption></figure>
+<div class="step"><span class="n">1</span><strong class="title">開啟模型</strong>
+  <p>清單列出輸出資料夾裡的模型（最新的在前）。也可以按 <span class="ui">開啟檔案…</span>、把檔案拖進視窗，或用 <code>Polylode.exe &lt;檔案&gt;</code> 開啟
+  （可設成 Windows 的「開啟檔案」程式）。支援 <code>.glb</code>、<code>.gltf</code>、<code>.fbx</code>、<code>.obj</code>。</p></div>
+<div class="step"><span class="n">2</span><strong class="title">檢視</strong>
+  <p><span class="ui">正面</span>、<span class="ui">背面</span>、<span class="ui">左側</span>、<span class="ui">右側</span>、<span class="ui">上方</span> 轉到指定視角；
+  <span class="ui">線框</span>、背景深淺與 <span class="ui">光</span> 改變畫法。右邊列出 glTF 的內容（網格、頂點、骨頭、形態鍵、各材質的混合方式），並標出用舊規則寫出、建議重新匯出的檔案。</p></div>
+<div class="step"><span class="n">3</span><strong class="title">刪除</strong>
+  <p><span class="ui">刪除…</span> 會把模型、同名的檔案與它的貼圖資料夾移到資源回收筒，可以還原。</p></div>
+
+<h2 id="trouble">9. 疑難排解</h2>
+<table>
+  <tr><th>狀況</th><th>處理</th></tr>
+  <tr><td>掃描、預覽或匯出前跳出對話框或選檔視窗</td><td>缺少轉換需要的工具，而且程式在常用位置找不到。鳴潮通常是 AES 金鑰檔：選金鑰檔或貼上金鑰，之後會記住。</td></tr>
+  <tr><td>記錄出現「「…」還沒有設定」或「「…」不存在」</td><td>到 <span class="ui">設定</span> 修正那個路徑。</td></tr>
+  <tr><td>沒有寫出 <code>.blend</code></td><td>到 <span class="ui">設定</span> 指定 Blender 執行檔。</td></tr>
+  <tr><td>檢視器顯示「量不到這個檔案的大小」</td><td>讀不到檔案範圍（例如 FBX 7.5），視角放在原點，用滾輪縮放。</td></tr>
+  <tr><td>預覽和舊的匯出長得不一樣</td><td>程式更新後轉換規則可能改了：預覽按 <span class="ui">重新轉換</span>，匯出檔重新匯出一次。</td></tr>
+  <tr><td>記錄寫「沒辦法畫出，設為不可見」</td><td>那個材質無法照遊戲的畫法寫出，程式會把它設為不可見並寫下原因，不會畫成一塊灰白。</td></tr>
+  <tr><td>其他錯誤</td><td>下方記錄保留掃描與匯出輸出的每一行，可以從那裡看原因。</td></tr>
+</table>
+
+<footer>Polylode — <a href="https://github.com/JE-Chen/Polylode">github.com/JE-Chen/Polylode</a></footer>
+</main>
+</div>
+</body>
+</html>

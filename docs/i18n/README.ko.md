@@ -2,6 +2,8 @@
 
 [English](../../README.md) · [繁體中文](README.zh-TW.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · **한국어** · [Español](README.es.md) · [Français](README.fr.md) · [Deutsch](README.de.md)
 
+**단계별 사용 안내(영어·번체 중국어):** [https://je-chen.github.io/Polylode/](https://je-chen.github.io/Polylode/)
+
 Polylode는 설치한 게임에서 캐릭터 모델을 캐내어——광맥(*lode*)에서 폴리곤(*poly*gon)을——텍스처와 리그가 있는, 어디서나 열 수 있는 파일로
 기록합니다: glTF(`.glb`), FBX, Blender(`.blend`). 창, 마우스로 돌려 볼 수 있는 미리보기, 모델 뷰어를 갖춘 Windows 데스크톱 프로그램입니다.
 

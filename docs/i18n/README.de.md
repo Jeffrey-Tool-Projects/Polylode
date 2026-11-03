@@ -2,6 +2,8 @@
 
 [English](../../README.md) · [繁體中文](README.zh-TW.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Français](README.fr.md) · **Deutsch**
 
+**Schritt-für-Schritt-Anleitung (Englisch):** [https://je-chen.github.io/Polylode/](https://je-chen.github.io/Polylode/)
+
 Polylode fördert die Charaktermodelle aus deinen installierten Spielen zutage — *Poly*gone aus der *Lode* (der Erzader) — und schreibt sie als
 texturierte, geriggte Dateien, die sich überall öffnen lassen: glTF (`.glb`), FBX und Blender (`.blend`). Es ist ein Windows-Desktopprogramm mit
 Fenster, einer Vorschau, die sich mit der Maus drehen lässt, und einem Modellbetrachter.

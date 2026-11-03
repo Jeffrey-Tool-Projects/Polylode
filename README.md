@@ -2,6 +2,8 @@
 
 **English** · [繁體中文](docs/i18n/README.zh-TW.md) · [简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Español](docs/i18n/README.es.md) · [Français](docs/i18n/README.fr.md) · [Deutsch](docs/i18n/README.de.md)
 
+**Step-by-step user guide:** [https://je-chen.github.io/Polylode/](https://je-chen.github.io/Polylode/)
+
 Polylode mines the character models out of the games you have installed — *poly*gons from the *lode* — and
 writes them as textured, rigged files you can open anywhere: glTF (`.glb`), FBX and Blender (`.blend`). It is a
 Windows desktop program with a window, a preview you can turn with the mouse, and a model viewer.
@@ -118,7 +120,7 @@ shape keys and each material's blending — and marks a file written by older ru
 ### Troubleshooting
 
 - **A dialog or a file picker opens before a scan, preview or export** — a tool the conversion cannot run without is not set, and none was found where the program looks. For Wuthering Waves it is the AES keys file: the dialog says what it is; choose your keys file, or paste the key (`0x` and 64 hexadecimal digits) and it is saved as a keys file. Either way it is remembered.
-- **"…has not been set" or "…is not there"** in the log — fix that path under **Settings**.
+- **"“…” is not set" or "“…” does not exist"** in the log — fix that path under **Settings**.
 - **"This file's size could not be measured"** — the viewer could not read the file's extent (an FBX 7.5 file, for
   one); the view is at the origin, zoom with the wheel.
 - **No `.blend` written** — set the Blender executable under **Settings**.

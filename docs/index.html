@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polylode User Guide</title>
+<meta name="description" content="A step-by-step guide to exporting your installed games' character models as glTF, FBX and Blender files with Polylode.">
+<link rel="stylesheet" href="assets/guide.css">
+</head>
+<body>
+<header class="top">
+  <div class="inner">
+    <a class="brand" href="./">Polylode User Guide</a>
+    <nav>
+      <a class="current" href="./">English</a>
+      <a href="zh-TW/">繁體中文</a>
+      <a href="https://github.com/JE-Chen/Polylode">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="layout">
+<aside class="toc">
+  <ol>
+    <li><a href="#download">Download and start</a></li>
+    <li><a href="#settings">Settings</a></li>
+    <li><a href="#games">Getting each game ready</a></li>
+    <li><a href="#scan">Scanning an install</a></li>
+    <li><a href="#preview">Searching and previewing</a></li>
+    <li><a href="#export">Ticking and exporting</a></li>
+    <li><a href="#open">Opening the exported files</a></li>
+    <li><a href="#viewer">The model viewer</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
+  </ol>
+</aside>
+
+<main>
+<h1>Polylode User Guide</h1>
+<p class="lead">Polylode reads the character models out of the games installed on your computer and writes them as textured,
+rigged glTF (<code>.glb</code>), FBX and Blender (<code>.blend</code>) files. It reads Arknights: Endfield, Girls' Frontline 2: Exilium,
+Wuthering Waves and finished conversions. The steps below follow the order you use it in.</p>
+
+<h2 id="download">1. Download and start</h2>
+<div class="step"><span class="n">1</span><strong class="title">Download</strong>
+  <p>Take the latest <code>Polylode-&lt;version&gt;-windows-x64.zip</code> from <a href="https://github.com/JE-Chen/Polylode/releases">Releases</a>.</p></div>
+<div class="step"><span class="n">2</span><strong class="title">Unzip it</strong>
+  <p>Anywhere, for example <code>D:\Tools\Polylode</code>. Nothing is installed; it carries what it needs: AnimeStudio (for Endfield),
+  the Wuthering Waves reader, a .NET 10 runtime, and a software OpenGL for computers without a GPU driver.</p></div>
+<div class="step"><span class="n">3</span><strong class="title">Run <code>Polylode.exe</code></strong>
+  <p>The window follows your Windows language; choose another under <span class="ui">Settings → Language</span> and it switches at once
+  (English, 繁體中文, 简体中文, 日本語, 한국어).</p></div>
+<div class="note">Requirements: Windows 10 or 11, 64-bit. Blender 4.x or 5.x only for <code>.blend</code>. Settings and every cache live in
+<code>%LOCALAPPDATA%\Polylode</code>.</div>
+
+<h2 id="settings">2. Settings</h2>
+<p>Open the <span class="ui">Settings</span> page. Settings are saved as you type them; there is no Save button.</p>
+<figure><img src="images/settings.png" alt="The settings page"><figcaption>Settings: install folders, tools, output and language</figcaption></figure>
+<div class="step"><span class="n">1</span><strong class="title">Output folder</strong>
+  <p>Where exports go, one folder per model: <code>&lt;output&gt;\&lt;game&gt;\&lt;model id&gt;\</code>.</p></div>
+<div class="step"><span class="n">2</span><strong class="title">Export formats</strong>
+  <p>Tick any of <code>.glb</code>, FBX and <code>.blend</code>. Polylode writes <code>.glb</code> and FBX itself; neither needs Blender.</p></div>
+<div class="step"><span class="n">3</span><strong class="title">Blender executable (optional)</strong>
+  <p>Needed only for <code>.blend</code>: point it at <code>blender.exe</code>. With it set, every <code>.glb</code> and FBX is also read back in
+  Blender as a check.</p></div>
+<div class="step"><span class="n">4</span><strong class="title">Install folders and tools</strong>
+  <p>Both may stay empty. The first scan asks for the install and offers the copies it finds in your Steam libraries; the game's folder, the one
+  above it or one inside its data all work, and a ✓ marks a path that is there. Empty tool fields use what the program carries.</p></div>
+
+<h2 id="games">3. Getting each game ready</h2>
+<table>
+  <tr><th>Game</th><th>What you need</th><th>The first scan</th></tr>
+  <tr><td>Arknights: Endfield</td><td>The install folder</td><td>Builds its asset maps from the install: tens of minutes, in batches. Closing the program part way loses nothing; the next scan carries on.</td></tr>
+  <tr><td>Girls' Frontline 2: Exilium</td><td>The install folder</td><td>Indexes the bundles (minutes) and checks which roots are character models.</td></tr>
+  <tr><td>Wuthering Waves</td><td>The install folder and your own <b>AES keys file</b></td><td>Reads its character tables out of the archives.</td></tr>
+</table>
+<h3>Wuthering Waves' AES keys</h3>
+<p>Its files are encrypted and need the key for your client version, which the program cannot carry. A keys file is a JSON with
+<code>mainKey</code> and <code>dynamicKeys</code>.</p>
+<div class="step"><span class="n">1</span><strong class="title">Put it where the program looks</strong>
+  <p>Before the first preview or export it looks for a keys file you already have: beside the program, in its data folder, in the install folder
+  and the one above it, in Downloads, Documents and Desktop.</p></div>
+<div class="step"><span class="n">2</span><strong class="title">Otherwise a dialog explains it</strong>
+  <p>Choose your keys file, or paste the key (<code>0x</code> and 64 hexadecimal digits) and it is saved as a keys file. Either way it is remembered.</p></div>
+
+<h2 id="scan">4. Scanning an install</h2>
+<div class="step"><span class="n">1</span><strong class="title">Open the game's page and press <span class="ui">Scan install</span></strong>
+  <p>The bar under the status line names the step and counts it where it can.</p></div>
+<figure><img src="images/scan.png" alt="Scanning an install"><figcaption>Scanning: each step that can be counted has its bar</figcaption></figure>
+<div class="step"><span class="n">2</span><strong class="title">Later scans reuse it</strong>
+  <p>Until the game updates, later scans are quick. Scan again after an update; a GF2 preview or export says so when the install changed since its scan.</p></div>
+
+<h2 id="preview">5. Searching and previewing</h2>
+<div class="step"><span class="n">1</span><strong class="title">Find the model</strong>
+  <p>Type a character, outfit or id in the search box (<span class="ui">Search characters, outfits or ids…</span>).</p></div>
+<div class="step"><span class="n">2</span><strong class="title">Select a row and press <span class="ui">Preview</span> (or double-click it)</strong>
+  <p>The first preview of a model converts it (seconds to a minute, with its own bar); after that, selecting the row shows it from the cache at once.
+  Each model is framed whole and centred when it loads.</p></div>
+<div class="step"><span class="n">3</span><strong class="title">Look around</strong>
+  <p><kbd>Left-drag</kbd> turns, <kbd>right-drag</kbd> pans, the <kbd>wheel</kbd> zooms.</p></div>
+<div class="step"><span class="n">4</span><strong class="title">After an update, press <span class="ui">Convert again</span></strong>
+  <p>A preview stays as it was first made. <span class="ui">Convert again</span> makes it anew after Polylode or the game is updated; the new one
+  replaces the cached one only once it is done.</p></div>
+<figure><img src="images/preview.png" alt="The model list and a preview"><figcaption>The model list and its preview, framed to the model</figcaption></figure>
+
+<h2 id="export">6. Ticking and exporting</h2>
+<div class="step"><span class="n">1</span><strong class="title">Tick the models</strong>
+  <p><span class="ui">Select all</span> and <span class="ui">Select none</span> act on the rows the search shows.</p></div>
+<div class="step"><span class="n">2</span><strong class="title">Press <span class="ui">Export ticked models</span></strong>
+  <p>The queue at the bottom runs them one at a time: ⏳ waiting, ▶ running, ✓ written, ✗ failed (the log beside it says why). The bar under the queue
+  counts models; the one below it shows the step of the model being written. Closing the window while an export runs asks first.</p></div>
+<div class="step"><span class="n">3</span><strong class="title">Collect the files</strong>
+  <p>They are in <code>&lt;output&gt;\&lt;game&gt;\&lt;model id&gt;\</code>, textures embedded; the <code>.json</code> beside them keeps the bone paths and
+  each material's native values.</p></div>
+
+<h2 id="open">7. Opening the exported files</h2>
+<table>
+  <tr><th>Format</th><th>For</th><th>What it holds</th></tr>
+  <tr><td><code>.glb</code></td><td>Any 3D program or web viewer</td><td>Only the parts shown, so it looks like the preview everywhere.</td></tr>
+  <tr><td>FBX</td><td>Blender, Unity, Maya…</td><td>Also the hidden parts (lower detail levels, the other versions of swappable parts), opened hidden; show them when you need them.</td></tr>
+  <tr><td><code>.blend</code></td><td>Blender</td><td>The hidden parts as in the FBX, and material layers kept as real layers.</td></tr>
+</table>
+<div class="note">Materials are written as the games draw them: cut-outs, transparency, eye-shadow and eye-highlight layers, effect materials (such as an
+Endfield character's wings) and emission maps. An effect's light is written as emission, so it shows even in a scene with no lights.</div>
+
+<h2 id="viewer">8. The model viewer</h2>
+<figure><img src="images/viewer.png" alt="The model viewer"><figcaption>The model viewer and what the file holds</figcaption></figure>
+<div class="step"><span class="n">1</span><strong class="title">Open a model</strong>
+  <p>The list holds the models in your output folder, newest first. Or press <span class="ui">Open file…</span>, drop a file on the window, or start
+  <code>Polylode.exe &lt;file&gt;</code> (so it can be your "Open with" program). It opens <code>.glb</code>, <code>.gltf</code>, <code>.fbx</code> and <code>.obj</code>.</p></div>
+<div class="step"><span class="n">2</span><strong class="title">Look at it</strong>
+  <p><span class="ui">Front</span>, <span class="ui">Back</span>, <span class="ui">Left</span>, <span class="ui">Right</span> and <span class="ui">Top</span> turn it;
+  <span class="ui">Wireframe</span>, the background button and <span class="ui">Light</span> change how it is drawn. The panel on the right lists what a glTF holds
+  (meshes, vertices, bones, shape keys, each material's blending) and marks a file written by older rules, to be exported again.</p></div>
+<div class="step"><span class="n">3</span><strong class="title">Delete</strong>
+  <p><span class="ui">Delete…</span> moves the model, its sibling files and its texture folder to the recycle bin.</p></div>
+
+<h2 id="trouble">9. Troubleshooting</h2>
+<table>
+  <tr><th>What you see</th><th>What to do</th></tr>
+  <tr><td>A dialog or file picker opens before a scan, preview or export</td><td>A tool the conversion needs is not set and was not found where the program looks. For Wuthering Waves it is the AES keys file: choose it or paste the key; it is remembered.</td></tr>
+  <tr><td>"“…” is not set" or "“…” does not exist" in the log</td><td>Fix that path under <span class="ui">Settings</span>.</td></tr>
+  <tr><td>No <code>.blend</code> written</td><td>Set the Blender executable under <span class="ui">Settings</span>.</td></tr>
+  <tr><td>"This file's size could not be measured" in the viewer</td><td>Its extent could not be read (an FBX 7.5 file, for one); the view is at the origin, zoom with the wheel.</td></tr>
+  <tr><td>A preview and an older export look different</td><td>An update may have changed the rules: press <span class="ui">Convert again</span> for the preview and export the model again.</td></tr>
+  <tr><td>"cannot be drawn, made invisible" in the log</td><td>That material could not be written as the game draws it; it is made invisible with its reason, never drawn as a grey surface.</td></tr>
+  <tr><td>Anything else</td><td>The log at the bottom keeps every line the scan or export printed.</td></tr>
+</table>
+
+<footer>Polylode — <a href="https://github.com/JE-Chen/Polylode">github.com/JE-Chen/Polylode</a></footer>
+</main>
+</div>
+</body>
+</html>

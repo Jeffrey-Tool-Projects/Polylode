@@ -2,6 +2,8 @@
 
 [English](../../README.md) · [繁體中文](README.zh-TW.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **Español** · [Français](README.fr.md) · [Deutsch](README.de.md)
 
+**Guía paso a paso (en inglés):** [https://je-chen.github.io/Polylode/](https://je-chen.github.io/Polylode/)
+
 Polylode extrae los modelos de personajes de los juegos que tienes instalados —*poly*gonos de la *lode* (veta)— y los
 escribe como archivos con texturas y esqueleto que se abren en cualquier parte: glTF (`.glb`), FBX y Blender (`.blend`).
 Es un programa de escritorio para Windows con ventana, una vista previa que se gira con el ratón y un visor de modelos.
