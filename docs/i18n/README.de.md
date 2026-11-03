@@ -10,7 +10,7 @@ Fenster, einer Vorschau, die sich mit der Maus drehen lässt, und einem Modellbe
 |---|---|---|
 | Arknights: Endfield | Alle Prefabs spielbarer Charaktere | Die Asset-Tabellen werden beim ersten Scan aus deiner Installation gebaut (in geprüften, fortsetzbaren Stapeln) und nach einem Update erneut |
 | Girls' Frontline 2: Exilium | Alle Outfits spielbarer Charaktere | Nur Wurzeln mit eigenem geskinnten Mesh und vollständigem menschlichem Skelett (keine Haustiere, Requisiten oder leeren Varianten) |
-| Wuthering Waves | Alle Anzeigemodelle spielbarer Charaktere | Braucht deine AES-Schlüsseldatei; der Dateileser (aus `tools/wuwa_cli` gebaut) ist dabei |
+| Wuthering Waves | Alle Anzeigemodelle spielbarer Charaktere | Braucht deine AES-Schlüsseldatei; der Dateileser (aus `tools/wuwa_cli` gebaut) ist dabei; jeder Materialabschnitt (Haare, Gesicht, Oberkörper…) ist ein eigenes Teil |
 | Vorhandene Konvertierungen | Fertige Modelle in `*_Converted`-Ordnern | Nach Prüfung des SHA-256 jeder Datei kopiert |
 
 ## Screenshots

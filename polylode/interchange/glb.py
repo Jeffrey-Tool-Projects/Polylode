@@ -43,8 +43,8 @@ TYPES = {1: "SCALAR", 2: "VEC2", 3: "VEC3", 4: "VEC4", 16: "MAT4"}
 #: the rules a file was written by, kept in ``asset.extras.rules``: a viewer says a file of older rules
 #: should be exported again (1: coverage — overlays, transparency, cut-outs, eye layers; 2: GF2's eye layers
 #: baked into the eye's map — §7.1455; 3: the sources' vertex colours as ``_SOURCE_COLOR``, not ``COLOR_0``, and GF2's
-#: lower LOD levels hidden)
-RULES = 3
+#: lower LOD levels hidden; 4: Wuthering Waves' one mesh as a part per material section)
+RULES = 4
 #: where a source's vertex colours go: an application attribute (the spec's leading underscore), not
 #: ``COLOR_0``, which every glTF viewer multiplies into the base colour.  The three games keep shader data
 #: there (GF2's are outline normals, about (0.5, 0.5, 1)), never a colour their materials multiply by; as

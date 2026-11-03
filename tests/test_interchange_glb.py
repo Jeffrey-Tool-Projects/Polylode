@@ -211,3 +211,29 @@ def test_a_sources_vertex_colours_are_kept_as_data_and_never_multiply_the_base_c
     attributes = gltf["meshes"][0]["primitives"][0]["attributes"]
     assert "COLOR_0" not in attributes and glb.VERTEX_DATA.startswith("_")
     assert np.allclose(accessor(attributes[glb.VERTEX_DATA]), [.5, .5, 1, 1])
+
+
+def test_a_part_of_several_materials_splits_into_a_part_per_section_with_its_vertices_and_shapes():
+    import pytest
+    from polylode.interchange.split import by_material, section_name
+    document = {"parts": [{"name": "Rig", "materials": ["MI_RigHair", "MI_RigFace", "MI_Unused"], "uvs": [0],
+                           "shapes": ["blink", "hair_only"], "hidden": False}], "materials": {}}
+    arrays = {"bone_rest": np.eye(4)[None],
+              "p0_co": np.arange(18, dtype=np.float32).reshape(6, 3), "p0_uv0": np.arange(12.0).reshape(6, 2),
+              "p0_jnt": np.zeros((6, 4), int), "p0_wgt": np.ones((6, 4)),
+              "p0_tri": np.array([[0, 1, 2], [3, 4, 5], [2, 1, 0]]), "p0_slot": np.array([0, 1, 0]),
+              "p0_s0_idx": np.array([4, 5]), "p0_s0_delta": np.ones((2, 3)),        # the face's vertices
+              "p0_s1_idx": np.array([1]), "p0_s1_delta": np.full((1, 3), 2.0)}      # the hair's
+    split, out = by_material(document, arrays)
+    assert [p["name"] for p in split["parts"]] == ["Rig_Hair", "Rig_Face"]
+    assert [p["materials"] for p in split["parts"]] == [["MI_RigHair"], ["MI_RigFace"]]
+    assert out["p0_tri"].tolist() == [[0, 1, 2], [2, 1, 0]] and out["p1_tri"].tolist() == [[0, 1, 2]]
+    assert np.array_equal(out["p1_co"], arrays["p0_co"][3:]) and np.array_equal(out["p1_uv0"], arrays["p0_uv0"][3:])
+    assert split["parts"][0]["shapes"] == ["hair_only"] and out["p0_s0_idx"].tolist() == [1]
+    assert split["parts"][1]["shapes"] == ["blink"] and out["p1_s0_idx"].tolist() == [1, 2]
+    assert out["bone_rest"] is arrays["bone_rest"]                       # not a part's: carried as it is
+    assert by_material({"parts": [document["parts"][0]]}, {**arrays, "p0_slot": np.zeros(3, int)})[0]["parts"][0]["name"] == "Rig"
+    with pytest.raises(ValueError):
+        by_material(document, {**arrays, "p0_mystery": np.zeros(6)})   # a stream it cannot split: refused
+    assert section_name("R2T1ChunMd10011", "MI_R2T1ChunMd1001Eye") == "R2T1ChunMd10011_Eye"
+    assert section_name("R2T1ChunMd10011", "MI_5XingStar") == "R2T1ChunMd10011_5XingStar"

@@ -428,6 +428,10 @@ def assemble(row: dict, sources: Path, cases: Path) -> Path:
                     default_display_model_id=row["default_model_id"], uniform_rest_scale_bake=proof,
                     bone_display_precision=length_proof, native_part_rotation_skin_bounds=part_bounds,
                     shared_reference_bounds=shared_reference_bounds)
+    # the game's character is one skeletal mesh, a section per material: one part per section, as a viewer,
+    # Blender or Unity lists separate objects (after the checks above, which are the native mesh's)
+    from ..interchange.split import by_material
+    document, arrays = by_material(document, arrays)
     np.savez_compressed(case / document["arrays"], **arrays)
     (case / "source_document.json").write_text(json.dumps(document, indent=2, ensure_ascii=False), encoding="utf-8")
     return case
