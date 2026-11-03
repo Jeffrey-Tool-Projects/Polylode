@@ -16,7 +16,7 @@ from pathlib import Path
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QVector3D
 from PySide6.QtQuickWidgets import QQuickWidget
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from ..core.paths import derived_root
 from . import settings as S
@@ -369,6 +369,8 @@ class PreviewPanel(QWidget):
         self.apply_texts()
         self.caption.setObjectName("muted")
         self.caption.setWordWrap(True)
+        # a path has nowhere to break: the caption takes the width it is given rather than widening the panel
+        self.caption.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         layout.addWidget(self.caption)
 
     def apply_texts(self) -> None:
@@ -397,10 +399,14 @@ class PreviewPanel(QWidget):
             root.setProperty("source", QUrl.fromLocalFile(str(shown)))
         from .i18n import tr
         unmeasured = "" if root is None or box is not None else "\n" + tr("量不到這個檔案的大小，視角放在原點；用滾輪縮放")
-        self.caption.setText(tr(f"{caption}\n{path}\n左鍵拖曳旋轉、右鍵平移、滾輪縮放") + unmeasured)
+        # the file's name; its whole path on the caption's tooltip
+        named = caption if Path(path).name in caption else f"{caption}\n{Path(path).name}"
+        self.caption.setText(tr(f"{named}\n左鍵拖曳旋轉、右鍵平移、滾輪縮放") + unmeasured)
+        self.caption.setToolTip(str(path))
 
     def show_message(self, text: str) -> None:
         self.current = None
+        self.caption.setToolTip("")
         root = self.view.rootObject()
         if root is not None:
             root.setProperty("source", QUrl())

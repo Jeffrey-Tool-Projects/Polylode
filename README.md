@@ -13,6 +13,17 @@ Windows desktop program with a window, a preview you can turn with the mouse, an
 | Wuthering Waves | Every playable character's display models | Needs your AES keys file; the game-file reader (built from `tools/wuwa_cli`) comes with the program |
 | Existing conversions | Finished models in `*_Converted` folders | Copied out after checking each file's SHA-256 |
 
+## Screenshots
+
+The English window, taken from a real scan and preview with `tools/screenshots.py` (Girls' Frontline 2 shown).
+
+| | |
+|---|---|
+| ![Scanning an install](docs/images/scan.png) | ![A model and its preview](docs/images/preview.png) |
+| *Scanning: each step that can be counted has its bar* | *The model list and its preview, framed to the model* |
+| ![The model viewer](docs/images/viewer.png) | ![Settings](docs/images/settings.png) |
+| *The model viewer and what the file holds* | *Settings: install folders, tools, output and language* |
+
 ## Features
 
 - **Scan, tick, export.** Each game has a page: scan the install, search, tick the models and export them in a
@@ -43,18 +54,73 @@ driver.
 
 Requirements: Windows 10 or 11, 64-bit. Blender 4.x or 5.x only for `.blend`.
 
-## Using it
+## User guide
 
-1. **Settings** — name the output folder and the export formats. Install folders can be left empty: a scan asks
-   for them (and offers the ones it finds in Steam).
-2. **A game's page** — *Scan install*. The first Endfield scan builds its asset maps (tens of minutes, resumable);
-   the first GF2 scan indexes the bundles. Later scans reuse both until the game updates.
-3. Tick the models, *Export ticked models*, and watch the queue and log at the bottom.
-4. **Model viewer** — look at what you exported, compare, delete.
+### 1. First start
 
-Your settings and caches live in `%LOCALAPPDATA%\Polylode`. If you used the extractor when it was part of
-IslandLife, its settings, Endfield asset maps, GF2 index and stores are moved over on the first start, so nothing
-is built again.
+Unzip the release anywhere and run `Polylode.exe`. The window follows your Windows language; choose another under
+**Settings → Language** and it switches at once. Settings are saved as you type them and live, with every cache,
+in `%LOCALAPPDATA%\Polylode`. If you used the extractor when it was part of IslandLife, its settings, Endfield
+asset maps, GF2 index and stores are moved over on the first start, so nothing is built again.
+
+### 2. Settings
+
+- **Output folder** — where exports go, one folder per model: `<output>\<game>\<model id>\`.
+- **Export formats** — `.glb`, FBX and `.blend`; tick any of them.
+- **Blender executable** — optional. Needed only for `.blend`; when it is set, every `.glb` and FBX is also read
+  back in Blender as a check.
+- **Install folders** — may stay empty: a scan asks for each one and offers the copies it finds in your Steam
+  libraries. The folder may be the game's, the one above it or one inside its data. A ✓ marks a path that is there.
+- **Tools** — leave them empty to use what the program carries: AnimeStudio (Endfield), the Wuthering Waves reader
+  and the .NET runtime. Wuthering Waves also needs your **AES keys file** (a JSON with `mainKey` and `dynamicKeys`
+  for your client version): its files are encrypted, and the key is yours, not something the program can carry.
+  The first preview or export asks for it once.
+
+### 3. Scanning
+
+Open a game's page and press **Scan install**. The bar under the status line names the step and counts it where it
+can. What a first scan costs:
+
+- **Arknights: Endfield** builds its asset maps from the install: tens of minutes, in batches. Closing the program
+  part way loses nothing; the next scan carries on.
+- **Girls' Frontline 2** indexes the bundles (minutes) and checks which roots are character models.
+- **Wuthering Waves** reads its character tables out of the archives.
+
+Later scans reuse all of it until the game updates. Scan again after an update; a GF2 preview or export says so
+when the install changed since its scan.
+
+### 4. Previewing
+
+Pick a row — the search box filters by character, outfit or id — and press **Preview** or double-click it. The
+first preview of a model converts it (seconds to a minute, with its own bar); after that, selecting the row shows
+it from the cache at once. In the view: **left-drag** turns, **right-drag** pans, the **wheel** zooms. Each model
+is framed whole and centred when it loads.
+
+### 5. Exporting
+
+Tick the models (**Select all** and **Select none** act on the rows the search shows) and press
+**Export ticked models**. The queue at the bottom runs them one at a time: ⏳ waiting, ▶ running, ✓ written,
+✗ failed — the log beside it says why. The bar under the queue counts models; the one below it shows the step of
+the model being written. Closing the window while an export runs asks first.
+
+### 6. Model viewer
+
+The viewer lists the models in your output folder, newest first. **Open file…**, drop a file on the window, or
+start `Polylode.exe <file>` (so it can be your "Open with" program) to look at any `.glb`, `.gltf`, `.fbx` or
+`.obj`. **Front**, **Back**, **Left**, **Right** and **Top** turn the model; **Wireframe**, the background button
+and **Light** change how it is drawn. The panel on the right lists what a glTF holds — meshes, vertices, bones,
+shape keys and each material's blending — and marks a file written by older rules, to be exported again.
+**Delete…** moves the model, its sibling files and its texture folder to the recycle bin.
+
+### Troubleshooting
+
+- **A file picker opens before a preview or export** — a tool the conversion cannot run without is not set; for
+  Wuthering Waves it is the AES keys file. Pick it once and it is remembered.
+- **"…has not been set" or "…is not there"** in the log — fix that path under **Settings**.
+- **"This file's size could not be measured"** — the viewer could not read the file's extent (an FBX 7.5 file, for
+  one); the view is at the origin, zoom with the wheel.
+- **No `.blend` written** — set the Blender executable under **Settings**.
+- **Something else failed** — the log at the bottom keeps every line the scan or export printed.
 
 ## Building from source
 
@@ -70,6 +136,10 @@ The build compiles with Nuitka (a C compiler is needed: Visual Studio's), copies
 (`--dotnet`, default `DOTNET_ROOT`) and the software OpenGL beside the program, and runs
 `Polylode.exe --selftest`, which loads every converter, the preview's QML and a real `.glb`; the build fails if any
 of it is missing.
+
+The Wuthering Waves reader the program carries is built by `tools/wuwa_cli/build.ps1` (see its `README.md`) and
+given to the build with `--wuwa-reader`; the workflows do both. `tools/screenshots.py` takes the screenshots above
+again, through the window's own scan and preview.
 
 ## CI/CD
 
@@ -90,6 +160,7 @@ polylode/wuthering_waves/  Wuthering Waves — role tables, display-model assemb
 polylode/interchange/    the glTF and FBX writers (no Blender)
 tools/                   Blender scripts, the icon, the FBX SDK check, the WuWa reader's source, AnimeStudio
 tests/                   pytest
+docs/                    screenshots, tool notes, architecture, open items, the README's translations
 build.py, main.py        the packaged program
 ```
 
@@ -97,4 +168,5 @@ build.py, main.py        the packaged program
 
 Polylode's code is under the GNU LGPL 2.1 (`LICENSE`); AnimeStudio, which it carries, is MIT
 (`tools/AnimeStudio/LICENSE`). Polylode contains no game content: it converts files from the installs on your own
-computer, and what it writes stays there. Use it only with games you own, and respect their terms.
+computer, and what it writes stays there. The screenshots show a model converted from the author's own install.
+Use it only with games you own, and respect their terms.

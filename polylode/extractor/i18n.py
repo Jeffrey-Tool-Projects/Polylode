@@ -71,6 +71,10 @@ def _one(text: str, depth: int) -> str | None:
     entry = catalog.get(text)
     if entry is not None:
         return entry.get(lang, text)
+    if "\n" in text:
+        # a pattern is one line's: across lines it took a block's first colon for its own (the viewer's
+        # "材質：" stayed untranslated), so several lines go line by line (tr)
+        return None
     for _literal, regex, source in patterns:
         match = regex.fullmatch(text)
         if match:

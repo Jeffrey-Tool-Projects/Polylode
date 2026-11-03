@@ -359,7 +359,9 @@ class SourcePage(QWidget):
                 row[0].setData(len(self.models) - 1, Qt.UserRole)
                 self.table_model.appendRow(row)
             else:
-                self.window_.log(f"[{self.source.label}] {line}")
+                kind, _, text = line.partition(" ")
+                shown = text if kind == "LOG" else f"錯誤：{text}" if kind == "ERROR" else line
+                self.window_.log(f"[{self.source.label}] {shown}")
 
     def _scan_done(self, code: int, status) -> None:
         if self.process is None:
@@ -490,6 +492,7 @@ class Window(QMainWindow):
         side = QFrame()
         side.setObjectName("side")
         side.setFixedWidth(180)
+        self.side = side
         side_layout = QVBoxLayout(side)
         name = QLabel(TITLE)
         name.setStyleSheet("font-weight: 600; padding: 12px;")
@@ -498,7 +501,6 @@ class Window(QMainWindow):
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
         self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.nav.setWordWrap(True)
         side_layout.addWidget(self.nav, 1)
 
         self.pages = QStackedWidget()
@@ -520,6 +522,7 @@ class Window(QMainWindow):
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         self.progress.setFormat("%v / %m")
+        self.progress.setTextVisible(False)          # nothing queued yet: no "0 / 1"
         self.log_view = QPlainTextEdit()
         self.log_view.setReadOnly(True)
         self.log_view.setMaximumBlockCount(5000)
@@ -553,6 +556,14 @@ class Window(QMainWindow):
         body_layout.addWidget(split, 1)
         self.setCentralWidget(body)
 
+    def fit_nav(self) -> None:
+        """The side bar as wide as its longest name in the language shown (a list item's padding from the style
+        sheet is not in Qt's word-wrap measure, so the names were cut instead of wrapped), 180 to 300 px."""
+        metrics = self.nav.fontMetrics()
+        widest = max((metrics.horizontalAdvance(self.nav.item(i).text()) for i in range(self.nav.count())), default=0)
+        # the item's padding (14 px a side) and margin (8 px a side), the bar's own margins, and a little room
+        self.side.setFixedWidth(max(180, min(300, widest + 2 * 14 + 2 * 8 + 24)))
+
     def log(self, line: str) -> None:
         self.log_view.appendPlainText(tr(line))
 
@@ -570,6 +581,7 @@ class Window(QMainWindow):
             self.queue_list.addItem(item)
             self.pending.append(item)
         self.queued += len(models)
+        self.progress.setTextVisible(True)
         self.progress.setRange(0, self.queued)
         self.progress.setValue(self.finished)
         self._next()
@@ -648,6 +660,8 @@ def retranslate() -> None:
         for combo in window.findChildren(QComboBox):
             if combo.count() and combo.itemData(0) == "":
                 combo.setItemText(0, tr("跟隨系統"))
+        if isinstance(window, Window):
+            window.fit_nav()
 
 
 def run(open_file: Path | None = None) -> int:

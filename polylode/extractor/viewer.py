@@ -134,6 +134,9 @@ class ViewerPage(QWidget):
         self.search.textChanged.connect(self._filter)
         files_layout.addWidget(self.search)
         self.files = QListWidget()
+        # a long relative path keeps its folder and its end in sight
+        self.files.setTextElideMode(Qt.ElideMiddle)
+        self.files.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.files.currentItemChanged.connect(lambda item, _before: item is not None and self.show_file(item.data(Qt.UserRole)))
         files_layout.addWidget(self.files, 1)
         buttons = QHBoxLayout()
@@ -192,6 +195,7 @@ class ViewerPage(QWidget):
         split.setStretchFactor(0, 2)
         split.setStretchFactor(1, 6)
         split.setStretchFactor(2, 2)
+        split.setSizes([260, 700, 260])
         layout.addWidget(split, 1)
 
     def _set(self, name: str, value) -> None:
