@@ -154,6 +154,13 @@ def test_a_glb_is_shown_without_its_hidden_parts_and_the_file_itself_is_left_alo
     assert preview.shown_copy(original) == shown                    # kept: not written again
     plain = glb({**document, "nodes": document["nodes"][:1]}, tmp_path / "plain.glb")
     assert preview.shown_copy(plain) == plain                       # nothing hidden: the file itself
+    # a path Qt's loader opens as nothing ("@": the preview cache's <model>@<hash> folders): shown from a copy
+    (tmp_path / "c_Lenna@64417b02").mkdir()
+    cached = glb({**document, "nodes": document["nodes"][:1]}, tmp_path / "c_Lenna@64417b02" / "lenna.glb")
+    copy = preview.shown_copy(cached)
+    assert copy != cached and "@" not in str(copy) and copy.read_bytes() == cached.read_bytes()
+    for mark in "#%":
+        assert not any(c in str(preview.shown_copy(cached)) for c in preview.UNSAFE) and mark in preview.UNSAFE
 
 
 def test_an_obj_box_is_its_vertices_and_a_file_not_measured_says_so(tmp_path):

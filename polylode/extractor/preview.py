@@ -158,37 +158,66 @@ def load_check(glb: Path, seconds: float = 30) -> dict:
 SHOWN_KEPT = 8
 
 
-def shown_copy(path: Path) -> Path:
-    """*path* as a viewer that honours ``KHR_node_visibility`` draws it: Qt's loader does not, and drew every
-    hidden part (GF2's lower LOD levels over the most detailed one, a converter's alternate parts).
+#: characters Qt's model loader cannot open a file through (its URL takes them as markers): measured — a path
+#: with "@", "#" or "%" loads nothing, with spaces, CJK, "&", "+" or ";" it draws
+UNSAFE = frozenset("@#%")
 
-    A ``.glb`` with hidden mesh nodes is shown from a copy whose hidden nodes carry no mesh: only the JSON
-    chunk changes, the binary one is copied as it is, and the file itself is left alone.  The copy is kept
-    by the file's path, size and time, so showing the file again does not write it again.  Any other file,
-    or a ``.glb`` without hidden meshes, is shown as it is.
+
+def shown_copy(path: Path) -> Path:
+    """*path* as Qt's loader can draw it, as a viewer honouring ``KHR_node_visibility`` would.
+
+    Two things make the loader draw a file wrongly: hidden mesh nodes, which it draws all the same (GF2's lower
+    LOD levels over the most detailed one), and a path holding ``UNSAFE`` characters, which it opens as nothing
+    (the preview cache's ``<model>@<hash>`` folders: a GF2 preview came out blank once its ``.glb`` had no hidden
+    part and was shown from where it was written).  Either way the file is shown from a copy beside the cache,
+    named by a hash: a ``.glb`` with hidden nodes taking them off (only its JSON chunk changes), any other ``.glb``
+    or ``.fbx`` as it is.  The copy is kept by the file's path, size and time, so showing it again does not write
+    it again; the file itself is left alone.  Anything else is shown as it is.
     """
     import hashlib
     import json
     import struct
     path = Path(path)
-    if path.suffix.lower() != ".glb":
-        return path
-    try:
-        data = path.read_bytes()
-        length = struct.unpack_from("<I", data, 12)[0]
-        document = json.loads(data[20:20 + length])
-    except (OSError, ValueError, struct.error):
-        return path
-    hidden = [node for node in document.get("nodes", []) if "mesh" in node
-              and not (node.get("extensions") or {}).get("KHR_node_visibility", {}).get("visible", True)]
-    if not hidden:
+    suffix = path.suffix.lower()
+    unsafe = any(c in str(path.resolve()) for c in UNSAFE)
+    document, hidden, data, length = None, [], b"", 0
+    if suffix == ".glb":
+        try:
+            data = path.read_bytes()
+            length = struct.unpack_from("<I", data, 12)[0]
+            document = json.loads(data[20:20 + length])
+        except (OSError, ValueError, struct.error):
+            return path
+        hidden = [node for node in document.get("nodes", []) if "mesh" in node
+                  and not (node.get("extensions") or {}).get("KHR_node_visibility", {}).get("visible", True)]
+    if not hidden and not (unsafe and suffix in (".glb", ".fbx")):
         return path
     stat = path.stat()
     key = hashlib.sha256(f"{path.resolve()}|{stat.st_size}|{stat.st_mtime_ns}".encode()).hexdigest()[:20]
     folder = derived_root() / "assets_cache" / "extractor" / "shown"
-    copy = folder / f"{key}.glb"
+    copy = folder / f"{key}{suffix}"
     if copy.is_file():
         return copy
+    folder.mkdir(parents=True, exist_ok=True)
+    partial = copy.with_suffix(".part")
+    if hidden:
+        for node in hidden:
+            del node["mesh"]
+            node.pop("skin", None)
+            node.pop("weights", None)
+        text = json.dumps(document, ensure_ascii=False).encode("utf-8")
+        text += b" " * (-len(text) % 4)
+        rest = data[20 + length:]
+        partial.write_bytes(struct.pack("<III", 0x46546C67, 2, 20 + len(text) + len(rest))
+                            + struct.pack("<II", len(text), 0x4E4F534A) + text + rest)
+    else:
+        import shutil
+        shutil.copyfile(path, partial)
+    partial.replace(copy)
+    kept = sorted([*folder.glob("*.glb"), *folder.glob("*.fbx")], key=lambda p: p.stat().st_mtime, reverse=True)
+    for old in kept[SHOWN_KEPT:]:
+        old.unlink(missing_ok=True)
+    return copy
     for node in hidden:
         del node["mesh"]
         node.pop("skin", None)
