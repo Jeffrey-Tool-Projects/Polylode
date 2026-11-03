@@ -159,7 +159,7 @@ def scene_document(ident, declared=None):
         # and of an outfit's swappable slots only the choice the game dresses it in (parts: its tables), of a
         # renderer's combat and dormitory versions only the combat one (presentation.combat_variants); the
         # others stay in the file, hidden — shown together they were three outfits worn through each other
-        combat = presentation.combat_variants(document_data['parts'])
+        combat = presentation.combat_variants(document_data['parts'], ident)
         picked = parts.choices(_install(), ident)
         spare = parts.hidden(document_data['parts'], picked) if picked else {}
         for part in document_data['parts']:

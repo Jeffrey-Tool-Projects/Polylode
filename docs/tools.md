@@ -19,8 +19,11 @@
     `PartsListData` 的選項（欄位 7 部位、欄位 2 是 P 幾；欄位 4 = 1 是不用解鎖、預設穿的那一個，其他帶欄位 5 的解鎖條件，111 個部位都是 index 1）；
     `PartsResourceData` 是選項的節點名（`P1_hip2` 對到 `…_P1_hip2_trans_lod0`）。預設以外的選項的節點藏起來；記在文件的 `parts_choice`。
     少數選項（欄位 8／9，例：庫蕾 SSR0104）的資源不在 `PartsResourceData`，不是換節點，這裡不動它們。
-  - 戰鬥版本：同一個 renderer 有 `_Fight` 的時候，其他字尾（`_Dorm`）藏起來（`presentation.combat_variants`）。`slg` prefab 是戰鬥模型；
+  - 宿舍版本：不是宿舍模型的模型，`_Dorm` 字尾（不分大小寫）的部件藏起來（`presentation.combat_variants`）。`slg` prefab 是戰鬥模型；
     依據是遊戲程式的字串常值：戰鬥合併旁的 `(\w*_lod[0-1](?:_Fight)?)`、可替換部件程式（`ReplaceableModelRes`）裡的 `Fight`，全程式沒有 `_Dorm`。
+    戰鬥版和宿舍版不一定在同一個 renderer（春田 SSR0101 的戰鬥高跟鞋在 `cloth2_lod0_Fight`、宿舍涼鞋在 `body_lod0_Dorm`），戰鬥字尾也有
+    `_fight`（昭輝、Vepley、Cheeta）與 `_Flight`（Nagant SR0101）的拼法，所以只認宿舍字尾與模型名：63 個宿舍模型都叫 `…Dorm_…`，
+    其中唯一帶 `_Dorm` 部件的（Phaetusa）只有宿舍版。
     遊戲程式（HybridCLR 的 `Assembly-CSharp.dll.bytes`）的方法本體是加密的，只讀了沒加密的字串常值表 `#US`，沒有解密程式。
 - 鳴潮、GF2 全部可玩角色（§7.1455）：`wuthering_waves.scope.read_scope` 讀每個 `RoleType` 1、非試用的角色（網格在 `/Game/Aki/Character/Role/` 下）；GF2 的匯出在 `gf2_source.own_scope()` 裡跑：`gf2.gender.all_playable()`（角色表的每個身分都通過，選取記 `all_playable`，只有這個模式裡算數）＋工具自己的 GF2 倉庫（`ISLANDLIFE_GF2_DIR` → `assets_cache/extractor/gf2_store`）。遊戲自己的轉換仍是已核實女性。
 - 模型檢視器（§7.1455，`extractor/viewer.py`）：同一個 `preview.qml`（多了 `wireframe`、`backdrop`、`light` 與 `look(yaw, pitch)`），列出輸出資料夾的 `.glb`／`.gltf`／`.fbx`／`.obj`，可開啟或拖進檔案；`ModelExtractor.exe <檔案>` 直接開在這頁。glTF 的內容由 `model_info` 讀它自己的 JSON（頂點按 POSITION 陣列只算一次）。

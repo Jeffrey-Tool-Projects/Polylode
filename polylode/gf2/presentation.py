@@ -60,25 +60,34 @@ def display_lods(parts: list[dict]) -> dict:
     return {'hidden': hidden, 'selected': selected, 'policy': 'standard_highest_visible_lod'}
 
 
-def combat_variants(parts: list[dict]) -> dict[str, bool]:
-    """Each part hidden when it is a mode variant (``…_lod0_Dorm``) of a renderer that has a combat one
-    (``…_lod0_Fight``): Nikketa's SSR0102 carries a combat and a dormitory pair of shoes on one prefab.
+#: mode suffixes of renderers only the dormitory wears
+DORMITORY_MODES = frozenset({'dorm'})
+#: a dormitory model's name (``c_PhaetusaDorm_slg_skin``, ``c_VepleyDorm_skin``): the one look that wears them
+DORMITORY_MODEL = re.compile(r'Dorm(?:_|$)')
+
+
+def combat_variants(parts: list[dict], model: str = '') -> dict[str, bool]:
+    """Each part hidden when it is a dormitory version (``…_lod0_Dorm``) and *model* is not the dormitory model.
 
     The ``slg`` prefabs are the combat models, and the game's combat code picks ``(\\w*_lod[0-1](?:_Fight)?)``
     (the literal beside its ``root_merger``), and its swappable-parts code names ``Fight`` and no ``Dorm``.  Those
-    literals are what is read — the code itself is encrypted.  A renderer with no suffix is not a variant.
+    literals are what is read — the code itself is encrypted.  An outfit carries both versions, and they need
+    not share a renderer: Nikketa's SSR0102 has a combat and a dormitory pair of shoes on one, Springfield's
+    SSR0101 its combat heels on ``cloth2_lod0_Fight`` and its dormitory sandals on ``body_lod0_Dorm``; Zhaohui's,
+    Vepley's and Cheeta's spell the combat suffix ``_fight``, Nagant's SR0101 ``_Flight``.  Shown together they
+    were two outfits worn through each other.  So what is read is the dormitory suffix, without case, and the
+    model's own name: the 63 dormitory models are named ``…Dorm_…``, and the one among them with ``_Dorm`` parts
+    (Phaetusa's) wears nothing else.  A renderer with no suffix, or another one (``_General``, ``_Effect``), is
+    worn by both.
     """
-    groups: dict[str, list[tuple[str, str]]] = {}
+    if DORMITORY_MODEL.search(model):
+        return {part['name']: False for part in parts}
+    hidden = {}
     for part in parts:
-        match = re.fullmatch(r'(.*_lodm?\d+)_([A-Za-z]+)', part['name'])
-        if match:
-            groups.setdefault(match[1], []).append((match[2], part['name']))
-    hidden = {part['name']: False for part in parts}
-    for members in groups.values():
-        if any(mode == 'Fight' for mode, _name in members):
-            for mode, name in members:
-                hidden[name] = mode != 'Fight'
+        match = re.fullmatch(r'.*_lodm?\d+_([A-Za-z]+)', part['name'])
+        hidden[part['name']] = bool(match) and match[1].lower() in DORMITORY_MODES
     return hidden
+
 
 def surface(record: dict) -> dict:
     """Require source parameters for the verified base/detail coverage rules."""

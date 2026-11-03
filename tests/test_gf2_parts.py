@@ -64,7 +64,17 @@ def test_the_parts_worn_are_each_slots_free_choice_of_the_outfit_the_model_is(tm
     assert [n for n in names if hidden[n]] == ["c_X_slg_P2_body_lod0_Fight", "c_X_slg_P2_hip2_lod0"]
 
 
-def test_a_renderers_dormitory_version_is_hidden_beside_its_combat_one():
-    names = ["a_lod0", "a_lod0_Fight", "a_lod0_Dorm", "b_lod0_Dorm", "c_lod1_Fight", "c_lod1_Dorm"]
-    hidden = presentation.combat_variants([{"name": n} for n in names])
-    assert [n for n in names if hidden[n]] == ["a_lod0_Dorm", "c_lod1_Dorm"]   # b has no combat one: kept
+def test_an_outfits_dormitory_versions_are_hidden_and_the_dormitory_model_keeps_them():
+    def hidden(names, model="c_X_slg_skin_0123456789"):
+        flags = presentation.combat_variants([{"name": n} for n in names], model)
+        return [n for n in names if flags[n]]
+
+    assert hidden(["a_lod0", "a_lod0_Fight", "a_lod0_Dorm", "c_lod1_Fight", "c_lod1_Dorm", "e_lod0_General"])         == ["a_lod0_Dorm", "c_lod1_Dorm"]
+    # Springfield SSR0101: combat heels on one renderer, dormitory sandals on another — worn through each other
+    assert hidden(["s_cloth2_lod0", "s_cloth2_lod0_Fight", "s_body_lod0", "s_body_lod0_Dorm"]) == ["s_body_lod0_Dorm"]
+    # Zhaohui SSR0101 spells the combat suffix _fight, Nagant SR0101 _Flight
+    assert hidden(["z_cloth_lod0", "z_cloth_lod0_fight", "z_cloth_lod0_Dorm"]) == ["z_cloth_lod0_Dorm"]
+    assert hidden(["n_boby_lod0", "n_boby_lod0_Flight", "n_boby_lod0_Dorm"], "c_NagantSR0101_skin") == ["n_boby_lod0_Dorm"]
+    # the dormitory model wears them
+    assert hidden(["d_body_lod0", "d_body_lod0_Dorm"], "c_PhaetusaDorm_slg_skin_41237cd1b9") == []
+    assert hidden(["d_body_lod0", "d_body_lod0_Dorm"], "c_VepleyDorm_skin") == []
