@@ -362,7 +362,15 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, case: P
         if changed > SENSITIVE:
             raise BakeError(f"覆蓋率取決於網格沒有的輸入（頂點 shader 算出的自訂 UV；{changed:.0%} 的點會變）")
     fill = {u: 0.0 for u in unknown}
-    covered = _covered(lambda pick: coverage(shader, buffers, textures, _subset(points, pick), fill),
+    # a shader whose coverage the screen position does not change (no dither) needs one position, not ten:
+    # tried on a sample, each position on its own
+    screens = SCREEN if re.search(r"dcl_input_ps_siv .*, position", shader.asm) else SCREEN[:1]
+    if len(screens) > 1:
+        sample = _subset(points, np.unique(np.linspace(0, len(normal) - 1, min(PROBE, len(normal))).astype(np.int64)))
+        tried = [coverage(shader, buffers, textures, sample, fill, [screen]) for screen in screens]
+        if all(np.array_equal(t, tried[0]) for t in tried[1:]):
+            screens = screens[:1]
+    covered = _covered(lambda pick: coverage(shader, buffers, textures, _subset(points, pick), fill, screens),
                        rows, columns, which, len(joined["normal"]), size[0])
     maps, layer = _layers(rows, columns, which, covered, len(joined["normal"]), (size[1], size[0]))
     maps = [_fill(alpha) for alpha in maps]

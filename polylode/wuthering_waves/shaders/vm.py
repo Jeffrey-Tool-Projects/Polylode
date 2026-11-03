@@ -126,6 +126,8 @@ class Machine:
         self.buffers = {k: np.ascontiguousarray(v, dtype=np.float32).view(np.uint32) for k, v in buffers.items()}
         self.textures = textures
         self.registers: dict[int, np.ndarray] = {}
+        #: the components an elementwise instruction computes: its destination's mask (None: all four)
+        self.lanes: list[int] | None = None
         #: what the program writes to its outputs (o#), raw words per lane, as the registers
         self.outputs: dict[int, np.ndarray] = {}
         self.discarded = np.zeros(n, bool)
@@ -151,6 +153,10 @@ class Machine:
         else:
             raise ShaderError(f"a {operand.kind} operand read as a value")
         picks = list(operand.swizzle) + [operand.swizzle[-1]] * (4 - len(operand.swizzle))
+        if self.lanes is not None:
+            # an elementwise instruction: only the components its destination takes (DXBC lines the source's
+            # swizzle up with the destination's mask), one column each
+            picks = [picks[c] for c in self.lanes]
         return words[:, picks]
 
     def f(self, operand: Operand) -> np.ndarray:
@@ -185,13 +191,18 @@ class Machine:
             words = (np.asarray(value).astype(np.int64) & 0xFFFFFFFF).astype(np.uint32)
         store = self.registers if operand.kind == "r" else self.outputs
         target = store.setdefault(operand.index, np.zeros((self.n, 4), np.uint32))
-        words = np.broadcast_to(words, (self.n, 4))
         everyone = active.all()
-        for c in operand.mask:
+        if self.lanes is not None:                     # one column per component of the mask, in its order
+            words = np.broadcast_to(words, (self.n, len(self.lanes)))
+            columns = list(enumerate(self.lanes))
+        else:
+            words = np.broadcast_to(words, (self.n, 4))
+            columns = [(c, c) for c in operand.mask]
+        for j, c in columns:
             if everyone:
-                target[:, c] = words[:, c]
+                target[:, c] = words[:, j]
             else:
-                np.copyto(target[:, c], words[:, c], where=active)
+                np.copyto(target[:, c], words[:, j], where=active)
 
     # -- sampling -----------------------------------------------------------------------------------------
     def sample(self, register: int, uv: np.ndarray) -> np.ndarray:
@@ -283,6 +294,14 @@ class Machine:
         return self.discarded
 
     def _execute(self, ins: Instruction, active: np.ndarray) -> None:
+        op = ins.op
+        self.lanes = list(ins.operands[0].mask) if op in ELEMENTWISE and ins.operands[0].kind in ("r", "o") else None
+        try:
+            self._operate(ins, active)
+        finally:
+            self.lanes = None
+
+    def _operate(self, ins: Instruction, active: np.ndarray) -> None:
         op, a, sat = ins.op, ins.operands, ins.saturate
         f, i, u, w = self.f, self.i, self.u, self.write
         # Direct3D's min and max give the other operand when one is NaN (np.fmin/np.fmax), not NaN
@@ -367,6 +386,13 @@ class Machine:
             pass
         else:
             raise ShaderError(f"instruction {op!r} is not run here")
+
+
+#: instructions whose every destination component is the same operation on the same components of its sources
+ELEMENTWISE = frozenset({"mov", "add", "mul", "min", "max", "mad", "div", "rsq", "sqrt", "rcp", "exp", "log", "frc",
+                         "round_ni", "round_pi", "round_z", "round_ne", "ge", "lt", "eq", "ne", "ige", "ilt", "ieq",
+                         "ine", "uge", "ult", "and", "or", "xor", "not", "movc", "iadd", "imul", "ishl", "ishr",
+                         "ushr", "imax", "imin", "umax", "umin", "ineg", "itof", "utof", "ftoi", "ftou"})
 
 
 def _structure(program: list[Instruction]) -> dict[int, int]:

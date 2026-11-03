@@ -50,3 +50,45 @@ def test_the_main_shaders_emission_map_and_parallax_crystal_are_baked_as_its_emi
     assert np.allclose(light[3, 0], [2, 2, 2], atol=0.05)              # the map alone (no crystal below)
     assert np.allclose(light[3, 3], [0, 0, 0], atol=0.02)
     assert VB.npr_emission("x", dict(record, keywords=[]), tmp_path) == dict(record, keywords=[])
+
+
+def test_the_hair_shaders_emission_is_baked_but_a_parallax_term_only_where_it_was_read(tmp_path):
+    (tmp_path / "t").mkdir()
+    Image.fromarray(np.full((2, 2, 4), 255, np.uint8), "RGBA").save(tmp_path / "t/base.png")
+    Image.fromarray(np.full((2, 2, 4), 255, np.uint8), "RGBA").save(tmp_path / "t/e.png")
+    record = {"shader": "HGRP/CharacterNPR_Hair", "keywords": ["_EMISSION", "_PARALLAX_MAP"], "base": "_BaseMap",
+              "floats": {"_EmissionBrightness": 0.5}, "colors": {"_EmissionColor": [1, 1, 1, 1], "_ParallaxColor": [1, 0, 0, 1]},
+              "maps": {"_BaseMap": {"file": "t/base.png", "srgb": True}, "_EmissionMap": {"file": "t/e.png", "srgb": True},
+                       "_ParallaxTex": {"file": "t/e.png", "srgb": True}}}
+    out = VB.npr_emission("hair", record, tmp_path)
+    stored = np.asarray(Image.open(tmp_path / out["maps"]["_EmissionBaked"]["file"]), float) / 255
+    assert out["emission"]["strength"] == 1.0 and np.allclose(stored[0, 0], 0.735, atol=0.01)   # 0.5, sRGB-encoded
+
+
+def test_a_depth_only_shader_and_an_unbound_base_are_drawn_as_the_game_draws_them():
+    depth = {"m_ParsedForm": {"m_SubShaders": [{"m_Passes": [{"m_State": {"rtBlend": [{"colMask": {"val": 0.0}}]}}]}],
+                              "m_PropInfo": {"m_Props": [{"m_Name": "_ColorMask", "m_DefValue": [15.0, 0, 0, 0]}]}}}
+    assert VB._draws_no_colour(depth, {})
+    driven = json.loads(json.dumps(depth))
+    driven["m_ParsedForm"]["m_SubShaders"][0]["m_Passes"][0]["m_State"]["rtBlend"][0]["colMask"]["name"] = "_ColorMask"
+    assert not VB._draws_no_colour(driven, {})                        # the property's default: all colours
+    assert VB._draws_no_colour(driven, {"floats": {"_ColorMask": 0.0}})
+    npr = {"m_ParsedForm": {"m_SubShaders": [{"m_Passes": []}],
+                            "m_PropInfo": {"m_Props": [{"m_Name": "_BaseMap", "m_DefTexture": {"m_DefaultName": "white"}}]}}}
+    record = {"shader": "HGRP/CharacterNPR", "keywords": ["_ALPHABLEND_ON"], "maps": {"_MainTex": {}},
+              "colors": {"_BaseColor": [1.0, 1.0, 1.0, 0.0]}}
+    assert VB.unbound_base(record, npr)["constant_color"] == [1.0, 1.0, 1.0, 0.0]   # Purrche's: clear
+    opaque = VB.unbound_base(dict(record, keywords=[]), npr)
+    assert opaque["constant_color"] == [1.0, 1.0, 1.0, 1.0]                          # alpha only when it blends
+    assert VB.drawable({"tint": [1, 1, 1, 1], "blend": "multiply", "maps": {}})       # an overlay's tint layer
+
+
+def test_light_added_without_covering_covers_by_its_brightness_and_premultiplied_colour_is_divided_out():
+    colour = np.array([[0.25, 0.5, 0.0, 0.5],      # premultiplied: (0.5, 1, 0) at half coverage
+                       [0.6, 0.3, 0.0, 0.0],       # _BlendMode 1: light added, alpha 0
+                       [0.0, 0.0, 0.0, 0.0]])      # nothing
+    rgb, alpha = VB.straight(colour, "premultiplied")
+    assert np.allclose(alpha, [0.5, 0.6, 0.0]) and np.allclose(rgb[0], [0.5, 1.0, 0.0])
+    assert np.allclose(rgb[1] * alpha[1], [0.6, 0.3, 0.0]) and not rgb[2].any()   # the light it adds, kept
+    rgb, alpha = VB.straight(colour, "straight")
+    assert alpha[1] == 0.0 and not rgb[1].any()          # a straight blend at alpha 0 draws nothing, as the game

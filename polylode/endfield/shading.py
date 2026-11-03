@@ -336,6 +336,13 @@ def _stencil(family: int, shader: dict, blended: bool):
     return (int(floats.get("_PreZStencilRefOption", 36.0)), "always", 255, 255)
 
 
+def base_property(shader: dict) -> str | None:
+    """The property the piece's shader draws as its base colour, bound or not (``None`` for a shader with no
+    counterpart here)."""
+    family = SE.FAMILIES.get(shader["_shader"])
+    return next((prop for attr, prop, _repeat, _keyword in _MAPS.get(family, ()) if attr == "texture"), None)
+
+
 def base_map(shader: dict) -> str | None:
     """The property whose texture the piece's shader draws as its base colour.
 

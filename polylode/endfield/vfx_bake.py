@@ -70,9 +70,11 @@ FRAME_MAPS = {"_CameraDepthTexture": [0.0, 0.0, 0.0, 0.0], "_IntegratedLightScat
 #: the buffers a material's values fill: its own, and the loose uniforms of its shader
 MATERIAL_BUFFERS = ("UnityPerMaterial", "_Globals")
 #: Unity's BlendMode values the pass's blend factors are read as
-ONE, SRC_ALPHA, ONE_MINUS_SRC_ALPHA = 1, 5, 10
+ZERO, ONE, SRC_ALPHA, ONE_MINUS_SRC_ALPHA = 0, 1, 5, 10
 #: an input changing the colour by more than this when run at 0 and at 1 stops the bake
 SENSITIVE = 0.02
+#: how many texels the dependence on missing inputs and on the screen position is tried at
+PROBE = 4096
 
 
 class BakeError(ValueError):
@@ -80,9 +82,64 @@ class BakeError(ValueError):
 
 
 def drawable(record: dict) -> bool:
-    """A material the writers draw as it is: by a base map, a constant colour, or marked invisible."""
+    """A material the writers draw as it is: by a base map, a constant colour, a tinted layer (an overlay's
+    colour multiplied on, §7.1455), or marked invisible."""
     return bool(record.get("base") or record.get("constant_color") is not None
-                or record.get("native_surface_unmapped"))
+                or record.get("native_surface_unmapped")
+                or (record.get("tint") is not None and record.get("blend") in ("multiply", "alpha")))
+
+
+#: Unity's default textures (ShaderLab's ``white``, ``black``, ``gray``…): what a texture property declares it
+#: samples when the material binds nothing to it
+DEFAULT_TEXTURES = {"white": (1.0, 1.0, 1.0, 1.0), "black": (0.0, 0.0, 0.0, 1.0), "gray": (0.5, 0.5, 0.5, 1.0),
+                    "grey": (0.5, 0.5, 0.5, 1.0), "red": (1.0, 0.0, 0.0, 1.0)}
+
+
+def _state(node, record: dict, defaults: dict) -> float:
+    """A render-state value: the material property it names (the material's, else the shader's default), or the
+    value it holds."""
+    if not isinstance(node, dict):
+        return float(node)
+    name = node.get("name")
+    if name and name in (record.get("floats") or {}):
+        return float(record["floats"][name])
+    if name and name in defaults:
+        return float(defaults[name][0])
+    return float(node.get("val", 0.0))
+
+
+def _draws_no_colour(doc: dict, record: dict) -> bool:
+    """Every pass of the shader writes no colour for this material (a colour mask of 0): a depth-only effect.
+    The mask is often a property (``_ColorMask``), so it is the material's value, not the state's placeholder."""
+    passes = doc["m_ParsedForm"]["m_SubShaders"][0]["m_Passes"]
+    defaults = SC.property_defaults(doc)
+
+    def mask(chosen):
+        node = ((chosen["m_State"].get("rtBlend") or [{}])[0] or {}).get("colMask")
+        return 15.0 if node is None else _state(node, record, defaults)
+    return bool(passes) and all(mask(chosen) == 0.0 for chosen in passes)
+
+
+def unbound_base(record: dict, doc: dict) -> dict | None:
+    """A lit material that binds no texture to its base property, drawn as the game draws it: the texture the
+    shader declares for that property (Purrche's ``_BaseMap``: ``white``) times ``_BaseColor``, a constant —
+    whose alpha counts when the material blends (``_ALPHABLEND_ON``); or ``None`` when the shader is not one
+    whose base property is known here."""
+    from .shading import base_property
+    prop = base_property({"_shader": record.get("shader"), "maps": record.get("maps", {})})
+    if prop is None or prop in record.get("maps", {}):
+        return None
+    declared = next((p for p in doc["m_ParsedForm"]["m_PropInfo"]["m_Props"] if p["m_Name"] == prop), None)
+    default = DEFAULT_TEXTURES.get(((declared or {}).get("m_DefTexture") or {}).get("m_DefaultName", ""))
+    if default is None:
+        return None
+    tint = (record.get("colors") or {}).get("_BaseColor", (1.0, 1.0, 1.0, 1.0))
+    colour = [float(d) * float(t) for d, t in zip(default, tint)]
+    if "_ALPHABLEND_ON" not in (record.get("keywords") or []):
+        colour[3] = 1.0
+    return dict(record, constant_color=colour,
+                coverage=f"no {prop} bound: the shader's default ({declared['m_DefTexture']['m_DefaultName']}) "
+                         f"× _BaseColor")
 
 
 def _image(path: Path, srgb: bool) -> np.ndarray:
@@ -152,14 +209,10 @@ def _blend(variant: SC.Variant, record: dict, defaults: dict) -> str:
     blend = (variant.state.get("rtBlend") or [{}])[0] if isinstance(variant.state.get("rtBlend"), list) \
         else variant.state.get("rtBlend0") or {}
     def factor(key):
-        node = blend.get(key) or {}
-        name = node.get("name") if isinstance(node, dict) else None
-        if name and name in (record.get("floats") or {}):
-            return int(record["floats"][name])
-        if name and name in defaults:
-            return int(defaults[name][0])
-        return int(float(node.get("val", 0))) if isinstance(node, dict) else int(node)
+        return int(_state(blend.get(key) or {}, record, defaults))
     pair = (factor("srcBlend"), factor("destBlend"))
+    if pair == (ZERO, ONE):
+        raise BakeError("混合方式 (Zero, One) 不改變畫面，不畫顏色")
     if pair == (ONE, ONE_MINUS_SRC_ALPHA):
         return "premultiplied"
     if pair == (SRC_ALPHA, ONE_MINUS_SRC_ALPHA):
@@ -168,9 +221,24 @@ def _blend(variant: SC.Variant, record: dict, defaults: dict) -> str:
 
 
 def _texels(uv: np.ndarray, size: tuple[int, int]):
-    from ..wuthering_waves.shader_bake import _texels as texels
+    """Each texel centre inside a triangle (row, column, triangle, barycentrics); triangles too small to hold a
+    centre are sampled at their middle instead, so a tiny effect is baked rather than lost."""
+    from ..wuthering_waves.shader_bake import BakeError as NoTexel, _texels as texels
     image = np.stack([uv[..., 0], 1.0 - uv[..., 1]], axis=-1)       # image rows top first, as the bake map is saved
-    return texels(image, size)
+    w, h = size
+    try:
+        rows, columns, which, weights = texels(image, size)
+    except NoTexel:
+        rows = columns = which = np.zeros(0, np.int64)
+        weights = np.zeros((0, 3))
+    missing = np.setdiff1d(np.arange(len(uv)), which)
+    if len(missing):
+        middle = image[missing].mean(axis=1)
+        rows = np.concatenate([rows, np.mod(np.floor(middle[:, 1] * h).astype(np.int64), h)])
+        columns = np.concatenate([columns, np.mod(np.floor(middle[:, 0] * w).astype(np.int64), w)])
+        which = np.concatenate([which, missing])
+        weights = np.concatenate([weights, np.full((len(missing), 3), 1.0 / 3.0)])
+    return rows, columns, which, weights
 
 
 #: the mesh streams a vertex input semantic reads
@@ -229,6 +297,24 @@ def _vertex_run(variant: SC.Variant, record: dict, defaults: dict, corners: dict
     return out
 
 
+def straight(colour: np.ndarray, kind: str) -> tuple[np.ndarray, np.ndarray]:
+    """The pass's colour output (n × 4) as a straight colour and its coverage, as glTF blends them.
+
+    A premultiplied output is the colour times its coverage; where it covers nothing but still adds light
+    (_BlendMode 1 writes alpha 0: the colour is added onto what is behind) glTF has no additive blend, so such a
+    texel covers by its brightness and is that colour over it — what is behind dims by (1 − brightness) where
+    the game leaves it as it is."""
+    alpha = np.clip(colour[:, 3], 0.0, 1.0)
+    added = np.maximum(colour[:, :3], 0.0)
+    if kind == "premultiplied":
+        lone = (alpha < 1e-3) & (added.max(axis=1) > 1e-3)
+        alpha = np.where(lone, np.minimum(1.0, added.max(axis=1)), alpha)
+        rgb = added / np.maximum(alpha, 1e-6)[:, None]
+    else:
+        rgb = added
+    return np.where(alpha[:, None] > 1e-6, rgb, 0.0), alpha
+
+
 def bake_material(name: str, record: dict, document: dict, arrays: dict, folder: Path, doc: dict,
                   log=print) -> dict:
     """*record* baked: a map of its own and how the writers draw it, or :class:`BakeError`."""
@@ -248,7 +334,13 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, folder:
                 np.asarray(FRAME_MAPS[texture], np.float32).reshape(1, 1, 4)
             continue
         if entry is None:
-            raise BakeError(f"材質沒有 shader 讀的貼圖 {texture}")
+            # bound to nothing: the GPU samples the texture the shader declares for the property (white, black…)
+            declared = next((q for q in doc["m_ParsedForm"]["m_PropInfo"]["m_Props"] if q["m_Name"] == texture), None)
+            default = DEFAULT_TEXTURES.get(((declared or {}).get("m_DefTexture") or {}).get("m_DefaultName", ""))
+            if default is None:
+                raise BakeError(f"材質沒有 shader 讀的貼圖 {texture}")
+            textures[register] = textures_by_name[texture] = np.asarray(default, np.float32).reshape(1, 1, 4)
+            continue
         image = _image(folder / entry["file"], bool(entry.get("srgb")))
         textures[register] = textures_by_name[texture] = image
         sizes.append(image.shape[:2])
@@ -278,15 +370,20 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, folder:
     n = len(rows)
     pixel_inputs = _signature(pixel_asm, "input")
 
-    def run(fill: float) -> np.ndarray:
-        reached = _vertex_run(variant, record, defaults, corners, fill, textures_by_name)
-        interpolated = {key: (weights[:, :, None] * values.reshape(triangles, 3, 4)[which]).sum(axis=1)
-                        for key, values in reached.items()}
-        total = np.zeros((n, 4))
-        for x, y in SCREEN:
+    reached_by_fill: dict[float, dict] = {}
+
+    def run(fill: float, pick: np.ndarray, screens) -> np.ndarray:
+        """The colour at the texels *pick*, averaged over *screens*, with what the mesh lacks at *fill*."""
+        if fill not in reached_by_fill:
+            reached_by_fill[fill] = _vertex_run(variant, record, defaults, corners, fill, textures_by_name)
+        k = len(pick)
+        interpolated = {key: (weights[pick][:, :, None] * values.reshape(triangles, 3, 4)[which[pick]]).sum(axis=1)
+                        for key, values in reached_by_fill[fill].items()}
+        total = np.zeros((k, 4))
+        for x, y in screens:
             inputs = {}
             for register, semantics in pixel_inputs.items():
-                value = np.full((n, 4), fill)
+                value = np.full((k, 4), fill)
                 for semantic, index, mask in semantics:
                     if semantic == "SV_POSITION":
                         value[:, 0], value[:, 1], value[:, 2], value[:, 3] = x, y, 0.5, 1.0
@@ -296,23 +393,29 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, folder:
                         lanes = ["xyzw".index(c) for c in mask]
                         value[:, lanes] = data[:, lanes]
                 inputs[register] = value
-            machine = vm.Machine(program, n, inputs, buffers, textures)
+            machine = vm.Machine(program, k, inputs, buffers, textures)
             discarded = machine.run()
-            colour = machine.outputs.get(0, np.zeros((n, 4), np.uint32)).view(np.float32).astype(np.float64)
+            colour = machine.outputs.get(0, np.zeros((k, 4), np.uint32)).view(np.float32).astype(np.float64)
             colour[discarded] = 0.0
             total += np.nan_to_num(colour)
-        return total / len(SCREEN)
+        return total / len(screens)
 
-    colour = run(0.0)
-    if np.abs(run(1.0) - colour).max() > SENSITIVE:
+    # what the colour depends on, tried on a sample: an input the mesh lacks must not change it, and when the
+    # screen position does not either (no dither, no screen-space read) one position is the whole bake
+    sample = np.unique(np.linspace(0, n - 1, min(n, PROBE)).astype(np.int64))
+    tried = [run(0.0, sample, [screen]) for screen in SCREEN]
+    if np.abs(run(1.0, sample, SCREEN[:1]) - tried[0]).max() > SENSITIVE:
         raise BakeError("顏色取決於網格沒有的輸入")
-    alpha = np.clip(colour[:, 3], 0.0, 1.0)
-    rgb = colour[:, :3] / np.maximum(alpha, 1e-6)[:, None] if kind == "premultiplied" else colour[:, :3]
-    rgb = np.where(alpha[:, None] > 1e-6, np.maximum(rgb, 0.0), 0.0)
+    screens = SCREEN[:1] if all(np.array_equal(t, tried[0]) for t in tried[1:]) else SCREEN
+    colour = run(0.0, np.arange(n), screens)
+    rgb, alpha = straight(colour, kind)
     strength = max(1.0, float(np.percentile(rgb.max(axis=1)[alpha > 0.01], 99.5)) if (alpha > 0.01).any() else 1.0)
-    picture = np.zeros((grid[1], grid[0], 4))
+    picture = np.full((grid[1], grid[0], 4), np.nan)
     picture[rows, columns, :3] = np.clip(rgb / strength, 0.0, 1.0)
     picture[rows, columns, 3] = alpha
+    # texels no triangle covers take the nearest covered one's value: filtering reads across an island's edge
+    from ..wuthering_waves.shader_bake import _fill
+    picture = np.stack([_fill(picture[..., c]) for c in range(4)], axis=-1)
     encoded = picture.copy()
     linear = encoded[..., :3]
     encoded[..., :3] = np.where(linear <= 0.0031308, linear * 12.92, 1.055 * np.power(linear, 1 / 2.4) - 0.055)
@@ -331,7 +434,7 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, folder:
 
 
 #: raised when what a bake gives changes, so a bake kept from an earlier rule is not used again
-VERSION = 1
+VERSION = 3
 
 
 def _cache_dir() -> Path:
@@ -403,6 +506,13 @@ def complete(document_path: Path, shaders, log=print) -> list[str]:
             doc = SC.load(record.get("shader") or "")
             if doc is None:
                 raise BakeError(f"找不到 shader {record.get('shader')}")
+            if _draws_no_colour(doc, record):
+                raise BakeError(f"{record.get('shader')} 只寫深度，不畫顏色")
+            constant = unbound_base(record, doc)
+            if constant is not None:
+                document["materials"][name] = constant
+                log(f"{name}：沒有底色圖，照 shader 宣告的預設貼圖畫成定色")
+                continue
             key = _cache_key(name, record, document, arrays, doc)
             baked = _cached(key, name, folder)
             if baked is None:
@@ -410,7 +520,7 @@ def complete(document_path: Path, shaders, log=print) -> list[str]:
                 _keep(key, baked, folder)
             document["materials"][name] = baked
             log(f"{name}：以遊戲的 {record.get('shader')} 烘焙")
-        except (BakeError, SC.ShaderCodeError, vm.ShaderError, KeyError, OSError) as failure:
+        except (ValueError, vm.ShaderError, KeyError, OSError) as failure:    # BakeError, ShaderCodeError…
             document["materials"][name] = dict(record, native_surface_unmapped=True, unmapped_reason=str(failure))
             refused.append(f"{name}（{failure}）")
             log(f"{name}：沒辦法畫出，設為不可見（{failure}）")
@@ -418,9 +528,12 @@ def complete(document_path: Path, shaders, log=print) -> list[str]:
     return refused
 
 
-#: the main character shaders whose emission is read here (HGRP/CharacterNPR's ForwardLit, the _EMISSION and
-#: _PARALLAX_MAP variant): what they add onto their lit colour, whatever lights them
-NPR_SHADERS = ("HGRP/CharacterNPR",)
+#: the character shaders whose emission is read here — each ForwardLit's _EMISSION variant adds
+#: _EmissionMap.rgb (first UV set) × _EmissionColor × _EmissionBrightness onto its lit colour, whatever lights it
+NPR_SHADERS = ("HGRP/CharacterNPR", "HGRP/CharacterNPR_Hair", "HGRP/CharacterNPR_Skin", "HGRP/CharacterNPR_Eye",
+               "HGRP/CharacterNPR_LiquidAg")
+#: and the ones whose _PARALLAX_MAP term is read (the crystal: _ParallaxTex.r × _ParallaxColor × base alpha)
+PARALLAX_SHADERS = ("HGRP/CharacterNPR",)
 
 
 def _linear(values) -> np.ndarray:
@@ -442,7 +555,8 @@ def npr_emission(name: str, record: dict, folder: Path) -> dict:
     keywords = set(record.get("keywords") or [])
     floats, colours, maps = record.get("floats") or {}, record.get("colors") or {}, record["maps"]
     use_emission = "_EMISSION" in keywords and "_EmissionMap" in maps
-    use_parallax = "_PARALLAX_MAP" in keywords and "_ParallaxTex" in maps and floats.get("_UseParallax", 1.0) != 0.0
+    use_parallax = (record.get("shader") in PARALLAX_SHADERS and "_PARALLAX_MAP" in keywords
+                    and "_ParallaxTex" in maps and floats.get("_UseParallax", 1.0) != 0.0)
     if not (use_emission or use_parallax):
         return record
     base_entry = maps[record["base"]]

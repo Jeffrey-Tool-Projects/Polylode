@@ -82,14 +82,23 @@
    （`_DisableAnimateVert` 1：匯出的是靜止姿勢）、沒有霧（指數霧、大氣霧、體積霧的參數全 0；體積霧由 `_VolumetricFogParams0.z > 0` 開關）。
    霧的值用實驗確認：同一個 `_USE_FOG` 材質拿掉這個 keyword 再烘，結果逐像素相同。畫面貼圖給一個像素：`_CameraDepthTexture` 遠平面 0、
    `_IntegratedLightScattering` (0,0,0,1)。讀到 `FRAME` 以外、沒有值的變數就不烘。
-5. **混合**：照 pass 宣告的混合因子讀輸出：`One, OneMinusSrcAlpha` 是預乘、`SrcAlpha, OneMinusSrcAlpha` 是一般 alpha；加亮（`One, One`）在 glTF
-   沒有對應，不烘。寫法是 glTF 畫不打光表面的方式：底色係數黑、底色圖的 alpha 是覆蓋率、顏色當發光（超過 1 的部分縮進貼圖，倍數寫成
+5. **混合**：照 pass 宣告的混合因子讀輸出：`One, OneMinusSrcAlpha` 是預乘、`SrcAlpha, OneMinusSrcAlpha` 是一般 alpha；其他組合不烘。
+   預乘輸出裡 alpha 是 0 卻有顏色的像素（`_BlendMode` 1：只把光加到後面，21 個角色的 32 個特效裡有 16 個是這樣）在 glTF 沒有加亮混合可用，
+   改成「覆蓋率 ＝ 亮度、顏色 ＝ 加上去的光 ÷ 亮度」（`straight`）：加上去的光照樣在，但後面的東西會暗 (1 − 亮度)，遊戲不會。寫法是 glTF 畫不打光表面的方式：底色係數黑、底色圖的 alpha 是覆蓋率、顏色當發光（超過 1 的部分縮進貼圖，倍數寫成
    `KHR_materials_emissive_strength`／FBX 的 `EmissiveFactor`／Blender 的 Emission Strength）。
-6. **主體 shader 的發光**（`npr_emission`）：`HGRP/CharacterNPR` 的 ForwardLit 在打光後的顏色上加上 `_EmissionMap`.rgb × `_EmissionColor` ×
+6. **角色 shader 的發光**（`npr_emission`）：`HGRP/CharacterNPR`、`_Hair`、`_Skin`、`_Eye`、`_LiquidAg` 的 ForwardLit 在 `_EMISSION` 時都加上
+   同一項 `_EmissionMap`.rgb × `_EmissionColor` × `_EmissionBrightness`（逐支讀過）；視差水晶那一項只讀了主體 shader。主體 shader 的 ForwardLit 在打光後的顏色上加上 `_EmissionMap`.rgb × `_EmissionColor` ×
    `_EmissionBrightness`，以及（`_PARALLAX_MAP`）`_ParallaxTex`.r × `_ParallaxColor` × 底色 alpha × `_BaseColor`.a；視差圖照視線步進的位置取樣，
    正面看就是它自己的平鋪位置。Si 的角就是這樣：一層淡的發光圖，加上底色 alpha 標出的水晶。烘成發光圖寫出。
-7. **烘不了的材質不畫灰白**：標成 `native_surface_unmapped` 並寫下原因（`unmapped_reason`），三種格式都畫成透明，記錄列出原因。
-8. **快取**：結果依規則版本、shader、材質與網格存在倉庫的 `baked/`，同一次匯出的 `.blend` 與 glb／FBX、下一次匯出都重用。
+7. **不需要烘的情況**：疊加陰影層（`HGRP/CharacterNPR_OverlayShadow`）沒有貼圖時，寫出器用它的色調乘上去（§7.1455），算可畫；
+   每個 pass 的顏色遮罩都是 0（`Effect/VFXTransparentDepthOnly`：只寫深度；遮罩常是材質屬性 `_ColorMask`，要讀材質的值，render state 裡的 0 只是佔位）、或混合是 (Zero, One)（不改變畫面）就照遊戲不畫顏色、設為不可見；打光的 shader 沒有綁底色屬性時
+   （`shading.base_property`，例：Purrche 的 `_BaseMap`），遊戲取 shader 宣告的預設貼圖（`white`／`black`／`gray`…）乘 `_BaseColor`，
+   寫成定色，`_BaseColor` 的 alpha 只在 `_ALPHABLEND_ON` 時算（Purrche 那個是 0：透明）。
+8. **烘不了的材質不畫灰白**：標成 `native_surface_unmapped` 並寫下原因（`unmapped_reason`），三種格式都畫成透明，記錄列出原因。
+9. **快取與速度**：結果依規則版本、shader、材質與網格存在倉庫的 `baked/`，同一次匯出的 `.blend` 與 glb／FBX、下一次匯出都重用。
+   缺的輸入與螢幕位置的影響都先在 4096 個抽樣點上試（`PROBE`）；結果和螢幕位置無關就只跑一個位置。直譯器的逐分量指令只算目的遮罩的分量
+   （`vm.ELEMENTWISE`）。Si 的翅膀 21.7 秒 → 4.0 秒，結果逐位元相同；鳴潮的覆蓋率也照同樣的抽樣決定螢幕位置（有抖動的仍跑十個），
+   「心」重烘的兩張圖與舊結果逐位元相同。
 
 ## 鳴潮的裁切材質：執行遊戲自己的 shader 烘焙覆蓋率（`wuthering_waves/shader_bake.py`、`shaders/`）
 
