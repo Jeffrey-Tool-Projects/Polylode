@@ -23,8 +23,7 @@ image is converted to PNG) with its Unity scale and offset as
 ``KHR_texture_transform``; the material's other native maps and values are
 kept in ``extras`` by name, not reinterpreted.  Where a scene says how a
 material blends (Wuthering Waves: masked with a cutoff, a constant glass
-colour, an empty pass), that becomes ``alphaMode``.  A part hidden at rest is
-``KHR_node_visibility`` hidden and ``extras.hidden``.
+colour, an empty pass), that becomes ``alphaMode``.  A part hidden at rest is not written (``shown``).
 """
 from __future__ import annotations
 
@@ -224,9 +223,34 @@ def _material(name: str, record: dict, folder: Path, builder: _Builder, gltf: di
     return material
 
 
+def shown(document: dict, arrays) -> tuple[dict, dict]:
+    """*document* and *arrays* with only the parts shown at rest, numbered again, and the materials they use.
+
+    A part hidden at rest (a lower LOD level, an outfit's other version) is not written to a ``.glb``: glTF's
+    only way to hide one, ``KHR_node_visibility``, is ignored by Blender (5.2) and most viewers, which drew every
+    hidden part over the shown one — nodes in a second scene or in none are imported all the same.  The FBX and
+    the ``.blend`` keep them, hidden (Blender honours their hidden state)."""
+    parts = [(index, part) for index, part in enumerate(document["parts"]) if not part.get("hidden")]
+    if len(parts) == len(document["parts"]):
+        return document, arrays
+    out = {key: value for key, value in arrays.items() if not key.startswith("p") or "_" not in key
+           or not key.split("_", 1)[0][1:].isdigit()}
+    for new, (old, _part) in enumerate(parts):
+        prefix = f"p{old}_"
+        for key in arrays.keys():
+            if key.startswith(prefix):
+                out[f"p{new}_{key[len(prefix):]}"] = arrays[key]
+    used = {name for _index, part in parts for name in part["materials"]}
+    document = dict(document, parts=[part for _index, part in parts],
+                    materials={name: record for name, record in document["materials"].items() if name in used})
+    return document, out
+
+
 def write(document: dict, arrays, folder: Path, target: Path) -> dict:
-    """Write the scene (*document*, *arrays*; maps relative to *folder*) to *target*; what was left out."""
+    """Write the scene (*document*, *arrays*; maps relative to *folder*) to *target*; what was left out.
+    Only the parts shown at rest are written (``shown``)."""
     folder, target = Path(folder), Path(target)
+    document, arrays = shown(document, arrays)
     builder = _Builder()
     gltf = {"asset": {"version": "2.0", "generator": "Polylode interchange", "extras": {"rules": RULES}}, "scene": 0,
             "scenes": [{"name": document["name"], "nodes": [0]}], "nodes": [], "meshes": [], "skins": [],
@@ -336,10 +360,6 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
             mesh["extras"] = {"targetNames": list(part["shapes"])}
         gltf["meshes"].append(mesh)
         node = {"name": part["name"], "mesh": len(gltf["meshes"]) - 1, "skin": 0}
-        if part.get("hidden"):
-            node["extras"] = {"hidden": True}
-            node["extensions"] = {"KHR_node_visibility": {"visible": False}}
-            gltf["extensionsUsed"].add("KHR_node_visibility")
         gltf["nodes"].append(node)
         gltf["scenes"][0]["nodes"].append(len(gltf["nodes"]) - 1)
 
@@ -407,14 +427,31 @@ def write_checked(document_path: Path, target: Path, blender: Path | None = None
     Returns the write's report (``readback`` holds Blender's, or ``None`` when no Blender was given) and
     the problems the read-back found.
     """
-    import subprocess
     document_path, target = Path(document_path), Path(target)
     document = json.loads(document_path.read_text(encoding="utf-8"))
     arrays = np.load(document_path.parent / document["arrays"])
+    document, arrays = shown(document, dict(arrays))
     report = write(document, arrays, document_path.parent, target)
     report["readback"] = None
     if blender is None:
         return report, []
+    if len(document["parts"]) != len(json.loads(document_path.read_text(encoding="utf-8"))["parts"]):
+        # the read-back measures the file against the parts written: those, as a document of their own
+        checked = document_path.with_name(document_path.stem + ".shown.json")
+        np.savez(checked.with_suffix(".npz"), **arrays)
+        checked.write_text(json.dumps(dict(document, arrays=checked.with_suffix(".npz").name), ensure_ascii=False),
+                           encoding="utf-8")
+        try:
+            return _readback(checked, target, blender, report, document, arrays)
+        finally:
+            checked.unlink(missing_ok=True)
+            checked.with_suffix(".npz").unlink(missing_ok=True)
+    return _readback(document_path, target, blender, report, document, arrays)
+
+
+def _readback(document_path: Path, target: Path, blender: Path, report: dict, document: dict,
+              arrays) -> tuple[dict, list[str]]:
+    import subprocess
     measured = target.with_name(target.name + ".check.json")
     measured.unlink(missing_ok=True)
     done = subprocess.run([str(blender), "--background", "--factory-startup", "--python-exit-code", "1",

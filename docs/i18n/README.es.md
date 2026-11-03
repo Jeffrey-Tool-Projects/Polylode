@@ -9,7 +9,7 @@ Es un programa de escritorio para Windows con ventana, una vista previa que se g
 | Juego | Qué lee | Notas |
 |---|---|---|
 | Arknights: Endfield | Todos los prefabs de personajes jugables | Los mapas de recursos se construyen desde tu instalación en el primer escaneo (por lotes comprobados y reanudables) y de nuevo tras una actualización |
-| Girls' Frontline 2: Exilium | Todos los atuendos de personajes jugables | Solo raíces con su propia malla con skin y un esqueleto humano completo (sin mascotas, accesorios ni variantes vacías). Un atuendo con piezas intercambiables se muestra como el juego lo viste por defecto; las otras versiones van ocultas en el archivo |
+| Girls' Frontline 2: Exilium | Todos los atuendos de personajes jugables | Solo raíces con su propia malla con skin y un esqueleto humano completo (sin mascotas, accesorios ni variantes vacías). Un atuendo con piezas intercambiables se muestra como el juego lo viste por defecto; las otras versiones y los niveles de detalle menores van ocultos en el FBX y el .blend (el .glb solo lleva lo que se ve: Blender y la mayoría de visores ignoran la marca de oculto de glTF) |
 | Wuthering Waves | Todos los modelos de presentación de personajes jugables | Necesita tu archivo de claves AES; el lector de archivos (construido desde `tools/wuwa_cli`) viene incluido; cada sección de material (pelo, cara, torso…) es una pieza propia |
 | Conversiones existentes | Modelos terminados en carpetas `*_Converted` | Se copian tras comprobar el SHA-256 de cada archivo |
 

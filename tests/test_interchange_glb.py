@@ -64,7 +64,7 @@ def _scene(tmp_path):
     document = {"name": "Rig", "bones": [{"name": "root", "parent": -1}, {"name": "spine", "parent": 0}],
                 "humanoid": {"Hips": "root"}, "materials": materials, "arrays": "x.npz",
                 "parts": [{"name": "body", "materials": ["skin", "cloth"], "uvs": [0], "colors": False,
-                           "tangents": True, "shapes": ["smile"], "hidden": True}]}
+                           "tangents": True, "shapes": ["smile"], "hidden": False}]}
     return document, arrays
 
 
@@ -108,7 +108,7 @@ def test_the_file_is_the_scene_in_y_up_with_its_skin_shapes_and_base_map(tmp_pat
     assert skin["extras"]["maps"]["_Normal"]["file"] == "textures/base.png"   # kept by name, not reinterpreted
     assert "baseColorTexture" not in gltf["materials"][1]["pbrMetallicRoughness"]
     body = next(n for n in nodes if n.get("mesh") == 0)
-    assert body["skin"] == 0 and body["extensions"]["KHR_node_visibility"] == {"visible": False}
+    assert body["skin"] == 0 and "extensions" not in body
 
 
 def test_a_masked_material_without_a_cutoff_and_a_bone_before_its_parent_are_refused(tmp_path):
@@ -255,3 +255,18 @@ def test_a_baked_effect_is_its_coverage_with_no_colour_and_its_colour_given_off(
     assert cloth["emissiveFactor"] == [1, 1, 1]
     assert cloth["extensions"]["KHR_materials_emissive_strength"]["emissiveStrength"] == 2.5
     assert "KHR_materials_emissive_strength" in gltf["extensionsUsed"]
+
+
+def test_a_part_hidden_at_rest_is_left_out_of_the_glb_with_the_materials_only_it_used(tmp_path):
+    """Blender (5.2) ignores KHR_node_visibility: a hidden LOD level or outfit version was drawn over the shown one."""
+    document, arrays = _scene(tmp_path)
+    document["parts"].insert(0, dict(document["parts"][0], name="body_lod1", materials=["lod"], hidden=True))
+    document["materials"]["lod"] = {"maps": {}, "base": None}
+    arrays = {(f"p{int(k[1]) + 1}_{k.split('_', 1)[1]}" if k.startswith("p0_") else k): v for k, v in arrays.items()}
+    arrays.update({k.replace("p1_", "p0_", 1): v for k, v in arrays.items() if k.startswith("p1_")})
+    glb.write(document, arrays, tmp_path, tmp_path / "out.glb")
+    gltf, accessor, _view = _read(tmp_path / "out.glb")
+    assert [m["name"] for m in gltf["meshes"]] == ["body"] and "lod" not in [m["name"] for m in gltf["materials"]]
+    assert "KHR_node_visibility" not in gltf.get("extensionsUsed", [])
+    position = gltf["meshes"][0]["primitives"][0]["attributes"]["POSITION"]
+    assert len(accessor(position)) == 4                                # the shown part's own vertices

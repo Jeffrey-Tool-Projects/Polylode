@@ -9,7 +9,7 @@ fenêtre, un aperçu qu'on tourne à la souris et une visionneuse de modèles.
 | Jeu | Ce qu'il lit | Remarques |
 |---|---|---|
 | Arknights: Endfield | Tous les prefabs de personnages jouables | Les tables de ressources sont construites depuis votre installation à la première analyse (par lots vérifiés et reprenables), puis de nouveau après une mise à jour |
-| Girls' Frontline 2: Exilium | Toutes les tenues des personnages jouables | Seules les racines avec leur propre maillage skinné et un squelette humain complet sont listées (ni animaux, ni accessoires, ni variantes vides). Une tenue à pièces interchangeables est montrée telle que le jeu l'habille par défaut ; les autres versions sont dans le fichier, masquées |
+| Girls' Frontline 2: Exilium | Toutes les tenues des personnages jouables | Seules les racines avec leur propre maillage skinné et un squelette humain complet sont listées (ni animaux, ni accessoires, ni variantes vides). Une tenue à pièces interchangeables est montrée telle que le jeu l'habille par défaut ; les autres versions et les niveaux de détail inférieurs sont masqués dans le FBX et le .blend (le .glb ne contient que ce qui est montré : Blender et la plupart des visionneuses ignorent le marquage masqué de glTF) |
 | Wuthering Waves | Tous les modèles d'affichage des personnages jouables | Nécessite votre fichier de clés AES ; le lecteur de fichiers (construit depuis `tools/wuwa_cli`) est fourni ; chaque section de matériau (cheveux, visage, buste…) est une pièce à part |
 | Conversions existantes | Les modèles finis des dossiers `*_Converted` | Copiés après vérification du SHA-256 de chaque fichier |
 
