@@ -174,6 +174,7 @@ def test_a_preview_or_export_asks_for_each_required_tool_it_lacks_once(tmp_path,
     monkeypatch.setattr(bundled, "dotnet", lambda: tmp_path)          # .NET is there: not what this asks about
     from polylode.extractor import wuwa_source
     monkeypatch.setattr(wuwa_source, "find_keys", lambda settings: None)   # no keys file on this computer
+    monkeypatch.setattr(wuwa_source, "find_reader", lambda: None)   # nor a reader built here (a release builds one)
     S.save(S.Settings())
     qt = QApplication.instance() or QApplication([])
     window = A.Window()

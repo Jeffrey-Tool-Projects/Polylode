@@ -33,7 +33,12 @@ jobs:
           dotnet-version: "10.0.x"
       - name: Install
         run: python -m pip install -r requirements-dev.txt
-      # the Wuthering Waves reader, built here from CUE4Parse at the commit tools/wuwa_cli/README.md names
+      - name: Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest tests -q
+      # the Wuthering Waves reader, built here from CUE4Parse at the commit tools/wuwa_cli/README.md names; after the
+      # tests, so they run on the tree CI tests (a checkout with a built reader takes it for an empty field)
       - uses: actions/checkout@v4
         with:
           repository: FabianFG/CUE4Parse
@@ -42,10 +47,6 @@ jobs:
           submodules: recursive
       - name: Build the Wuthering Waves reader
         run: tools/wuwa_cli/build.ps1 -CUE4Parse tools/wuwa_cli/CUE4Parse -Output tools/WuwaReader
-      - name: Tests
-        env:
-          QT_QPA_PLATFORM: offscreen
-        run: python -m pytest tests -q
       # Nuitka's compiled C objects: a later build only compiles what changed
       - uses: actions/cache@v4
         with:
