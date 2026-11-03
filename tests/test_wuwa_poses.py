@@ -72,3 +72,36 @@ def test_an_acl_buffer_is_decoded_onto_the_bones_its_tracks_drive(tmp_path):
     assert back["frames"] == 3 and back["rate"] == 30.0 and back["keyed"] == [True, False, True]
     assert np.allclose(frames[:, 2, 4], [10, 11, 12]) and np.allclose(frames[:, 0, 4], 20)
     assert np.allclose(frames[:, 1, 4:7], [4, 5, 6])                           # Hips: no track, its ref pose
+
+
+def test_old_reader_reports_that_poses_cannot_be_exported(tmp_path, monkeypatch):
+    import pytest
+    from polylode.extractor import wuwa_source as source
+    from polylode.extractor.sources import ExtractorError
+
+    package = "Client/Content/Aki/Character/Role/FemaleXL/Xin/R2T1XinMd10011/Model/R2T1XinMd10011.uasset"
+    index = tmp_path / "index.txt"
+    index.write_text(W.ui_folder(package) + "Ui_Loop.uasset\n", encoding="utf-8")
+    monkeypatch.setattr(source, "archive_index", lambda settings, log: index)
+
+    def old_reader(*args):
+        raise ExtractorError("Unknown mode")
+
+    monkeypatch.setattr(source, "_reader", old_reader)
+    with pytest.raises(ExtractorError, match="reader|\u8b80\u53d6\u5668"):
+        source._poses_of(None, package, tmp_path, tmp_path / "poses", lambda message: None)
+
+
+def test_missing_acl_decoder_reports_that_poses_cannot_be_exported(tmp_path, monkeypatch):
+    import pytest
+    from polylode.extractor import wuwa_source as source
+    from polylode.extractor.sources import ExtractorError
+
+    package = "Client/Content/Aki/Character/Role/FemaleXL/Xin/R2T1XinMd10011/Model/R2T1XinMd10011.uasset"
+    index = tmp_path / "index.txt"
+    index.write_text(W.ui_folder(package) + "Ui_Loop.uasset\n", encoding="utf-8")
+    monkeypatch.setattr(source, "archive_index", lambda settings, log: index)
+    monkeypatch.setattr(source, "_reader", lambda settings, mode, folder, listing, log: (folder / "0.acl").touch())
+    monkeypatch.setattr(source, "require", lambda *args: (_ for _ in ()).throw(ExtractorError("missing")))
+    with pytest.raises(ExtractorError, match="ACL.*AnimeStudio"):
+        source._poses_of(None, package, tmp_path, tmp_path / "poses", lambda message: None)

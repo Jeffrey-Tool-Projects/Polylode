@@ -1817,11 +1817,11 @@
   "ja": "{0} 個の bundle のモーションに名前の索引を作成中（初回は数分）",
   "ko": "{0}개 bundle의 동작 이름 색인 만드는 중(처음에는 몇 분)"
  },
- "讀取器沒有解碼動作的功能（舊版），這次不寫姿勢": {
-  "en": "The reader cannot decode animations (an older build); no poses this time",
-  "zh-CN": "读取器没有解码动作的功能（旧版），这次不写姿势",
-  "ja": "リーダーがモーションをデコードできません（旧版）。今回はポーズを書き込みません",
-  "ko": "리더가 동작을 디코딩하지 못합니다(구버전). 이번에는 포즈를 쓰지 않습니다"
+ "讀取器版本太舊，無法解碼動作。請更新或選擇新版讀取器；若只要靜態模型，請關閉姿勢。": {
+  "en": "The reader is too old to decode animations. Update or select a newer reader; turn off poses if you only want a still model.",
+  "zh-CN": "读取器版本太旧，无法解码动作。请更新或选择新版读取器；如果只需要静态模型，请关闭姿势。",
+  "ja": "リーダーが古いためモーションをデコードできません。更新するか新しいリーダーを選んでください。静止モデルのみ必要な場合はポーズをオフにしてください。",
+  "ko": "리더가 오래되어 동작을 디코딩할 수 없습니다. 리더를 업데이트하거나 최신 리더를 선택하세요. 정적 모델만 필요하면 포즈를 끄세요."
  },
  "角色有姿勢時一起寫進 .glb（終末地、少女前線 2、鳴潮；分享的網頁可以切換）": {
   "en": "Write a character's poses into the .glb when it has them (Endfield, Girls' Frontline 2, Wuthering Waves; the shared page switches between them)",
@@ -1829,11 +1829,11 @@
   "ja": "キャラクターにポーズがあれば .glb に書き込む（終末地・ドールズフロントライン2・鳴潮。共有ページで切り替え可能）",
   "ko": "캐릭터에 포즈가 있으면 .glb에 함께 쓰기(종말지, 소녀전선 2, 명조; 공유 페이지에서 전환 가능)"
  },
- "沒有解碼動作用的 ACL 程式庫（{0}），這次不寫姿勢": {
-  "en": "No ACL library to decode the animations ({0}); no poses this time",
-  "zh-CN": "没有解码动作用的 ACL 程序库（{0}），这次不写姿势",
-  "ja": "モーションをデコードする ACL ライブラリがありません（{0}）。今回はポーズを書き込みません",
-  "ko": "동작을 디코딩할 ACL 라이브러리가 없습니다({0}). 이번에는 포즈를 쓰지 않습니다"
+ "找不到動作解碼需要的 ACL 程式庫（{0}）。請設定含解碼器的 AnimeStudio；若只要靜態模型，請關閉姿勢。": {
+  "en": "The ACL library needed to decode animations was not found ({0}). Configure AnimeStudio with the decoder; turn off poses if you only want a still model.",
+  "zh-CN": "找不到解码动作所需的 ACL 程序库（{0}）。请设置含解码器的 AnimeStudio；如果只需要静态模型，请关闭姿势。",
+  "ja": "モーションのデコードに必要な ACL ライブラリが見つかりません（{0}）。デコーダーを含む AnimeStudio を設定してください。静止モデルのみ必要な場合はポーズをオフにしてください。",
+  "ko": "동작 디코딩에 필요한 ACL 라이브러리를 찾을 수 없습니다({0}). 디코더가 포함된 AnimeStudio를 설정하세요. 정적 모델만 필요하면 포즈를 끄세요."
  },
  "等 GitHub Pages 發佈這個網頁…": {
   "en": "Waiting for GitHub Pages to publish the page…",

@@ -305,8 +305,7 @@ class WuwaSource:
 
 
 def _poses_of(settings, package: str, case: Path, folder: Path, log: Log) -> int:
-    """The model's display poses (``wuthering_waves.poses``) decoded by the reader and added to *case*; a reader
-    without the ``anim`` mode (one built before it) leaves them out and says so, the export goes on."""
+    """Decode the model's display poses and add them to *case*."""
     from ..wuthering_waves import poses
     ui = poses.ui_folder(package)
     if not ui:
@@ -322,8 +321,7 @@ def _poses_of(settings, package: str, case: Path, folder: Path, log: Log) -> int
         _reader(settings, "anim", folder, str(folder / "list.txt"), log)
     except ExtractorError as failure:
         if "Unknown mode" in str(failure):
-            log("讀取器沒有解碼動作的功能（舊版），這次不寫姿勢")
-            return 0
+            raise ExtractorError("讀取器版本太舊，無法解碼動作。請更新或選擇新版讀取器；若只要靜態模型，請關閉姿勢。") from None
         raise
     decoder = None
     if any(folder.glob("*.acl")):
@@ -334,8 +332,7 @@ def _poses_of(settings, package: str, case: Path, folder: Path, log: Log) -> int
         try:
             decoder = acl.Decoder(require(settings, EXPORTER, bundled.animestudio()))
         except (acl.AclError, ExtractorError) as missing:
-            log(f"沒有解碼動作用的 ACL 程式庫（{missing}），這次不寫姿勢")
-            return 0
+            raise ExtractorError(f"找不到動作解碼需要的 ACL 程式庫（{missing}）。請設定含解碼器的 AnimeStudio；若只要靜態模型，請關閉姿勢。") from None
     records = [poses.read(folder, k, decoder) for k in range(len(listed)) if (folder / f"{k}.json").is_file()]
     return poses.add(case, records, package, log)
 
