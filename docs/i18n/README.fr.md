@@ -125,7 +125,7 @@ keys et le mélange de chaque matériau — et signale un fichier écrit selon d
 
 Discord ne peut pas afficher un modèle 3D : un `.glb` publié là n'est qu'un téléchargement. Polylode partage un modèle comme
 une page à part sur un site GitHub Pages de votre propre compte GitHub ; la page fait tourner le modèle dans n'importe quel
-navigateur, et son lien s'affiche dans Discord en carte avec l'image du modèle. Rien d'autre à installer : ni Git ni clone.
+navigateur, et son lien s'affiche dans Discord en carte avec l'image du modèle. Aucun clone ; seul un fichier de plus de 12 Mo demande Git installé, pour le pousser (l'API d'envoi de GitHub refuse les requêtes plus grandes).
 
 1. Ouvrez un `.glb` dans la visionneuse et appuyez sur **Share on GitHub Pages…**. Il indique l'adresse où le modèle sera
    public et demande avant de continuer.

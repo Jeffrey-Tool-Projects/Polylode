@@ -124,8 +124,8 @@ def _page(title: str, url: str) -> str:
 </style>
 </head>
 <body>
-<model-viewer src="model.glb" poster="card.png" alt="{title}" camera-controls auto-rotate auto-rotate-delay="0"
-              rotation-per-second="20deg" touch-action="pan-y" interaction-prompt="none"
+<model-viewer src="model.glb" poster="card.png" alt="{title}" camera-controls
+              touch-action="pan-y" interaction-prompt="none"
               environment-image="neutral" exposure="1" shadow-intensity="0.6" autoplay></model-viewer>
 <header><h1>{title}</h1><a href="../../">All models</a></header>
 <label class="poses" hidden>Pose <select id="pose"></select></label>
@@ -213,7 +213,7 @@ def _index(entries: list[dict], url: str, activity: str = "") -> str:
 </div>
 <section id="view" hidden>
   <div class="bar"><button id="back">← All models</button><label class="poses" hidden>Pose <select id="pose"></select></label></div>
-  <model-viewer camera-controls auto-rotate auto-rotate-delay="0" rotation-per-second="20deg" touch-action="none"
+  <model-viewer camera-controls touch-action="none"
                 interaction-prompt="none" environment-image="neutral" exposure="1" shadow-intensity="0.6"
                 autoplay></model-viewer>
 </section>

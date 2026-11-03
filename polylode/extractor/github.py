@@ -1,4 +1,4 @@
-"""Sharing through the user's own GitHub account, with no Git and no clone: sign in, a repository, Pages, uploads.
+"""Sharing through the user's own GitHub account, with no clone: sign in, a repository, Pages, uploads.
 
 The user signs in with GitHub's device flow: the program shows a short code, the user enters it at
 ``github.com/login/device`` in their browser and approves; the program never sees a password.  The app is
@@ -7,7 +7,10 @@ for ``public_repo`` only.  The token is kept on this computer alone, encrypted f
 never printed.
 
 With it the program makes a public repository in the user's account (:data:`REPOSITORY`) and commits the files
-:func:`share.write_model` writes, through the Git Data API (blobs, a tree, a commit, the branch moved).  Turning
+:func:`share.write_model` writes, through the Git Data API (blobs, a tree, a commit, the branch moved).  A file
+over :data:`BLOB_LIMIT` goes up with Git instead (:func:`push_with_git`): GitHub refuses a larger upload request, and
+refuses it as ``401 Bad credentials`` (measured 2026-11-04: a 16 MB file went up, 24 MB came back 401) — which is
+why a 401 is checked against ``/user`` before the sign-in is let go (:func:`_api`).  Turning
 Pages on through the API wants the ``repo`` scope, which also reaches every private repository; the program does not
 ask for it.  It looks whether the site already answers, tries the API once, and otherwise names the one click left:
 the repository's Settings → Pages.
@@ -16,6 +19,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import sys
 import tempfile
 import time
@@ -34,6 +38,10 @@ REPOSITORY = "polylode-models"
 API = "https://api.github.com"
 TOKEN_FILE = _platform_user_root() / "extractor" / "github_token.bin"
 ACCOUNT_FILE = _platform_user_root() / "extractor" / "github_account.json"
+#: the largest file sent through the blob API (see the module's note); a larger one is pushed with Git
+BLOB_LIMIT = 12 << 20
+#: GitHub's own limit on one file in a repository
+FILE_LIMIT = 100 << 20
 
 
 class GitHubError(ShareError):
@@ -72,7 +80,8 @@ def _api(method: str, path: str, token: str, body: dict | None = None, ok=(200, 
     status, payload = _request(method, API + path, token, body)
     if status not in ok:
         message = payload.get("message", "") if isinstance(payload, dict) else ""
-        if status == 401:
+        # GitHub also answers 401 to a request it finds too large: the sign-in is let go only when it is refused too
+        if status == 401 and _request("GET", API + "/user", token)[0] == 401:
             forget()
             raise GitHubError("GitHub 的授權已失效，下次分享時會重新登入")
         raise GitHubError(f"GitHub 回應 {status}：{method} {path} {message}".rstrip())
@@ -223,9 +232,58 @@ def read_list(token: str, login: str, name: str = REPOSITORY) -> list[dict]:
     return [e for e in entries if isinstance(e, dict) and e.get("name")] if isinstance(entries, list) else []
 
 
+def push_with_git(token: str, login: str, branch: str, files: dict[str, Path], message: str, log=print,
+                  name: str = REPOSITORY, remote: str = "") -> str:
+    """*files* committed on *branch* as one commit and pushed with Git; its id.
+
+    The branch is fetched without its files (``--depth 1 --filter=blob:none``: the models shared before are not
+    downloaded), the new files are added to its tree in a bare index and the commit pushed.  The token goes as a
+    header in Git's environment, never on a command line or in a remote address.  *remote* is the repository's
+    address (a test gives a local one)."""
+    import shutil
+    import subprocess
+    git = shutil.which("git")
+    if git is None:
+        raise GitHubError("要分享超過 12 MB 的檔案需要 Git，請安裝 Git 後再分享一次")
+    remote = remote or f"https://github.com/{login}/{name}.git"
+    environment = dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_CONFIG_COUNT="1",
+                       GIT_CONFIG_KEY_0="http.https://github.com/.extraheader",
+                       GIT_CONFIG_VALUE_0="AUTHORIZATION: basic "
+                       + base64.b64encode(f"x-access-token:{token}".encode()).decode("ascii"))
+
+    def run(*arguments: str, work: str) -> str:
+        done = subprocess.run([git, "-C", work, "-c", f"user.name={login}",
+                               "-c", f"user.email={login}@users.noreply.github.com", *arguments],
+                              env=environment, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if done.returncode:
+            raise GitHubError(f"git {arguments[0]} 失敗：{(done.stderr or done.stdout).strip()}")
+        return done.stdout.strip()
+
+    with tempfile.TemporaryDirectory() as work:
+        run("init", "-q", "--bare", ".", work=work)
+        log("取得倉庫目前的內容（不下載檔案）")
+        run("fetch", "-q", "--depth", "1", "--filter=blob:none", remote, branch, work=work)
+        run("read-tree", "FETCH_HEAD", work=work)
+        for path, local in files.items():
+            log(f"加入 {path}")
+            sha = run("hash-object", "-w", str(local), work=work)
+            run("update-index", "--add", "--cacheinfo", f"100644,{sha},{path}", work=work)
+        tree = run("write-tree", "--missing-ok", work=work)
+        made = run("commit-tree", tree, "-p", "FETCH_HEAD", "-m", message, work=work)
+        log("推送到 GitHub（Git）…")
+        run("push", "-q", remote, f"{made}:refs/heads/{branch}", work=work)
+    return made
+
+
 def commit(token: str, login: str, branch: str, files: dict[str, Path], message: str, log=print,
            name: str = REPOSITORY) -> str:
     """*files* (repository path → local file) committed on *branch* as one commit; its id."""
+    too_large = [path for path, local in files.items() if local.stat().st_size > FILE_LIMIT]
+    if too_large:
+        raise GitHubError(f"GitHub 不收超過 100 MB 的檔案：{', '.join(too_large)}")
+    if any(local.stat().st_size > BLOB_LIMIT for local in files.values()):
+        return push_with_git(token, login, branch, files, message, log, name)
     base = f"/repos/{login}/{name}"
     head = None
     for _try in range(10):                         # a repository just made may not show its branch yet

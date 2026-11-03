@@ -100,7 +100,7 @@ glTF（`.glb`）、FBX 与 Blender（`.blend`）。它是 Windows 桌面程序�
 ### 7. 分享到 GitHub Pages（给 Discord 用）
 
 Discord 不能显示 3D 模型，贴上去的 `.glb` 只是一个下载文件。Polylode 把模型分享成你自己 GitHub 账号里 GitHub Pages 网站上的一个网页：
-网页在任何浏览器里都能转动模型，网址贴到 Discord 会显示成带模型图片的卡片。不需要另外安装任何东西：不用 Git，也不用 clone。
+网页在任何浏览器里都能转动模型，网址贴到 Discord 会显示成带模型图片的卡片。不用 clone；只有超过 12 MB 的文件要装 Git 来推送（GitHub 的上传 API 不收更大的请求）。
 
 1. 在模型查看器打开一个 `.glb`，按 **分享到 GitHub Pages…**。它会先说模型会公开在哪个网址，问过你才继续。
 2. 第一次会在浏览器打开 GitHub 的登录页，并显示一组短代码（已复制）：输入代码并授权 Polylode。它只要求 `public_repo`

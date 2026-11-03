@@ -158,3 +158,64 @@ def test_a_raw_file_comes_back_as_its_bytes_and_an_api_answer_as_json(monkeypatc
     monkeypatch.setattr(github.urllib.request, "urlopen", lambda request, timeout: Answer(body))
     assert github._request("GET", "https://api.github.com/x", accept="application/vnd.github.raw+json") == (200, body)
     assert github._request("GET", "https://api.github.com/x") == (200, [{"name": "a"}])
+
+
+def test_a_401_for_a_large_upload_keeps_the_sign_in_and_a_refused_sign_in_lets_it_go(fake, monkeypatch):
+    # GitHub answers a too-large upload with 401 Bad credentials (measured): the token is let go only when /user
+    # refuses it as well — letting it go at the upload signed the user in again at every share, to fail again
+    github.save(TOKEN, "Someone")
+    answers = {"/git/blobs": (401, {"message": "Bad credentials"})}
+    real = fake.__call__
+
+    def stand_in(method, url, token=None, body=None, accept="application/vnd.github+json"):
+        path = url.removeprefix(github.API)
+        return answers.get(path) or real(method, url, token, body, accept)
+    monkeypatch.setattr(github, "_request", stand_in)
+    with pytest.raises(github.GitHubError, match="401") as refused:
+        github._api("POST", "/git/blobs", TOKEN, {})
+    assert "授權已失效" not in str(refused.value) and github.TOKEN_FILE.is_file()
+    answers["/user"] = (401, {"message": "Bad credentials"})
+    with pytest.raises(github.GitHubError, match="授權已失效"):
+        github._api("POST", "/git/blobs", TOKEN, {})
+    assert not github.TOKEN_FILE.is_file()
+
+
+def test_a_file_over_the_upload_limit_is_pushed_with_git(fake, tmp_path, monkeypatch):
+    import shutil
+    import subprocess
+    if shutil.which("git") is None:
+        pytest.skip("no git")
+
+    def git(*arguments, cwd=tmp_path):
+        return subprocess.run(["git", *arguments], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
+    origin = tmp_path / "origin.git"
+    git("init", "-q", "--bare", "-b", "main", str(origin))
+    git("-C", str(origin), "config", "uploadpack.allowFilter", "true")
+    seed = tmp_path / "seed"
+    git("init", "-q", "-b", "main", str(seed))
+    (seed / "models.json").write_text("[]", encoding="utf-8")
+    git("-C", str(seed), "add", ".")
+    git("-C", str(seed), "-c", "user.name=a", "-c", "user.email=a@b", "commit", "-q", "-m", "first")
+    git("-C", str(seed), "push", "-q", str(origin), "main")
+    big = tmp_path / "model.glb"
+    big.write_bytes(b"x" * (github.BLOB_LIMIT + 1))
+    small = tmp_path / "index.html"
+    small.write_text("<html>", encoding="utf-8")
+    real_push = github.push_with_git
+
+    def pushed(token, login, branch, files, message, log=print, name=github.REPOSITORY):
+        return real_push(token, login, branch, files, message, log, name, remote=origin.as_uri())   # a local origin
+    monkeypatch.setattr(github, "push_with_git", pushed)
+    made = github.commit(TOKEN, "Someone", "main", {"models/m/model.glb": big, "index.html": small}, "Share m",
+                         log=lambda _line: None)
+    assert git("-C", str(origin), "rev-parse", "main") == made
+    listed = git("-C", str(origin), "ls-tree", "-r", "--name-only", "main").splitlines()
+    assert sorted(listed) == ["index.html", "models.json", "models/m/model.glb"]          # the earlier file kept
+    assert git("-C", str(origin), "log", "-1", "--format=%an %s", "main") == "Someone Share m"
+    assert not any("/git/blobs" in url for _method, url in fake.calls)                  # nothing through the API
+    huge = tmp_path / "huge.glb"
+    with open(huge, "wb") as out:
+        out.truncate(github.FILE_LIMIT + 1)
+    with pytest.raises(github.GitHubError, match="100 MB"):
+        github.commit(TOKEN, "Someone", "main", {"huge.glb": huge}, "Share huge")
+

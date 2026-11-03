@@ -1888,5 +1888,53 @@
   "zh-CN": "可留空：填 Discord 应用程序的 Application ID，分享的网站首页就是它的 Activity",
   "ja": "空欄でも可：Discord アプリの Application ID。共有サイトのトップページがその Activity になります",
   "ko": "비워 둬도 됨: Discord 애플리케이션의 Application ID. 공유 사이트의 첫 페이지가 그 Activity가 됩니다"
+ },
+ "讀取檔案內容…": {
+  "en": "Reading the file…",
+  "zh-CN": "读取文件内容…",
+  "ja": "ファイルを読み込み中…",
+  "ko": "파일 읽는 중…"
+ },
+ "讀取輸出資料夾…": {
+  "en": "Reading the output folder…",
+  "zh-CN": "读取输出文件夹…",
+  "ja": "出力フォルダーを読み込み中…",
+  "ko": "출력 폴더 읽는 중…"
+ },
+ "讀不了輸出資料夾：{0}": {
+  "en": "Cannot read the output folder: {0}",
+  "zh-CN": "读不了输出文件夹：{0}",
+  "ja": "出力フォルダーを読めません：{0}",
+  "ko": "출력 폴더를 읽을 수 없음: {0}"
+ },
+ "要分享超過 12 MB 的檔案需要 Git，請安裝 Git 後再分享一次": {
+  "en": "Sharing a file over 12 MB needs Git: install Git and share again",
+  "zh-CN": "要分享超过 12 MB 的文件需要 Git，请安装 Git 后再分享一次",
+  "ja": "12 MB を超えるファイルの共有には Git が必要です。Git をインストールしてもう一度共有してください",
+  "ko": "12MB가 넘는 파일을 공유하려면 Git이 필요합니다. Git을 설치한 뒤 다시 공유하세요"
+ },
+ "GitHub 不收超過 100 MB 的檔案：{0}": {
+  "en": "GitHub takes no file over 100 MB: {0}",
+  "zh-CN": "GitHub 不收超过 100 MB 的文件：{0}",
+  "ja": "GitHub は 100 MB を超えるファイルを受け付けません：{0}",
+  "ko": "GitHub는 100MB가 넘는 파일을 받지 않습니다: {0}"
+ },
+ "取得倉庫目前的內容（不下載檔案）": {
+  "en": "Fetching the repository's current contents (without its files)",
+  "zh-CN": "获取仓库当前的内容（不下载文件）",
+  "ja": "リポジトリの現在の内容を取得中（ファイルはダウンロードしない）",
+  "ko": "저장소의 현재 내용 가져오는 중(파일은 내려받지 않음)"
+ },
+ "加入 {0}": {
+  "en": "Adding {0}",
+  "zh-CN": "加入 {0}",
+  "ja": "追加 {0}",
+  "ko": "추가 {0}"
+ },
+ "推送到 GitHub（Git）…": {
+  "en": "Pushing to GitHub (Git)…",
+  "zh-CN": "推送到 GitHub（Git）…",
+  "ja": "GitHub にプッシュ中（Git）…",
+  "ko": "GitHub에 푸시 중(Git)…"
  }
 }
