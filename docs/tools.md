@@ -65,7 +65,7 @@
 3. **shader 程式碼**：shader map 的雜湊對到 `ShaderArchive-Client_Chunk-PCD3D_SM5.ushaderbytecode`（`shaders/archive.py`；LZ4 壓縮）。
    選陰影深度 pass 裡最小、有 `discard` 的像素 shader。`shaders/dxbc.py` 讀 UE 的資源表（暫存器 → uniform buffer 資源；材質第 i 張
    2D 貼圖是資源 2i）、uniform buffer 名稱、輸入簽章，用 `d3dcompiler_47` 反組譯。
-4. **執行**：`shaders/vm.py` 直譯 `ps_5_0` 組合語言，所有點同時執行，暫存器存原始位元，分支與迴圈用遮罩。對底色圖每個被三角形
+4. **執行**：`shaders/vm.py` 直譯 `ps_5_0` 組合語言，所有點同時執行，暫存器存原始位元，分支與迴圈用遮罩。數值規則照 Direct3D：`min`／`max` 遇到 NaN 回傳另一個運算元、saturate 把 NaN 變 0、`ftoi`／`ftou` 把 NaN 變 0 並夾在型別範圍內（「心」下身的閃光高光在零光向量下算出 NaN，用 NumPy 的 `maximum` 會一路傳到不透明度、把整雙腿丟掉；遊戲的 GPU 在 `max(…, 0)` 就把它變成 0）。對底色圖每個被三角形
    蓋到的像素，代入內插的 UV（UE 的 v 朝下）、頂點色、切線框架，從正面看（相機相對位置 −N、每點各自的視圖矩陣），在 10 個螢幕位置
    （涵蓋 5 種抖動圖樣）上執行，沒被丟棄的比例就是 alpha。大多 0／1 的材質用 0.5 裁切，有部分覆蓋的用半透明。
    **UV 重疊**：一張圖每個像素只能放一個覆蓋率，但三角形可能疊在同樣的像素上、覆蓋率卻不同（頂點色或其他 UV 不同；

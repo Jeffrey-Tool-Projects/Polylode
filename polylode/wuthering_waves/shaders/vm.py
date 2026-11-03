@@ -281,7 +281,8 @@ class Machine:
     def _execute(self, ins: Instruction, active: np.ndarray) -> None:
         op, a, sat = ins.op, ins.operands, ins.saturate
         f, i, u, w = self.f, self.i, self.u, self.write
-        binary_float = {"add": np.add, "mul": np.multiply, "min": np.minimum, "max": np.maximum}
+        # Direct3D's min and max give the other operand when one is NaN (np.fmin/np.fmax), not NaN
+        binary_float = {"add": np.add, "mul": np.multiply, "min": np.fmin, "max": np.fmax}
         if op == "mov":
             w(a[0], self._raw(a[1]).copy(), active, kind="u") if not (sat or a[1].negate or a[1].absolute) \
                 else w(a[0], f(a[1]), active, sat)
@@ -347,8 +348,10 @@ class Machine:
         elif op == "utof":
             w(a[0], u(a[1]).astype(np.float32), active, sat)
         elif op in ("ftoi", "ftou"):
-            x = np.nan_to_num(f(a[1]))
-            w(a[0], np.trunc(np.clip(x, -2 ** 31, 2 ** 32 - 1)).astype(np.int64), active, kind="u")
+            # Direct3D: NaN → 0, and out-of-range values clamp to the type's range (ftou: negatives to 0)
+            low, high = (-2 ** 31, 2 ** 31 - 1) if op == "ftoi" else (0, 2 ** 32 - 1)
+            x = np.nan_to_num(f(a[1]).astype(np.float64))
+            w(a[0], np.trunc(np.clip(x, low, high)).astype(np.int64), active, kind="u")
         elif op.startswith("deriv_"):
             w(a[0], np.zeros((self.n, 4), np.float32), active, sat)
         elif op.startswith("sample"):

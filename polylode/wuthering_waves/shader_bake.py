@@ -473,7 +473,7 @@ def _fill(alpha: np.ndarray) -> np.ndarray:
 
 
 #: raised when what a bake gives changes, so a coverage kept from an earlier rule is not used again
-VERSION = 6
+VERSION = 7
 #: a texel's coverage counted as partial (drawn blended, not cut) between these
 PARTIAL = (0.02, 0.98)
 #: the share of a material's covered texels that must be partial for it to be drawn blended; below it the

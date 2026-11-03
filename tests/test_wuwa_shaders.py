@@ -142,3 +142,16 @@ def test_overlapping_samples_run_the_shader_only_where_they_can_differ():
     assert len(set(ran.tolist())) == len(ran)                          # no sample run twice
     assert (which[ran] >= 4).sum() == (which >= 4).sum()               # the differing island run in full
     assert (which[ran] // 2 == 1).sum() <= 2 * SB.PROBES               # the mirrored one only probed
+
+
+def test_min_and_max_give_the_other_operand_for_a_nan_as_direct3d_does():
+    v0 = np.array([[np.nan, 0.25, 0, 0]], np.float32)
+    machine, _ = run("max r0.x, v0.x, v0.y\nmin r0.y, v0.x, v0.y\nmax r0.z, v0.y, v0.x\n", {0: v0})
+    assert machine.registers[0].view(np.float32)[0, :3].tolist() == [0.25, 0.25, 0.25]
+
+
+def test_float_to_integer_clamps_to_its_type_as_direct3d_does():
+    v0 = np.array([[np.nan, -3.5, 3e9, 0]], np.float32)
+    machine, _ = run("ftoi r0.xyz, v0.xyzx\nftou r1.xyz, v0.xyzx\n", {0: v0})
+    assert machine.registers[0].view(np.int32)[0, :3].tolist() == [0, -3, 2 ** 31 - 1]
+    assert machine.registers[1][0, :3].tolist() == [0, 0, 3000000000]
