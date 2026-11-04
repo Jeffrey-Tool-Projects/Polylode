@@ -1,5 +1,5 @@
 """``python -m polylode.extractor`` (or the packaged program): the window, ``--run-job <job.json>``
-``--scan <source> <settings.json>``, ``--share <model.glb> <site folder>``, ``--share-github <model.glb>``,
+``--scan <source> <settings.json>``, ``--share <site folder> <activity> <model.glb>…``, ``--share-github <activity> <model.glb>…``,
 ``--tidy <site folder>``, ``--tidy-github``, ``--selftest <report.json>``, or a model file to open in the viewer."""
 from __future__ import annotations
 
@@ -32,10 +32,10 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) == 2 and argv[0] in ("--discover-wuwa-keys", "--download-wuwa-keys"):
         from .jobs import run_keys
         return run_keys(argv[1], public=argv[0] == "--download-wuwa-keys")
-    if len(argv) in (3, 4) and argv[0] == "--share":
+    if len(argv) >= 4 and argv[0] == "--share":              # --share <site> <activity> <model>…
         from .share import run_share
         return run_share(*argv[1:])
-    if len(argv) in (2, 3) and argv[0] == "--share-github":
+    if len(argv) >= 3 and argv[0] == "--share-github":       # --share-github <activity> <model>…
         from .github import run_share as run_github_share
         return run_github_share(*argv[1:])
     if len(argv) in (2, 3) and argv[0] == "--tidy":

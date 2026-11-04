@@ -193,6 +193,10 @@ class SettingsPage(QWidget):
         self.poses.setChecked(settings.poses)
         self.poses.toggled.connect(lambda _on: self._save())
         form.addRow(_label("姿勢"), self.poses)
+        self.expressions = QCheckBox("角色有表情時一起寫進 .glb（各自的表情動畫；預覽和分享的網頁跟姿勢分開選）")
+        self.expressions.setChecked(settings.expressions)
+        self.expressions.toggled.connect(lambda _on: self._save())
+        form.addRow(_label("表情"), self.expressions)
         self.export_shaders = QCheckBox("一併輸出 Blender 角色著色")
         self.export_shaders.setChecked(settings.export_shaders)
         self.export_shaders.toggled.connect(lambda _on: self._save())
@@ -249,6 +253,8 @@ class SettingsPage(QWidget):
             self.settings.formats = [key for key, box in self.format_boxes.items() if box.isChecked()]
         if hasattr(self, "poses"):
             self.settings.poses = self.poses.isChecked()
+        if hasattr(self, "expressions"):
+            self.settings.expressions = self.expressions.isChecked()
         if hasattr(self, "export_shaders"):
             self.settings.export_shaders = self.export_shaders.isChecked()
         if hasattr(self, "parallel"):

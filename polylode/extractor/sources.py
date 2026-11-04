@@ -95,8 +95,8 @@ class shared_writes:
     "同時匯出"), and a preview converts while an export does.  A lock file of this program's own, held by the
     operating system (released when the process ends, however it ends); a job that has to wait says so once."""
 
-    def __init__(self, name: str, log: Log | None = None):
-        self.name, self.log, self.handle = name, log, None
+    def __init__(self, name: str, log: Log | None = None, waiting: str = "等待另一個匯出或預覽寫完共用的轉換資料…"):
+        self.name, self.log, self.waiting, self.handle = name, log, waiting, None
 
     def __enter__(self) -> "shared_writes":
         import time
@@ -107,7 +107,7 @@ class shared_writes:
         told = False
         while not self._try():
             if not told and self.log is not None:
-                self.log("等待另一個匯出或預覽寫完共用的轉換資料…")
+                self.log(self.waiting)
                 told = True
             time.sleep(LOCK_EVERY)
         return self

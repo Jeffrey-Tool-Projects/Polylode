@@ -24,6 +24,9 @@ class Settings:
     #: a character's display poses written into its ``.glb`` as animations, where the game has them
     #: (``endfield/poses``); a preview carries them too, to switch between (``preview.preview_settings``)
     poses: bool = True
+    #: a character's expressions (its morph targets, Endfield's face controls and presets) written into its ``.glb`` as
+    #: held animations of their own, chosen apart from the poses (the preview and the shared page list them apart)
+    expressions: bool = True
     #: the character's shader data (``<model>.shaders``) and, with Blender set, a shaded ``.blend`` beside each export:
     #: only when ticked — written every time, a Blender build took minutes a model and the folder was not asked for
     export_shaders: bool = False
@@ -47,7 +50,7 @@ def load(path: Path | None = None) -> Settings:
     except (OSError, ValueError):
         return Settings()
     # every field read back, the language too: left out, the window's choice was forgotten at every start
-    known = {key: data[key] for key in ("installs", "tools", "output", "language", "formats", "poses", "export_shaders",
+    known = {key: data[key] for key in ("installs", "tools", "output", "language", "formats", "poses", "expressions", "export_shaders",
                                        "parallel_exports") if key in data}
     return Settings(**known)
 

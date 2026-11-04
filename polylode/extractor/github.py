@@ -42,6 +42,8 @@ TOKEN_FILE = _platform_user_root() / "extractor" / "github_token.bin"
 ACCOUNT_FILE = _platform_user_root() / "extractor" / "github_account.json"
 #: the largest file sent through the blob API (see the module's note); a larger one is pushed with Git
 BLOB_LIMIT = 12 << 20
+#: how many files a share uploads at once
+UPLOADS = 4
 #: GitHub's own limit on one file in a repository
 FILE_LIMIT = 100 << 20
 
@@ -329,37 +331,57 @@ def commit(token: str, login: str, branch: str, files: dict[str, Path], message:
     if head is None:
         raise GitHubError(f"{login}/{name} 沒有 {branch} 分支")
     tree = _api("GET", f"{base}/git/commits/{head}", token)["tree"]["sha"]
-    entries = []
-    for path, local in files.items():
+    def upload(item):
+        path, local = item
         log(f"上傳 {path}")
         blob = _api("POST", f"{base}/git/blobs", token,
                     {"content": base64.b64encode(local.read_bytes()).decode("ascii"), "encoding": "base64"})
-        entries.append({"path": path, "mode": "100644", "type": "blob", "sha": blob["sha"]})
+        return {"path": path, "mode": "100644", "type": "blob", "sha": blob["sha"]}
+    # the files go up side by side (UPLOADS at a time): a blob is named by its content, its order does not matter
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=UPLOADS) as pool:
+        entries = list(pool.map(upload, files.items()))
     new_tree = _api("POST", f"{base}/git/trees", token, {"base_tree": tree, "tree": entries})["sha"]
     made = _api("POST", f"{base}/git/commits", token, {"message": message, "tree": new_tree, "parents": [head]})["sha"]
     _api("PATCH", f"{base}/git/refs/heads/{branch}", token, {"sha": made})
     return made
 
 
-def publish(model: Path, announce, log=print, activity: str = "") -> tuple[str, str, bool]:
-    """*model* shared through the user's account: ``(page address, settings page left to open or "", served yet)``;
-    with Pages off there is nothing to wait for."""
-    token, login = signed_in(announce, log)
-    branch = repository(token, login, log)
-    url = pages_url(login)
-    with tempfile.TemporaryDirectory() as folder:
-        staging = Path(folder)
-        page_url, written = write_model(Path(model), staging, url, others=read_list(token, login, branch=branch),
-                                        activity=activity)
-        files = {}
-        for item in written:
-            for local in ([p for p in item.rglob("*") if p.is_file()] if item.is_dir() else [item]):
-                files[local.relative_to(staging).as_posix()] = local
-        log("推送到 GitHub…")
-        commit(token, login, branch, files, f"Share {slug(Path(model))}", log)
-        stamp = shared_stamp(written[0])
+def publish_many(models: list[Path], announce, log=print, activity: str = "") -> tuple[list[str], str, bool]:
+    """*models* shared through the user's account as one commit: ``(their pages' addresses, settings page left to
+    open or "", the last served yet)``; with Pages off there is nothing to wait for.  Another share waits for this one
+    (``sources.shared_writes``): two at once each read the list, and the later wrote the other's model off it."""
+    from .share import WAITING, commit_message
+    from .sources import shared_writes
+    with shared_writes("github-site", log, WAITING):
+        token, login = signed_in(announce, log)
+        branch = repository(token, login, log)
+        url = pages_url(login)
+        with tempfile.TemporaryDirectory() as folder:
+            staging = Path(folder)
+            listed = read_list(token, login, branch=branch)
+            addresses, written = [], []
+            for model in models:
+                page_url, files = write_model(Path(model), staging, url, others=listed, activity=activity, log=log)
+                addresses.append(page_url)
+                written += [f for f in files if f not in written]
+                listed = json.loads((staging / LIST).read_text(encoding="utf-8"))   # the next one adds to it
+            files = {}
+            for item in written:
+                for local in ([p for p in item.rglob("*") if p.is_file()] if item.is_dir() else [item]):
+                    files[local.relative_to(staging).as_posix()] = local
+            log("推送到 GitHub…")
+            commit(token, login, branch, files, commit_message(models), log)
+            stamp = shared_stamp(staging / MODELS / slug(Path(models[-1])))
     settings_page = pages(token, login, branch, log)
-    return page_url, settings_page, False if settings_page else wait_live(page_url, stamp, log)
+    return addresses, settings_page, False if settings_page else wait_live(addresses[-1], stamp, log)
+
+
+def publish(model: Path, announce, log=print, activity: str = "") -> tuple[str, str, bool]:
+    """*model* shared through the user's account (:func:`publish_many` of one): ``(page address, settings page left
+    to open or "", served yet)``."""
+    addresses, settings_page, live = publish_many([Path(model)], announce, log, activity)
+    return addresses[0], settings_page, live
 
 
 def tidy(announce, log=print, activity: str = "", name: str = REPOSITORY) -> tuple[str, list[str]]:
@@ -395,27 +417,13 @@ def run_tidy(activity: str = "") -> int:
                                         activity))
 
 
-def run_share(model: str, activity: str = "") -> int:
-    """``--share-github <model>``: the window's share job through the account; lines as :func:`share.run_share`
-    plus ``DEVICE <code> <address>`` while the user signs in and ``PAGES <settings page>`` when Pages is off."""
+def run_share(activity: str, *models: str) -> int:
+    """``--share-github <activity> <model>…``: the window's share job (``share.report_share``), with
+    ``DEVICE <code> <address>`` while the user signs in."""
     from PySide6.QtGui import QGuiApplication
     from .preview import use_opengl
+    from .share import report_share
     use_opengl()
     QGuiApplication.instance() or QGuiApplication([])
-
-    def log(line: str) -> None:
-        print(f"LOG {line}", flush=True)
-
-    try:
-        url, settings_page, live = publish(
-            Path(model), lambda code, address: print(f"DEVICE {code} {address}", flush=True), log, activity)
-    except Exception as failure:  # noqa: BLE001 - every failure is the window's to show, never a bare traceback
-        print(f"ERROR {failure if isinstance(failure, ShareError) else f'{type(failure).__name__}: {failure}'}",
-              flush=True)
-        return 1
-    if settings_page:
-        print(f"PAGES {settings_page}", flush=True)
-    print(f"LIVE {'yes' if live else 'no'}", flush=True)
-    print(f"URL {url}", flush=True)
-    return 0
-
+    return report_share(lambda log: publish_many(
+        [Path(m) for m in models], lambda code, address: print(f"DEVICE {code} {address}", flush=True), log, activity))

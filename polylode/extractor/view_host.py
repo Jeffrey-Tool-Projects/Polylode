@@ -9,14 +9,15 @@ this process holds nothing of the program's.
 
 Commands come one JSON object a line on stdin: ``{"op": "set", "name": …, "value": …}`` sets a property of the view's
 root (a value ``{"url": …}`` is a ``QUrl``, ``{"vec3": [x, y, z]}`` a ``QVector3D``), ``{"op": "look", "yaw": …,
-"pitch": …}`` turns it, ``{"op": "pose", "index": …}`` plays one of the model's poses, ``{"op": "show"}`` shows
+"pitch": …}`` turns it, ``{"op": "pose", "index": …}`` plays one of the model's poses, ``{"op": "expression", "index": …}`` holds
+one of its expressions over it (-1: none), ``{"op": "show"}`` shows
 the window once it is embedded.  The process ends when stdin does: the program closing (or dying) takes its view
 with it.
 
 A model's poses are its glTF animations, each of which the loader makes a ``Timeline`` with a looping
 ``TimelineAnimation`` (named after the animation), the first one enabled.  Once a model is loaded the view says
 which it has, ``POSES ["name", …]`` (the window lists them, :class:`preview.PreviewPanel`); a load with none says
-``POSES []``.
+``POSES []``; its expressions follow as ``EXPRESSIONS ["name", …]``.
 """
 from __future__ import annotations
 
@@ -92,8 +93,15 @@ def skeleton(timelines) -> list:
     return out
 
 
+#: the name an expression's animation is written under (``interchange.expressions``, ``endfield.poses``)
+EXPRESSION = "expression/"
+
+
 class Poses:
     """The poses of the model the view has loaded, as ``(name, timeline, animation)``, in the file's order.
+
+    Its expressions (animations named ``expression/…``) are listed apart (:attr:`expressions`) and played over the
+    pose: a pose turns the body, an expression the face, and one chosen from the poses' list stopped the pose.
 
     A pose may place the character elsewhere than its rest (GF2's ``CommandCenterBackGround`` seats Clukay SSR01 2.4 m
     to the side, 1.2 times her size), and the view framed the rest's box: she stood out of it.  So the view is framed
@@ -108,6 +116,15 @@ class Poses:
         self.rest = None
         self.frame = None
         self.morphs = None
+        #: where the poses and the expressions stand in :attr:`found`, and which of each plays (-1: none)
+        self.posed: list[int] = []
+        self.faces: list[int] = []
+        self.pose, self.face = -1, -1
+
+    @property
+    def expressions(self) -> list[str]:
+        """The loaded model's expressions, by name (``expression/`` left off)."""
+        return [self.found[k][0][len(EXPRESSION):] for k in self.faces]
 
     def clear(self) -> None:
         # the loader drops the timelines with the model: none is touched once another file is asked for
@@ -115,6 +132,7 @@ class Poses:
             self.morphs.close()
         self.found, self.nodes, self.rest, self.frame = [], [], None, None
         self.morphs = None
+        self.posed, self.faces, self.pose, self.face = [], [], -1, -1
 
     def read(self, root) -> list[str]:
         """The loaded model's poses found under *root*'s loader (``objectName`` "loader"), the first one playing
@@ -142,7 +160,10 @@ class Poses:
                 self.morphs = Playback(root, self.found)
             except (OSError, ValueError, KeyError, TypeError, IndexError):
                 pass
-        self.nodes = skeleton(timeline for _name, timeline, _animation in self.found)
+        self.posed = [k for k, (name, _t, _a) in enumerate(self.found) if not name.startswith(EXPRESSION)]
+        self.faces = [k for k, (name, _t, _a) in enumerate(self.found) if name.startswith(EXPRESSION)]
+        self.pose, self.face = -1, -1
+        self.nodes = skeleton(self.found[k][1] for k in self.posed)
         self.root = root
         if self.found:
             for _name, timeline, animation in self.found:      # every pose off: the joints where they rest
@@ -152,8 +173,9 @@ class Poses:
             if root.property("framed"):
                 low, high = root.property("frameLow"), root.property("frameHigh")
                 self.frame = ((low.x(), low.y(), low.z()), (high.x(), high.y(), high.z()))
-            self.play(0)
-        return [name for name, _timeline, _animation in self.found]
+            if self.posed:
+                self.play(0)
+        return [self.found[k][0] for k in self.posed]
 
     def _joints(self, size: float | None = None):
         positions = [node.property("scenePosition") for node in self.nodes]
@@ -177,27 +199,54 @@ class Poses:
         self.root.setProperty("frameHigh", QVector3D(*map(float, high)))
         self.root.refit()
 
-    def play(self, index: int) -> bool:
-        """Pose *index* looped from its start, every other one off; False when the model has no such pose.
-
-        A pose's file leaves out the bones it holds at rest (``glb._animations``): every other timeline is
-        disabled before this one is enabled, a disabled timeline putting what it moved back to where it was."""
-        if not 0 <= index < len(self.found):
-            return False
-        for k, (_name, timeline, animation) in enumerate(self.found):
-            if k != index:
-                animation.stop()
-                timeline.setProperty("enabled", False)
-        _name, timeline, animation = self.found[index]
-        if self.morphs is not None:
-            self.morphs.reset()
+    def _start(self, k: int) -> None:
+        _name, timeline, animation = self.found[k]
         timeline.setProperty("enabled", True)
         timeline.setProperty("currentFrame", timeline.property("startFrame"))
         animation.setProperty("loops", -1)
         animation.restart()
-        if self.morphs is not None:
-            self.morphs.apply(index)
+
+    def _stop(self, ks) -> None:
+        for k in ks:
+            _name, timeline, animation = self.found[k]
+            animation.stop()
+            timeline.setProperty("enabled", False)
+
+    def _weights(self) -> None:
+        """The morph weights of the pose, then of the expression over it (``morph_playback``)."""
+        if self.morphs is None:
+            return
+        self.morphs.reset()
+        for k in (self.pose, self.face):
+            if k >= 0:
+                self.morphs.apply(k)
+
+    def play(self, index: int) -> bool:
+        """Pose *index* (of the poses) looped from its start, every other pose off, the expression chosen kept over it;
+        False when the model has no such pose.
+
+        A pose's file leaves out the bones it holds at rest (``glb._animations``): every other pose's timeline is
+        disabled before this one is enabled, a disabled timeline putting what it moved back to where it was."""
+        if not 0 <= index < len(self.posed):
+            return False
+        self.pose = self.posed[index]
+        self._stop(k for k in self.posed if k != self.pose)
+        self._start(self.pose)
+        if self.face >= 0:
+            self._start(self.face)          # started after the pose, applied after it each frame: the face is its
+        self._weights()
         self._frame()
+        return True
+
+    def express(self, index: int) -> bool:
+        """Expression *index* (of the expressions) held over the pose, or none for -1; False when there is no such."""
+        if not -1 <= index < len(self.faces):
+            return False
+        self._stop(self.faces)
+        self.face = self.faces[index] if index >= 0 else -1
+        if self.face >= 0:
+            self._start(self.face)
+        self._weights()
         return True
 
 
@@ -223,6 +272,11 @@ def apply(root, view, text: str, poses: Poses | None = None) -> None:
     elif op == "pose" and poses is not None:
         try:
             poses.play(int(command.get("index", -1)))
+        except (TypeError, ValueError):
+            pass
+    elif op == "expression" and poses is not None:
+        try:
+            poses.express(int(command.get("index", -1)))
         except (TypeError, ValueError):
             pass
     elif op == "show":
@@ -258,6 +312,7 @@ def run() -> int:
 
     def loaded() -> None:
         print("POSES " + json.dumps(poses.read(root), ensure_ascii=False), flush=True)
+        print("EXPRESSIONS " + json.dumps(poses.expressions, ensure_ascii=False), flush=True)
 
     root.loaded.connect(loaded)
     inbox.line.connect(lambda text: apply(root, view, text, poses), Qt.QueuedConnection)

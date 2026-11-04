@@ -99,7 +99,12 @@ class _Builder:
         return len(self.accessors) - 1
 
     def sparse(self, count: int, indices: np.ndarray, values: np.ndarray) -> int:
-        """A VEC3 float accessor of *count* zeros but *values* at *indices* (a shape's deltas)."""
+        """A VEC3 float accessor of *count* zeros but *values* at *indices* (a shape's deltas).  A shape that moves
+        nothing here (the left eyebrow's shape on the right eyebrow) is still written with one zero value: an accessor
+        of neither a buffer view nor sparse values is all zeros by the glTF spec, but Qt's importer never finished
+        loading one (Endfield's pelica.glb, whose eyebrows each carry the other side's two shapes)."""
+        if not len(indices):
+            indices, values = np.zeros(1, dtype=np.uint32), np.zeros((1, 3), dtype=np.float32)
         order = np.argsort(indices, kind="stable")
         indices = np.ascontiguousarray(indices[order], dtype=np.uint32)
         values = np.ascontiguousarray(values[order], dtype=np.float32)
@@ -107,11 +112,9 @@ class _Builder:
         dense_max = np.maximum(values.max(axis=0), 0.0) if len(values) else np.zeros(3)
         record = {"componentType": FLOAT, "count": int(count), "type": "VEC3",
                   "min": dense_min.astype(float).tolist(), "max": dense_max.astype(float).tolist()}
-        if len(indices):
-            record["sparse"] = {"count": int(len(indices)),
-                                "indices": {"bufferView": self.view(indices.tobytes()),
-                                            "componentType": UNSIGNED_INT},
-                                "values": {"bufferView": self.view(values.tobytes())}}
+        record["sparse"] = {"count": int(len(indices)),
+                            "indices": {"bufferView": self.view(indices.tobytes()), "componentType": UNSIGNED_INT},
+                            "values": {"bufferView": self.view(values.tobytes())}}
         self.accessors.append(record)
         return len(self.accessors) - 1
 

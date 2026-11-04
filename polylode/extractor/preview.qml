@@ -11,8 +11,10 @@ Rectangle {
     property url source: ""
     property color backdrop: "#1e2129"
     property bool wireframe: false
-    // a multiplier on the three lights
+    // a multiplier on the lights
     property real light: 1.0
+    // the light from straight above (a scene light, and the same over the character material's own)
+    property real topLight: 0.6
     property string characterStyle: "studio"
     property var nativeMaterials: []
     property var styledModels: []
@@ -59,6 +61,7 @@ Rectangle {
                 var data = nativeMaterials[i][j];
                 var mat = characterMaterial.createObject(loader, {original: item.originals[j],
                     intensity: Qt.binding(function() { return root.light; }),
+                    topLight: Qt.binding(function() { return root.topLight; }),
                     shadowBrightness: data.shadowBrightness === undefined ? .5 : data.shadowBrightness,
                     shadowSaturation: data.shadowSaturation === undefined ? 1 : data.shadowSaturation,
                     smoothness: data.smoothness === undefined ? .5 : data.smoothness,
@@ -200,6 +203,8 @@ Rectangle {
         DirectionalLight { eulerRotation.x: -35; eulerRotation.y: 30; brightness: 1.1 * root.light }
         DirectionalLight { eulerRotation.x: -10; eulerRotation.y: 200; brightness: 0.45 * root.light }
         DirectionalLight { eulerRotation.x: 60; brightness: 0.25 * root.light }
+        // from above, straight down: heads, shoulders and the tops of things
+        DirectionalLight { eulerRotation.x: -90; brightness: root.topLight * root.light }
 
         RuntimeLoader {
             id: loader

@@ -195,3 +195,20 @@ def test_a_runtime_folder_without_dotnet_10_is_said_plainly_not_as_a_bare_winerr
     monkeypatch.setattr(extract, "derived_root", lambda: tmp_path, raising=False)
     with pytest.raises(extract.ReaderError, match="無法啟動讀取器"):
         extract.run(tmp_path / "missing.exe", runtime, tmp_path, tmp_path / "k.json", tmp_path / "out", "metadata")
+
+
+def test_expressions_are_written_only_when_asked_for(tmp_path):
+    """Expressions are a setting of their own, apart from the poses."""
+    def case(folder):
+        folder.mkdir()
+        document = {"arrays": "arrays.npz", "bones": [{"name": "Hips", "parent": -1}],
+                    "parts": [{"name": "Face", "shapes": ["smile"]}]}
+        (folder / "source_document.json").write_text(json.dumps(document), encoding="utf-8")
+        np.savez(folder / "arrays.npz", bone_rest=np.eye(4)[None], bone_native_rest=np.eye(4)[None])
+        return folder
+    asked, not_asked = case(tmp_path / "asked"), case(tmp_path / "not")
+    assert W.add(asked, [], "Model/X", log=lambda _l: None) == 1
+    assert W.add(not_asked, [], "Model/X", log=lambda _l: None, expressions=False) == 0
+    written = json.loads((asked / "source_document.json").read_text(encoding="utf-8"))["animations"]
+    assert [a["name"] for a in written] == ["expression/smile"]
+    assert "animations" not in json.loads((not_asked / "source_document.json").read_text(encoding="utf-8"))

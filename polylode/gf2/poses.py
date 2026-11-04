@@ -117,7 +117,7 @@ def bound(tree: dict, paths: dict) -> float:
 
 
 def add(document_path: Path, scene, nodes: dict, extra: dict, ident: str, install: Path, rows: list[dict],
-        log=print) -> int:
+        log=print, expressions: bool = True) -> int:
     """The outfit's display poses, held ones first, added to the document at *document_path* as animations
     (``endfield.poses.add`` writes the same fields); how many."""
     import numpy as np
@@ -162,7 +162,7 @@ def add(document_path: Path, scene, nodes: dict, extra: dict, ident: str, instal
             log(f"  {label}：{len(scalar['unbound'])} 個其他控制保留於表情資料檔，未套用到模型")
         document["animations"].append({"name": label, "clip": name, "rate": float(tree["m_SampleRate"]) or 30.0,
                                        "frames": len(frames), "source_curves": scalar})
-    count = add_shapes(document, arrays)
+    count = add_shapes(document, arrays) if expressions else 0
     if count:
         log(f"寫入表情控制 {count} 個")
     if not document["animations"]:

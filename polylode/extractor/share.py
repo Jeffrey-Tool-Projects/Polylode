@@ -128,26 +128,34 @@ def _page(title: str, url: str) -> str:
               touch-action="pan-y" interaction-prompt="none"
               environment-image="neutral" exposure="1" shadow-intensity="0.6" autoplay></model-viewer>
 <header><h1>{title}</h1><a href="../../">All models</a></header>
-<label class="poses" hidden>Pose <select id="pose"></select></label>
+<div class="poses" hidden><label id="poses">Pose <select id="pose"></select></label>
+  <label id="faces" hidden>Expression <select id="face"></select></label></div>
 <div class="hint">Drag to turn · right-drag to pan · scroll or pinch to zoom</div>
 <script type="module">
-  // the model's poses are its animations (the game's display poses, written by the exporter): one is played at a
-  // time, the first from the start; a model with none shows no picker
+  // the model's poses and expressions are its animations (written by the exporter, an expression's named
+  // "expression/…"), listed apart; the viewer plays one at a time: an expression shown, "—" or a pose goes back to the
+  // pose; the first pose from the start, a model with none shows no picker
   const viewer = document.querySelector("model-viewer");
   const box = document.querySelector(".poses");
   const pick = document.getElementById("pose");
+  const face = document.getElementById("face");
+  const EXPRESSION = "expression/";
+  const show = (name) => {{ viewer.animationName = name; viewer.currentTime = 0; viewer.play(); }};
   viewer.addEventListener("load", () => {{
     const names = viewer.availableAnimations;
+    const poses = names.filter((name) => !name.startsWith(EXPRESSION));
+    const looks = names.filter((name) => name.startsWith(EXPRESSION));
     if (!names.length) return;
-    for (const name of names) pick.add(new Option(name, name));
-    pick.value = viewer.animationName || names[0];
+    for (const name of poses) pick.add(new Option(name, name));
+    face.add(new Option("—", ""));
+    for (const name of looks) face.add(new Option(name.slice(EXPRESSION.length), name));
+    document.getElementById("poses").hidden = !poses.length;
+    document.getElementById("faces").hidden = !looks.length;
+    if (poses.length) {{ pick.value = poses[0]; show(poses[0]); }}
     box.hidden = false;
   }});
-  pick.addEventListener("change", () => {{
-    viewer.animationName = pick.value;
-    viewer.currentTime = 0;
-    viewer.play();
-  }});
+  pick.addEventListener("change", () => {{ face.value = ""; show(pick.value); }});
+  face.addEventListener("change", () => show(face.value || pick.value));
 </script>
 </body>
 </html>
@@ -215,7 +223,8 @@ def _index(entries: list[dict], url: str, activity: str = "") -> str:
 {cards}
 </div>
 <section id="view" hidden>
-  <div class="bar"><button id="back">← All models</button><label class="poses" hidden>Pose <select id="pose"></select></label></div>
+  <div class="bar"><button id="back">← All models</button><label class="poses" hidden>Pose <select id="pose"></select></label>
+    <label class="faces" hidden>Expression <select id="face"></select></label></div>
   <model-viewer camera-controls touch-action="none"
                 interaction-prompt="none" environment-image="neutral" exposure="1" shadow-intensity="0.6"
                 autoplay></model-viewer>
@@ -252,14 +261,24 @@ if (app && params.has("frame_id")) {
   const viewer = view.querySelector("model-viewer");
   const box = view.querySelector(".poses");
   const pick = document.getElementById("pose");
+  // poses and expressions (animations named "expression/…") listed apart; one plays at a time
+  const faces = view.querySelector(".faces");
+  const face = document.getElementById("face");
+  const show = (name) => { viewer.animationName = name; viewer.currentTime = 0; viewer.play(); };
   viewer.addEventListener("load", () => {
     pick.replaceChildren();
+    face.replaceChildren(new Option("—", ""));
     const names = viewer.availableAnimations;
-    box.hidden = !names.length;
-    for (const name of names) pick.add(new Option(name, name));
-    if (names.length) { viewer.animationName = names[0]; viewer.play(); }
+    const poses = names.filter((name) => !name.startsWith("expression/"));
+    const looks = names.filter((name) => name.startsWith("expression/"));
+    box.hidden = !poses.length;
+    faces.hidden = !looks.length;
+    for (const name of poses) pick.add(new Option(name, name));
+    for (const name of looks) face.add(new Option(name.slice("expression/".length), name));
+    if (poses.length) show(poses[0]);
   });
-  pick.addEventListener("change", () => { viewer.animationName = pick.value; viewer.currentTime = 0; viewer.play(); });
+  pick.addEventListener("change", () => { face.value = ""; show(pick.value); });
+  face.addEventListener("change", () => show(face.value || pick.value));
   for (const card of document.querySelectorAll("a.card")) {
     card.addEventListener("click", (event) => {
       event.preventDefault();
@@ -272,7 +291,7 @@ if (app && params.has("frame_id")) {
 """
 
 
-def posed(glb: Path, out: Path, animation: int = 0) -> Path:
+def posed(glb: Path, out: Path, animation: int = 0, still: bool = False) -> Path:
     """*glb* held in the first frame of its *animation*: each animated node's translation, rotation or scale set to
     that frame's value, the rest of the file as it is (only its JSON chunk changes).  A file with no animation is
     copied.  The card is drawn from it, so a character with poses is shown in one rather than at its bind pose:
@@ -297,6 +316,10 @@ def posed(glb: Path, out: Path, animation: int = 0) -> Path:
         first = list(struct.unpack_from(f"<{width}f", binary, start))
         node.pop("matrix", None)
         node[channel["target"]["path"]] = first
+    if still:
+        # the pose is in the nodes now: a card is drawn from them, and Qt's loader makes an object of every key of
+        # every animation (a character's 400 poses and expressions held its load for seconds)
+        document.pop("animations", None)
     text = json.dumps(document, ensure_ascii=False).encode("utf-8")
     text += b" " * (-len(text) % 4)
     rest = data[20 + length:]
@@ -305,8 +328,26 @@ def posed(glb: Path, out: Path, animation: int = 0) -> Path:
     return Path(out)
 
 
+def plain_card(out: Path, title: str) -> Path:
+    """A card of *title* alone, the site's colours, :data:`CARD` big: for a model whose own picture cannot be drawn."""
+    from PySide6.QtCore import QRect, Qt
+    from PySide6.QtGui import QColor, QFont, QImage, QPainter
+    image = QImage(*CARD, QImage.Format_RGB32)
+    image.fill(QColor("#1e2129"))
+    painter = QPainter(image)
+    painter.setPen(QColor("#e6e8ee"))
+    font = QFont()
+    font.setPixelSize(64)
+    painter.setFont(font)
+    painter.drawText(QRect(60, 0, CARD[0] - 120, CARD[1]), Qt.AlignCenter | Qt.TextWordWrap, title)
+    painter.end()
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    image.save(str(out))
+    return Path(out)
+
+
 def write_model(model: Path, site: Path, url: str, title: str = "",
-                others: list[dict] | None = None, activity: str = "") -> tuple[str, list[Path]]:
+                others: list[dict] | None = None, activity: str = "", log=print) -> tuple[str, list[Path]]:
     """*model* (a ``.glb``) written into *site* as its page, with the site's front page and list; the page's
     address and the files written.  *others* are the models already on the site (read from *site* when not
     given: a clone has them all, a share through the API only what it writes); *activity* a Discord application
@@ -324,9 +365,15 @@ def write_model(model: Path, site: Path, url: str, title: str = "",
     folder.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(shown, folder / "model.glb")
     import tempfile
-    with tempfile.TemporaryDirectory() as scratch:
-        preview.snapshot(posed(shown, Path(scratch) / "posed.glb"), folder / "card.png", *CARD)
     title = title or re.sub(r"_[0-9a-f]{10}$", "", model.stem)
+    with tempfile.TemporaryDirectory() as scratch:
+        try:
+            preview.snapshot(posed(shown, Path(scratch) / "posed.glb", still=True), folder / "card.png", *CARD,
+                             seconds=CARD_WAIT)
+        except ValueError as failure:
+            # one model the preview cannot draw (pelica.glb's load never ended) stopped a share of twenty
+            log(f"{model.name}：卡片圖畫不出來，改用只有名稱的卡片（{failure}）")
+            plain_card(folder / "card.png", title)
     page_url = f"{url}{MODELS}/{name}/"
     (folder / "index.html").write_text(_page(title, page_url), encoding="utf-8")
     entry = {"name": name, "title": title, "shared": datetime.now(timezone.utc).isoformat(timespec="seconds")}
@@ -444,38 +491,79 @@ def wait_live(page_url: str, stamp: str, log=print, wait: float = LIVE_WAIT, eve
         sleep(every)
 
 
-def publish(model: Path, site: Path, log=print, push: bool = True, activity: str = "") -> tuple[str, bool]:
-    """*model* shared on the Pages site cloned at *site*: written, committed (only its files) and pushed.
-    Its page's address, and whether the page was being served before the wait ran out (``wait_live``)."""
+#: how long a card's model may take to load, seconds (a character loads in 6-8)
+CARD_WAIT = 60
+#: what a share waiting for another to finish with the same site says
+WAITING = "等待另一個分享寫完網站…"
+
+
+def commit_message(models: list[Path]) -> str:
+    """``Share a`` or ``Share a, b and 3 more``: what a share's one commit is called."""
+    names = [slug(Path(m)) for m in models]
+    shown = ", ".join(names[:3])
+    return f"Share {shown}" + (f" and {len(names) - 3} more" if len(names) > 3 else "")
+
+
+def publish_many(models: list[Path], site: Path, log=print, push: bool = True,
+                 activity: str = "") -> tuple[list[str], bool]:
+    """*models* shared on the Pages site cloned at *site*: each written, all committed as one (only their files) and
+    pushed; their pages' addresses, and whether the last was being served before the wait ran out (``wait_live``:
+    Pages publishes the whole site at once).  Another share of the same clone waits for this one
+    (``sources.shared_writes``): two at once wrote the list over each other."""
+    from .sources import shared_writes
     site = Path(site)
     url = check_site(site)
-    log(f"寫入 {site}")
-    page_url, written = write_model(Path(model), site, url, activity=activity)
-    paths = [str(p.relative_to(site)) for p in written]
-    _git(site, "add", "--", *paths)
-    if _git(site, "status", "--porcelain", "--", *paths):
-        _git(site, "commit", "-m", f"Share {slug(Path(model))}", "--", *paths)
-    if not push:
-        return page_url, False
-    log("推送到 GitHub…")
-    _git(site, "push", "origin", "HEAD")
-    return page_url, wait_live(page_url, shared_stamp(written[0]), log)
+    with shared_writes("pages-site", log, WAITING):
+        log(f"寫入 {site}")
+        pages, written = [], []
+        for model in models:
+            page_url, files = write_model(Path(model), site, url, activity=activity, log=log)
+            pages.append(page_url)
+            written += [f for f in files if f not in written]
+        paths = [str(p.relative_to(site)) for p in written]
+        _git(site, "add", "--", *paths)
+        if _git(site, "status", "--porcelain", "--", *paths):
+            _git(site, "commit", "-m", commit_message(models), "--", *paths)
+        if not push:
+            return pages, False
+        log("推送到 GitHub…")
+        _git(site, "push", "origin", "HEAD")
+    last = site / MODELS / slug(Path(models[-1]))
+    return pages, wait_live(pages[-1], shared_stamp(last), log)
 
 
-def run_share(model: str, site: str, activity: str = "") -> int:
-    """``--share <model> <site>``: the window's share job, its lines as a job's (``LOG``, ``ERROR``), whether
-    the page is served yet as ``LIVE yes|no`` and its address as ``URL <address>``."""
-    from PySide6.QtGui import QGuiApplication
-    from .preview import use_opengl
-    use_opengl()
-    QGuiApplication.instance() or QGuiApplication([])
+def publish(model: Path, site: Path, log=print, push: bool = True, activity: str = "") -> tuple[str, bool]:
+    """*model* shared on the Pages site cloned at *site* (:func:`publish_many` of one): its page's address and
+    whether it was served before the wait ran out."""
+    pages, live = publish_many([Path(model)], site, log, push, activity)
+    return pages[0], live
+
+
+def report_share(work) -> int:
+    """A share job's lines: ``LOG``, ``ERROR``, ``PAGES <settings page>`` when Pages is off, ``LIVE yes|no`` and one
+    ``URL <address>`` per model shared.  *work* ``(log) → (addresses, settings page, live)``."""
     try:
-        url, live = publish(Path(model), Path(site), log=lambda line: print(f"LOG {line}", flush=True),
-                            activity=activity)
+        pages, settings_page, live = work(lambda line: print(f"LOG {line}", flush=True))
     except Exception as failure:  # noqa: BLE001 - every failure is the window's to show, never a bare traceback
         print(f"ERROR {failure if isinstance(failure, ShareError) else f'{type(failure).__name__}: {failure}'}",
               flush=True)
         return 1
+    if settings_page:
+        print(f"PAGES {settings_page}", flush=True)
     print(f"LIVE {'yes' if live else 'no'}", flush=True)
-    print(f"URL {url}", flush=True)
+    for page in pages:
+        print(f"URL {page}", flush=True)
     return 0
+
+
+def run_share(site: str, activity: str, *models: str) -> int:
+    """``--share <site> <activity> <model>…``: the window's share job (:func:`report_share`)."""
+    from PySide6.QtGui import QGuiApplication
+    from .preview import use_opengl
+    use_opengl()
+    QGuiApplication.instance() or QGuiApplication([])
+
+    def work(log):
+        pages, live = publish_many([Path(m) for m in models], Path(site), log, activity=activity)
+        return pages, "", live
+    return report_share(work)

@@ -157,13 +157,15 @@ class EndfieldSource:
                     raise ExtractorError(f"{model.ident} 轉換失敗：{result.failed[key]}")
                 if key in result.empty:
                     raise ExtractorError(f"{model.ident} 沒有網格")
-            if settings.poses:
+            if settings.poses:                            # the clips decoded only when the poses are asked for
                 P.ensure(str((store.read_extra("chara", model.ident) or {}).get("model") or ""),
                          lambda: self._pipeline(settings, log), log)
         with own_store():
             return write_files(model.ident, blender, output, formats, log,
                                shaders=lambda names: self._locked_shaders(settings, names, log),
-                               poses=(lambda: self._pipeline(settings, log)) if settings.poses else None,
+                               poses=(lambda: self._pipeline(settings, log))
+                               if settings.poses or settings.expressions else None,
+                               pose_clips=settings.poses, expressions=settings.expressions,
                                export_shaders=settings.export_shaders, parallel=True)
 
     def _locked_shaders(self, settings, names: list[str], log: Log) -> None:
@@ -249,7 +251,8 @@ def run_pose_frames(request: str) -> int:
 
 
 def write_files(ident: str, blender: Path | None, output: Path, formats: list[str], log: Log,
-                shaders=None, poses=None, export_shaders=False, parallel=False) -> list[Path]:
+                shaders=None, poses=None, export_shaders=False, parallel=False, pose_clips=True,
+                expressions=True) -> list[Path]:
     """Write the stored *ident* in *formats* and read each back; the files, or why not.
 
     ``.glb`` and FBX are written here (``interchange``), the ``.blend`` by Blender; the images are inside
@@ -281,7 +284,7 @@ def write_files(ident: str, blender: Path | None, output: Path, formats: list[st
         _scene, document = FX.scene_document(target, output, None, shaders, log,
                                              poses if "glb" in formats or export_shaders else None,
                                              (lambda ids, bones: frames_in_workers(ident, ids, bones, log))
-                                             if parallel else None)
+                                             if parallel else None, clips=pose_clips, expressions=expressions)
         try:
             written += write_own(formats, document, output / folder, target.stem, blender, log, export_shaders=export_shaders)
         finally:

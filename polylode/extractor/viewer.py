@@ -35,6 +35,36 @@ LISTED = 30
 OUTPUTS = (*SUFFIXES, ".blend", ".json")
 
 
+class ShareRun:
+    """What one share or site-list job has said: its addresses, whether its page is served, Pages' settings page
+    when Pages is off, the models it took off the list, its error and its open sign-in box."""
+
+    def __init__(self, kind: str):
+        self.kind = kind
+        self.urls: list[str] = []
+        self.live = False
+        self.settings = ""
+        self.removed: list[str] = []
+        self.error = ""
+        self.sign_in_box = None
+
+
+def trash_soon(path: Path, tries: int = 10, wait: float = 0.2) -> bool:
+    """:func:`trash`, tried again for a moment while the file is held open: a model just selected is read on a
+    thread (its summary, its display copy), and a delete pressed at once found it open and failed."""
+    import time
+    for attempt in range(tries):
+        try:
+            if trash(path):
+                return True
+        except OSError:
+            pass
+        if attempt + 1 < tries:
+            QGuiApplication.processEvents()
+            time.sleep(wait)
+    return False
+
+
 def outputs_of(path: Path) -> list[Path]:
     """*path* and what was exported with it: the files of its name in its folder, and its ``.fbm`` images."""
     path = Path(path)
@@ -159,18 +189,17 @@ class ViewerPage(QWidget):
         files_layout.addLayout(buttons)
         QShortcut(QKeySequence.Delete, self.files, self.delete_selected)
         self.share_button = QPushButton("分享到 GitHub Pages…")
-        self.share_button.setToolTip("把顯示中的 .glb 寫進你的 GitHub Pages 網站並推送；網址貼到 Discord 會顯示成卡片，點開可以轉動模型")
+        self.share_button.setToolTip("把選取的 .glb（沒選就是顯示中的那個；按住 Ctrl 或 Shift 可以選好幾個）一起寫進你的 GitHub Pages 網站並推送；"
+                                     "網址貼到 Discord 會顯示成卡片，點開可以轉動模型")
         self.share_button.clicked.connect(self.share)
         files_layout.addWidget(self.share_button)
         self.tidy_button = QPushButton("更新網站清單")
         self.tidy_button.setToolTip("依 GitHub 上還在的模型重寫網站首頁與清單（不上傳模型）：在 GitHub 刪掉的模型就會從首頁拿掉")
         self.tidy_button.clicked.connect(self.tidy)
         files_layout.addWidget(self.tidy_button)
-        self.share_process: QProcess | None = None
+        #: the share and site-list jobs running: their process → what each has said (:class:`ShareRun`)
+        self.share_runs: dict = {}
         #: what the running share job does: "share" a model, or "tidy" the site's list
-        self.share_kind = "share"
-        self.share_removed: list[str] = []
-        self.sign_in_box: QMessageBox | None = None
 
         centre = QWidget()
         centre_layout = QVBoxLayout(centre)
@@ -291,7 +320,7 @@ class ViewerPage(QWidget):
         if self.panel.current is not None and self.panel.current.resolve() in {p.resolve() for p in doomed}:
             self.panel.show_message("已刪除")
             self.info.clear()
-        failed = [p for p in doomed if not trash(p)]
+        failed = [p for p in doomed if not trash_soon(p)]
         for path in models:                          # each model's folder, and the ones above it, left empty
             folder = path.parent
             while folder != output and folder.is_dir() and not any(folder.iterdir()):
@@ -301,39 +330,55 @@ class ViewerPage(QWidget):
             QMessageBox.warning(self, "刪除模型", "這些沒能移到資源回收筒：\n" + "\n".join(map(str, failed)))
         self.refresh()
 
+    def _chosen_models(self) -> list[Path]:
+        """What a share takes: every ``.glb`` selected in the list (Ctrl- or Shift-click picks several), else the one
+        shown."""
+        picked = [Path(item.data(Qt.UserRole)) for item in self.files.selectedItems() if item.data(Qt.UserRole)]
+        picked = [path for path in picked if path.suffix.lower() == ".glb"]
+        if picked:
+            return picked
+        shown = self.panel.current
+        return [Path(shown)] if shown is not None and Path(shown).suffix.lower() == ".glb" else []
+
     def share(self) -> None:
-        """The model shown, on a GitHub Pages site, by a job of its own, its address copied: through the user's
-        GitHub account (``github``: signed in in the browser the first time, the repository and uploads made by the
-        program), or, when a site folder is set, committed and pushed in that clone (``share``).  The user is
-        told first that the model becomes public."""
-        path = self.panel.current
-        if path is None or Path(path).suffix.lower() != ".glb":
+        """The models chosen (:meth:`_chosen_models`) on a GitHub Pages site as one commit, by a job of its own, their
+        addresses copied: through the user's GitHub account (``github``: signed in in the browser the first time, the
+        repository and uploads made by the program), or, when a site folder is set, committed and pushed in that clone
+        (``share``).  The user is told first that the models become public.  Another share may start while one runs:
+        the jobs take turns with the site (``sources.shared_writes``)."""
+        models = self._chosen_models()
+        if not models:
             QMessageBox.information(self, tr("分享到 GitHub Pages"), tr("先開啟一個 .glb：網頁的 3D 檢視器讀的是 glTF。"))
             return
         from . import github, jobs, share
         site = self.window_.settings.tool("pages_site")
         activity = (self.window_.settings.tools.get(ACTIVITY) or "").strip()
-        name = share.slug(Path(path))
+        names = [share.slug(path) for path in models]
         if site is not None:
             try:
                 url = share.check_site(site)
             except share.ShareError as failure:
                 QMessageBox.warning(self, tr("分享到 GitHub Pages"), tr(str(failure)))
                 return
-            where, command = str(site), jobs.share_command(Path(path), site, activity)
-            ask = f"這個模型會推送到 GitHub，公開在 {url}{share.MODELS}/{name}/，任何拿到網址的人都看得到、也下載得到。"
+            where, command = str(site), jobs.share_command(models, site, activity)
+            first = "這個模型會推送到 GitHub" if len(models) == 1 else f"這 {len(models)} 個模型會一起推送到 GitHub"
         else:
             login = github.account()
             url = github.pages_url(login) if login else f"https://<帳號>.github.io/{github.REPOSITORY}/"
-            where, command = f"GitHub {login or ''}".rstrip(), jobs.share_github_command(Path(path), activity)
-            ask = (f"這個模型會上傳到你 GitHub 帳號的公開倉庫 {github.REPOSITORY}，公開在 {url}{share.MODELS}/{name}/，"
-                   "任何拿到網址的人都看得到、也下載得到。")
-            if not login:
-                ask += "\n第一次會請你在瀏覽器登入 GitHub。"
+            where, command = f"GitHub {login or ''}".rstrip(), jobs.share_github_command(models, activity)
+            first = (f"這個模型會上傳到你 GitHub 帳號的公開倉庫 {github.REPOSITORY}" if len(models) == 1 else
+                     f"這 {len(models)} 個模型會一起上傳到你 GitHub 帳號的公開倉庫 {github.REPOSITORY}")
+        places = "\n".join(f"  {url}{share.MODELS}/{name}/" for name in names[:LISTED])
+        if len(names) > LISTED:
+            places += "\n" + tr(f"  …另外 {len(names) - LISTED} 個")
+        ask = f"{first}，公開在：\n{places}\n任何拿到網址的人都看得到、也下載得到。"
+        if site is None and not github.account():
+            ask += "\n第一次會請你在瀏覽器登入 GitHub。"
         if QMessageBox.question(self, tr("分享到 GitHub Pages"), tr(
                 ask + "\n模型來自遊戲，公開前請自行確認可以分享。要繼續嗎？")) != QMessageBox.StandardButton.Yes:
             return
-        self.window_.log(f"分享 {Path(path).name} 到 {where}")
+        self.window_.log(f"分享 {'、'.join(path.name for path in models[:3])}"
+                         f"{f' 等 {len(models)} 個' if len(models) > 3 else ''} 到 {where}")
         self._start_share("share", command)
 
     def tidy(self) -> None:
@@ -351,113 +396,117 @@ class ViewerPage(QWidget):
         self._start_share("tidy", command)
 
     def _start_share(self, kind: str, command: list[str]) -> None:
-        self.share_button.setEnabled(False)
-        self.tidy_button.setEnabled(False)
-        self.share_kind, self.share_removed = kind, []
-        self.share_url, self.share_error, self.share_settings, self.share_live = "", "", "", False
-        self.sign_in_box = None
-        self.share_process = QProcess(self)
-        self.share_process.setProcessChannelMode(QProcess.MergedChannels)
-        self.share_process.readyReadStandardOutput.connect(self._share_output)
-        self.share_process.finished.connect(self._share_done)
+        process = QProcess(self)
+        run = ShareRun(kind)
+        self.share_runs[process] = run
+        process.setProcessChannelMode(QProcess.MergedChannels)
+        process.readyReadStandardOutput.connect(lambda: self._share_output(process))
+        process.finished.connect(lambda code, _status: self._share_done(process, code))
         program, *arguments = command
-        self.share_process.start(program, arguments)
+        process.start(program, arguments)
 
-    def _share_output(self) -> None:
-        for raw in bytes(self.share_process.readAllStandardOutput()).decode("utf-8", "replace").splitlines():
+    def _share_output(self, process: QProcess) -> None:
+        run = self.share_runs.get(process)
+        if run is None:
+            return
+        for raw in bytes(process.readAllStandardOutput()).decode("utf-8", "replace").splitlines():
             kind, _, text = raw.partition(" ")
             if kind == "URL":
-                self.share_url = text
+                run.urls.append(text)
             elif kind == "LIVE":
-                self.share_live = text == "yes"
+                run.live = text == "yes"
             elif kind == "PAGES":
-                self.share_settings = text
+                run.settings = text
             elif kind == "REMOVED":
-                self.share_removed.append(text)
+                run.removed.append(text)
                 self.window_.log(f"  從清單拿掉：{text}")
             elif kind == "DEVICE":
                 code, _, address = text.partition(" ")
-                self._sign_in(code, address)
+                self._sign_in(process, code, address)
             elif kind == "ERROR":
-                self.share_error = text
+                run.error = text
                 self.window_.log(f"  錯誤：{text}")
             elif kind == "LOG":
                 self.window_.log(f"  {text}")
-                self._signed_in()
+                self._signed_in(run)
             elif raw.strip() and kind not in ("PROGRESS",):
                 # anything else the job printed (a traceback, a library's warning) goes to the log as it is: an
                 # error the job did not word itself still has to be seen somewhere
                 self.window_.log(f"  {raw}")
 
-    def _signed_in(self) -> None:
+    def _signed_in(self, run: "ShareRun") -> None:
         """The sign-in box closed: the job has gone on (closed this way, it does not stop the share)."""
-        if self.sign_in_box is not None:
-            box, self.sign_in_box = self.sign_in_box, None
+        if run.sign_in_box is not None:
+            box, run.sign_in_box = run.sign_in_box, None
             box.done(0)
 
-    def _sign_in(self, code: str, address: str) -> None:
+    def _sign_in(self, process: QProcess, code: str, address: str) -> None:
         """GitHub's device sign-in: the code copied and the page opened; the box stays until the job goes on, and
-        closing it stops the share."""
+        closing it stops that share."""
+        run = self.share_runs[process]
         QGuiApplication.clipboard().setText(code)
         QDesktopServices.openUrl(QUrl(address))
-        self.sign_in_box = QMessageBox(QMessageBox.Information, tr("登入 GitHub"), tr(
+        run.sign_in_box = QMessageBox(QMessageBox.Information, tr("登入 GitHub"), tr(
             f"在瀏覽器開啟的 {address} 輸入這組代碼（已複製）：\n{code}\n\n授權後這裡會自動繼續。"),
             QMessageBox.Cancel, self)
-        self.sign_in_box.setModal(False)
-        self.sign_in_box.rejected.connect(self._stop_share)
-        self.sign_in_box.show()
+        run.sign_in_box.setModal(False)
+        run.sign_in_box.rejected.connect(lambda: self._stop_share(process))
+        run.sign_in_box.show()
 
-    def _stop_share(self) -> None:
-        if self.share_process is not None and self.sign_in_box is not None:
-            self.share_error = "登入被取消了"
-            self.share_process.kill()
+    def _stop_share(self, process: QProcess) -> None:
+        run = self.share_runs.get(process)
+        if run is not None and run.sign_in_box is not None:
+            run.error = "登入被取消了"
+            process.kill()
 
-    def _share_done(self, code: int, _status) -> None:
-        self._signed_in()
-        self.share_button.setEnabled(True)
-        self.tidy_button.setEnabled(True)
-        self.share_process = None
+    def _share_done(self, process: QProcess, code: int) -> None:
+        run = self.share_runs.pop(process, None)
+        if run is None:
+            return
+        self._signed_in(run)
+        process.deleteLater()
         self.window_.settings_page.refresh_account()
-        if self.share_kind == "tidy":
-            if code != 0 or not self.share_url:
-                QMessageBox.warning(self, tr("更新網站清單"),
-                                    tr(self.share_error) or tr("沒有更新完成，原因寫在下方的紀錄。"))
+        if run.kind == "tidy":
+            if code != 0 or not run.urls:
+                QMessageBox.warning(self, tr("更新網站清單"), tr(run.error) or tr("沒有更新完成，原因寫在下方的紀錄。"))
                 return
-            removed = "\n".join(self.share_removed)
-            text = (f"已從首頁拿掉 {len(self.share_removed)} 個已刪除的模型：\n{removed}" if self.share_removed
+            url = run.urls[-1]
+            removed = "\n".join(run.removed)
+            text = (f"已從首頁拿掉 {len(run.removed)} 個已刪除的模型：\n{removed}" if run.removed
                     else "網站清單跟網站上的模型一致，沒有要拿掉的。")
-            text += f"\n\nGitHub Pages 發佈要一點時間，之後 {self.share_url} 就會更新。"
-            self.window_.log(f"  網站清單已更新：{self.share_url}")
+            text += f"\n\nGitHub Pages 發佈要一點時間，之後 {url} 就會更新。"
+            self.window_.log(f"  網站清單已更新：{url}")
             box = QMessageBox(QMessageBox.Information, tr("更新網站清單"), tr(text), QMessageBox.Ok, self)
             open_button = box.addButton(tr("在瀏覽器開啟"), QMessageBox.ActionRole)
             box.exec()
             if box.clickedButton() is open_button:
-                QDesktopServices.openUrl(QUrl(self.share_url))
+                QDesktopServices.openUrl(QUrl(url))
             return
-        if code != 0 or not self.share_url:
-            QMessageBox.warning(self, tr("分享到 GitHub Pages"),
-                                tr(self.share_error) or tr("分享沒有完成，原因寫在下方的紀錄。"))
+        if code != 0 or not run.urls:
+            QMessageBox.warning(self, tr("分享到 GitHub Pages"), tr(run.error) or tr("分享沒有完成，原因寫在下方的紀錄。"))
             return
-        QGuiApplication.clipboard().setText(self.share_url)
-        self.window_.log(f"  已分享：{self.share_url}（網址已複製）")
+        addresses = "\n".join(run.urls)
+        QGuiApplication.clipboard().setText(addresses)
+        for url in run.urls:
+            self.window_.log(f"  已分享：{url}（網址已複製）")
         # a link pasted before Pages serves it is a 404 and Discord shows no card, then keeps that answer a while
-        if self.share_live:
-            text = f"網頁已上線，網址已複製到剪貼簿：\n{self.share_url}\n\n貼到 Discord 會顯示成卡片。"
+        if run.live:
+            text = f"網頁已上線，網址已複製到剪貼簿：\n{addresses}\n\n貼到 Discord 會顯示成卡片。"
         else:
-            text = (f"已推送，但 GitHub Pages 還沒發佈完成。網址已複製到剪貼簿：\n{self.share_url}\n\n"
+            text = (f"已推送，但 GitHub Pages 還沒發佈完成。網址已複製到剪貼簿：\n{addresses}\n\n"
                     "等網頁打得開再貼到 Discord（新倉庫第一次可能要幾分鐘）。\n"
                     "如果先貼了而沒有卡片，在網址後面加上 ?1 再貼一次：Discord 會記住沒有卡片的結果一陣子。")
-        if self.share_settings:
+        if run.settings:
             text += ("\n\n這個倉庫的 GitHub Pages 還沒開啟：按「開啟 Pages 設定」，"
                      "Source 選 Deploy from a branch、分支選 main、資料夾 / (root)，按 Save。只需要做一次。")
         box = QMessageBox(QMessageBox.Information, tr("分享到 GitHub Pages"), tr(text), QMessageBox.Ok, self)
         open_button = box.addButton(tr("在瀏覽器開啟"), QMessageBox.ActionRole)
-        settings_button = box.addButton(tr("開啟 Pages 設定"), QMessageBox.ActionRole) if self.share_settings else None
+        settings_button = box.addButton(tr("開啟 Pages 設定"), QMessageBox.ActionRole) if run.settings else None
         box.exec()
         if box.clickedButton() is open_button:
-            QDesktopServices.openUrl(QUrl(self.share_url))
+            QDesktopServices.openUrl(QUrl(run.urls[0]))
         elif settings_button is not None and box.clickedButton() is settings_button:
-            QDesktopServices.openUrl(QUrl(self.share_settings))
+            QDesktopServices.openUrl(QUrl(run.settings))
 
     def _filter(self, text: str) -> None:
         for row in range(self.files.count()):

@@ -172,15 +172,19 @@ class GF2Source:
         log(f"可匯出的模型 {len(models)} 個（沒有自己蒙皮網格的根節點不列）")
         return models
 
-    def _poses(self, install: Path, scene, document: Path, ident: str, log: Log) -> int:
-        """The outfit's held display poses (``gf2.poses``) into *document*, the clips named once per install."""
+    def _poses(self, install: Path, scene, document: Path, ident: str, log: Log, settings=None) -> int:
+        """The outfit's display poses (``gf2.poses``) and expressions into *document*, as the settings ask: the
+        clips named once per install."""
         from ..gf2 import poses, store
         from .sources import shared_writes
-        root = store.root()
-        with shared_writes("gf2", log):                  # the clip index every outfit shares
-            rows = poses.index(install, root / "bundle_index.jsonl", root / poses.INDEX, log)
+        clips = settings is None or settings.poses
+        rows = []
+        if clips:
+            root = store.root()
+            with shared_writes("gf2", log):              # the clip index every outfit shares
+                rows = poses.index(install, root / "bundle_index.jsonl", root / poses.INDEX, log)
         return poses.add(document, scene, store.read_item(ident).nodes, store.read_extra(ident) or {}, ident, install,
-                         rows, log)
+                         rows, log, expressions=settings is None or settings.expressions)
 
     def _export(self, model: Model, settings, output: Path, formats: list[str], log: Log) -> list[Path]:
         from ..gf2.batch import convert_entry, load_results, save_results
@@ -211,9 +215,9 @@ class GF2Source:
             # into the job's output: the store's exports/<ident>.fbx is the Blender-checked one export_one recorded
             progress.step("組合場景")
             scene, _selection, _layout, _folder, document = scene_document(row["ident"], declared)
-            if settings.poses and ("glb" in formats or settings.export_shaders):
+            if (settings.poses or settings.expressions) and ("glb" in formats or settings.export_shaders):
                 progress.step("寫入姿勢")
-                self._poses(install, scene, document, row["ident"], log)
+                self._poses(install, scene, document, row["ident"], log, settings)
             # glTF and FBX cannot multiply or add the eye layers: their effect is baked into the eye's map
             # (gf2.eye_bake, owner 2026-11-02); the .blend above keeps them as layers
             from ..gf2.eye_bake import bake

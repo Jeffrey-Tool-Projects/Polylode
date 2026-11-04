@@ -492,3 +492,14 @@ def test_only_the_keys_linear_interpolation_needs_are_kept_and_the_rest_lie_with
     rebuilt = np.stack([np.interp(frames, kept, curve[kept, c]) for c in range(3)], axis=1)
     assert np.abs(rebuilt - curve).max() <= 1e-4                       # what glTF draws between them
     assert G.keys(curve[:2], 1e-4).tolist() == [0, 1]
+
+
+def test_a_shape_that_moves_nothing_on_a_part_is_still_written_with_sparse_values():
+    """An accessor of neither a buffer view nor sparse values is all zeros by the spec, but Qt's importer never finished
+    loading pelica.glb, whose eyebrows each carry the other side's two shapes."""
+    builder = glb._Builder()
+    empty = builder.sparse(260, np.zeros(0, dtype=np.uint32), np.zeros((0, 3), dtype=np.float32))
+    moved = builder.sparse(4, np.array([2, 0]), np.array([[0, .1, 0], [.2, 0, 0]], dtype=np.float32))
+    record = builder.accessors[empty]
+    assert record["count"] == 260 and record["sparse"]["count"] == 1 and record["min"] == record["max"] == [0, 0, 0]
+    assert builder.accessors[moved]["sparse"]["count"] == 2 and builder.accessors[moved]["max"][1] == pytest.approx(.1)

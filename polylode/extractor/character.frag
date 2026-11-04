@@ -115,6 +115,8 @@ void MAIN() {
         vec3 materialColor=base.rgb*(1.-metallic*pbrRate)+specColor*pbrRate*lobe;
         color=materialColor*mix(sceneShadow,sceneLight,upperBand*separation);
     }
+    // the view's light from straight above, on what faces up, over each game's own lighting
+    color+=base.rgb*topLight*.5*max(N.y,0.);
     BASE_COLOR=vec4(0,0,0,base.a);
     SHARED.finalColor=vec4(color*intensity,base.a);
 }

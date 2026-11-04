@@ -288,7 +288,7 @@ def test_outfits_of_one_endfield_character_are_written_apart(tmp_path, monkeypat
     from polylode.extractor import endfield_source as E
     folders = []
     monkeypatch.setattr(store, "read_extra", lambda kind, ident: {"model": "assets/art/actor/girl/endminf/models/x.prefab"})
-    monkeypatch.setattr(FX, "scene_document", lambda target, output, *_: folders.append((target.folder, target.stem)) or (None, None))
+    monkeypatch.setattr(FX, "scene_document", lambda target, output, *_, **__: folders.append((target.folder, target.stem)) or (None, None))
     from polylode.extractor import sources
     monkeypatch.setattr(sources, "write_own", lambda *a, **kw: [])
     for ident in ("chr_0003_endminf_postmodel", "chr_0003_endminfink_postmodel"):
@@ -695,8 +695,8 @@ def test_the_viewer_deletes_a_listed_model_and_what_was_exported_with_it(tmp_pat
     (folder / "x.fbm").mkdir()
     keep = triangle_glb(output / "gf2" / "y.glb")
     thrown = []
-    monkeypatch.setattr(V, "trash", lambda path: thrown.append(Path(path).name) or (
-        shutil.rmtree(path) if Path(path).is_dir() else Path(path).unlink()) or True)
+    monkeypatch.setattr(V, "trash", lambda path: (shutil.rmtree(path) if Path(path).is_dir() else Path(path).unlink())
+                        or thrown.append(Path(path).name) or True)          # recorded once it is gone
     monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
     monkeypatch.setattr(QMessageBox, "information", lambda *a: None)
     monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
@@ -738,8 +738,8 @@ def test_the_viewer_deletes_every_model_selected_at_once(tmp_path, monkeypatch):
         made[name] = triangle_glb(folder / f"{name}.glb")
         (folder / f"{name}.json").write_bytes(b"x")
     thrown, asked = [], []
-    monkeypatch.setattr(V, "trash", lambda path: thrown.append(Path(path).name) or (
-        shutil.rmtree(path) if Path(path).is_dir() else Path(path).unlink()) or True)
+    monkeypatch.setattr(V, "trash", lambda path: (shutil.rmtree(path) if Path(path).is_dir() else Path(path).unlink())
+                        or thrown.append(Path(path).name) or True)          # recorded once it is gone
     monkeypatch.setattr(QMessageBox, "question", lambda _w, _t, text: asked.append(text) or QMessageBox.StandardButton.Yes)
     monkeypatch.setattr(QMessageBox, "information", lambda *a: asked.append("told"))
     monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
@@ -902,3 +902,80 @@ def test_work_split_over_worker_processes_comes_back_in_order_and_a_failed_one_s
     told = []
     assert jobs.in_workers("echo", [{"value": 1}, {"value": [2, "二"]}], told.append) == [1, [2, "二"]] and not told
     assert jobs.in_workers("no-such-kind", [{"value": 1}], told.append) == [None] and len(told) == 1
+
+
+def test_expressions_are_listed_apart_from_the_poses_and_held_over_the_pose():
+    """An expression chosen from the poses' list stopped the pose; listed apart, it is held over it."""
+    import json
+    from polylode.extractor import view_host as H
+    log = []
+
+    def timeline(name, enabled):
+        return _Loaded("QQuickTimeline", f"{name}-timeline", [_Loaded("QQuickTimelineAnimation", name, log=log,
+                                                                      running=True, loops=-1)],
+                       log=log, enabled=enabled, startFrame=0.0, currentFrame=0.0)
+    scene = _Loaded("QQuick3DNode", children=[timeline("idle", True), timeline("expression/smile", False),
+                                              timeline("seated", False)])
+    root = _Loaded("Root", children=[_Loaded("QQuick3DRuntimeLoader", "loader", [scene])], log=log)
+    poses = H.Poses()
+    assert poses.read(root) == ["idle", "seated"] and poses.expressions == ["smile"]
+    enabled = lambda: {name: t.values["enabled"] for name, t, _a in poses.found}       # noqa: E731
+    assert enabled() == {"idle": True, "expression/smile": False, "seated": False}
+    assert poses.express(0)
+    assert enabled() == {"idle": True, "expression/smile": True, "seated": False}       # the pose kept
+    log.clear()
+    assert poses.play(1)                                       # another pose: the expression stays, started after it
+    assert enabled() == {"idle": False, "expression/smile": True, "seated": True}
+    assert log.index(("seated-timeline", "enabled", True)) < log.index(("expression/smile-timeline", "enabled", True))
+    H.apply(root, None, json.dumps({"op": "expression", "index": -1}), poses)
+    assert enabled() == {"idle": False, "expression/smile": False, "seated": True}
+    assert not poses.express(1) and not poses.play(2)
+
+
+def test_the_preview_panel_lists_the_expressions_apart_with_none_first(monkeypatch):
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    from polylode.extractor.preview import PreviewPanel
+    QApplication.instance() or QApplication([])
+    panel = PreviewPanel()
+    assert not panel.expression_row.isVisibleTo(panel)
+    panel._host_said('POSES ["idle"]')
+    panel._host_said('EXPRESSIONS ["smile", "wink"]')
+    assert panel.expression_row.isVisibleTo(panel) and panel.pose_row.isVisibleTo(panel)
+    items = [panel.expression_list.itemText(i) for i in range(panel.expression_list.count())]
+    assert items == ["無", "smile", "wink"] and panel.expression_list.currentIndex() == 0
+    panel.expression_list.setCurrentIndex(2)
+    assert panel.root.sent[-1] == {"op": "expression", "index": 1}
+    panel.expression_list.setCurrentIndex(0)
+    assert panel.root.sent[-1] == {"op": "expression", "index": -1}
+    panel.show_message("x")
+    assert not panel.expression_row.isVisibleTo(panel) and panel.expression_list.count() == 0
+
+
+def test_the_viewer_shares_every_selected_model_or_the_one_shown(tmp_path, monkeypatch):
+    from pathlib import Path
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    from polylode.extractor import app as A
+    from polylode.extractor.preview import triangle_glb
+    output = tmp_path / "out"
+    for name in ("a", "b", "c"):
+        (output / name).mkdir(parents=True)
+        triangle_glb(output / name / f"{name}.glb")
+    (output / "c" / "c.fbx").write_bytes(b"fbx")
+    monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    S.save(S.Settings(output=str(output)))
+    QApplication.instance() or QApplication([])
+    window = A.Window()
+    page = window.viewer_page
+    page.refresh()
+    _until(lambda: page.files.count() >= 4 and page.files.item(0).data(A.Qt.UserRole))
+    assert page._chosen_models() == []                                   # nothing selected, nothing shown
+    for row in range(page.files.count()):
+        item = page.files.item(row)
+        item.setSelected(item.text().endswith(("a.glb", "c.glb", "c.fbx")))
+    assert sorted(p.name for p in page._chosen_models()) == ["a.glb", "c.glb"]   # the .fbx is not shared
+    page.files.clearSelection()
+    page.panel.current = Path(output / "b" / "b.glb")
+    assert [p.name for p in page._chosen_models()] == ["b.glb"]
+    window.close()

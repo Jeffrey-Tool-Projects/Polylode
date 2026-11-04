@@ -12,6 +12,8 @@ CustomMaterial {
     property bool surfaceSrgb: false
     property bool shadowLutSrgb: false
     property real intensity: 1
+    // the view's light from above (preview.qml), over the source's own lighting
+    property real topLight: 0
     property vector4d tint: Qt.vector4d(original.baseColor.r, original.baseColor.g, original.baseColor.b, original.baseColor.a)
     property bool hasBase: false
     property vector4d baseUv: Qt.vector4d(1, 1, 0, 0)

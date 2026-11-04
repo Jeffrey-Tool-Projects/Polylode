@@ -165,7 +165,7 @@ def frames(record: dict, values: np.ndarray, bones: list[dict], native_rest: np.
     return out
 
 
-def add(case: Path, records: list[tuple[dict, np.ndarray]], package: str, log=print) -> int:
+def add(case: Path, records: list[tuple[dict, np.ndarray]], package: str, log=print, expressions: bool = True) -> int:
     """The poses among *records* (the reader's ``anim`` output for the model's ``UiAnim`` clips) added to the
     case's document as animations, as ``endfield.poses.add`` does; how many."""
     document_path = Path(case) / "source_document.json"
@@ -186,7 +186,7 @@ def add(case: Path, records: list[tuple[dict, np.ndarray]], package: str, log=pr
             log(f"  {record['name']}：{len(curves['unbound'])} 個其他控制保留於表情資料檔，未套用到模型")
         document["animations"].append({"name": record["name"], "clip": record["package"],
                                        "rate": float(record["rate"]), "frames": len(values), "source_curves": curves})
-    count = add_shapes(document, arrays)
+    count = add_shapes(document, arrays) if expressions else 0
     if count:
         log(f"寫入表情控制 {count} 個")
     if not document["animations"]:

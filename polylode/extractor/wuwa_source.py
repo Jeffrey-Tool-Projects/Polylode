@@ -320,7 +320,7 @@ class WuwaSource:
         from ..wuthering_waves.fur_shells import apply as fur_layers
         progress.step("把毛髮視差做成毛絲層")
         fur_layers(case, log)
-        if settings.poses and ("glb" in formats or settings.export_shaders):
+        if (settings.poses or settings.expressions) and ("glb" in formats or settings.export_shaders):
             progress.step("寫入姿勢")
             self._poses(settings, row["parts"][0]["package"], case, sources / f"{model.ident}.anim", log)
         written = []
@@ -337,9 +337,10 @@ class WuwaSource:
 def _poses_of(settings, package: str, case: Path, folder: Path, log: Log) -> int:
     """Decode the model's display poses and add them to *case*."""
     from ..wuthering_waves import poses
-    ui = poses.ui_folder(package)
+    expressions = getattr(settings, "expressions", True)
+    ui = poses.ui_folder(package) if getattr(settings, "poses", True) else ""
     if not ui:
-        return poses.add(case, [], package, log)
+        return poses.add(case, [], package, log, expressions=expressions)
     from .sources import shared_writes
     with shared_writes("wuwa", log):                     # the install's file list, written once a game version
         index = archive_index(settings, log)
@@ -370,7 +371,7 @@ def _poses_of(settings, package: str, case: Path, folder: Path, log: Log) -> int
     if any("curves" not in json.loads((folder / f"{k}.json").read_text(encoding="utf-8")) for k in indices):
         raise ExtractorError("讀取器版本太舊，沒有導出表情曲線。請更新或選擇新版讀取器。")
     records = [poses.read(folder, k, decoder) for k in indices]
-    return poses.add(case, records, package, log)
+    return poses.add(case, records, package, log, expressions=expressions)
 
 
 def archive_index(settings, log: Log) -> Path:

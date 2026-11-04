@@ -594,6 +594,18 @@ class PreviewPanel(QWidget):
         row.addWidget(self.pose_list, 1)
         self.pose_row.hide()
         layout.addWidget(self.pose_row)
+        # the model's expressions, chosen apart from the pose and held over it ("無": none)
+        self.expression_row = QWidget()
+        row = QHBoxLayout(self.expression_row)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(QLabel("表情"))
+        self.expression_list = QComboBox()
+        self.expression_list.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.expression_list.setMinimumContentsLength(12)
+        self.expression_list.currentIndexChanged.connect(self._expression_chosen)
+        row.addWidget(self.expression_list, 1)
+        self.expression_row.hide()
+        layout.addWidget(self.expression_row)
         from .character_styles import STYLES
         self.style_list = QComboBox()
         for ident, label in STYLES:
@@ -656,6 +668,12 @@ class PreviewPanel(QWidget):
             except ValueError:
                 names = []
             self._list_poses([str(name) for name in names] if isinstance(names, list) else [])
+        elif kind == "EXPRESSIONS":
+            try:
+                names = json.loads(text)
+            except ValueError:
+                names = []
+            self._list_expressions([str(name) for name in names] if isinstance(names, list) else [])
         elif kind == "ERROR":
             self.placeholder.setText(text)
 
@@ -667,6 +685,7 @@ class PreviewPanel(QWidget):
         self.placeholder.show()
         self.host = None
         self._list_poses([])
+        self._list_expressions([])
 
     # -- poses ---------------------------------------------------------------------------------------------------
     def _list_poses(self, names: list[str]) -> None:
@@ -681,6 +700,21 @@ class PreviewPanel(QWidget):
     def _pose_chosen(self, index: int) -> None:
         if index >= 0:
             self._send({"op": "pose", "index": index})
+
+    def _list_expressions(self, names: list[str]) -> None:
+        """*names* listed after "無" (none, chosen); the row hidden with none."""
+        self.expression_list.blockSignals(True)
+        self.expression_list.clear()
+        if names:
+            self.expression_list.addItem("無")
+            self.expression_list.addItems(names)
+            self.expression_list.setCurrentIndex(0)
+        self.expression_list.blockSignals(False)
+        self.expression_row.setVisible(bool(names))
+
+    def _expression_chosen(self, index: int) -> None:
+        if index >= 0:
+            self._send({"op": "expression", "index": index - 1})
 
     # -- what is shown -----------------------------------------------------------------------------------------
     def apply_texts(self) -> None:
@@ -706,6 +740,7 @@ class PreviewPanel(QWidget):
         self._asked += 1
         asked = self._asked
         self._list_poses([])
+        self._list_expressions([])
         self._ensure_host()
         named = caption if Path(path).name in caption else f"{caption}\n{Path(path).name}"
         self.caption.setText(tr(f"{named}\n載入中…"))
@@ -736,6 +771,7 @@ class PreviewPanel(QWidget):
         self.current = None
         self._asked += 1
         self._list_poses([])
+        self._list_expressions([])
         self.caption.setToolTip("")
         if self.root.values.get("source"):
             self.root.setProperty("source", QUrl())

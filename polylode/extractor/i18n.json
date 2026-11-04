@@ -2176,5 +2176,65 @@
   "zh-CN": "  一个工作进程失败，改在本进程处理：{0}",
   "ja": "  ワーカープロセスが失敗したため、このプロセスで処理：{0}",
   "ko": "  작업 프로세스가 실패해 이 프로세스에서 처리: {0}"
+ },
+ "表情": {
+  "en": "Expressions",
+  "zh-CN": "表情",
+  "ja": "表情",
+  "ko": "표정"
+ },
+ "無": {
+  "en": "None",
+  "zh-CN": "无",
+  "ja": "なし",
+  "ko": "없음"
+ },
+ "角色有表情時一起寫進 .glb（各自的表情動畫；預覽和分享的網頁跟姿勢分開選）": {
+  "en": "Write a character's expressions into the .glb when it has them (animations of their own; the preview and the shared page list them apart from the poses)",
+  "zh-CN": "角色有表情时一起写进 .glb（各自的表情动画；预览和分享的网页跟姿势分开选）",
+  "ja": "キャラクターに表情があれば .glb に書き込む（それぞれ独立したアニメーション。プレビューと共有ページではポーズと別に選択）",
+  "ko": "캐릭터에 표정이 있으면 .glb에 함께 쓰기(각각 별도 애니메이션; 미리보기와 공유 페이지에서 포즈와 따로 선택)"
+ },
+ "這個模型會推送到 GitHub，公開在：": {
+  "en": "This model will be pushed to GitHub, public at:",
+  "zh-CN": "这个模型会推送到 GitHub，公开在：",
+  "ja": "このモデルは GitHub にプッシュされ、次の場所で公開されます：",
+  "ko": "이 모델은 GitHub에 푸시되어 다음 위치에 공개됩니다:"
+ },
+ "這 {0} 個模型會一起推送到 GitHub，公開在：": {
+  "en": "These {0} models will be pushed to GitHub together, public at:",
+  "zh-CN": "这 {0} 个模型会一起推送到 GitHub，公开在：",
+  "ja": "これら {0} 個のモデルはまとめて GitHub にプッシュされ、次の場所で公開されます：",
+  "ko": "이 {0}개 모델은 함께 GitHub에 푸시되어 다음 위치에 공개됩니다:"
+ },
+ "這個模型會上傳到你 GitHub 帳號的公開倉庫 {0}，公開在：": {
+  "en": "This model will be uploaded to the public repository {0} of your GitHub account, public at:",
+  "zh-CN": "这个模型会上传到你 GitHub 账号的公开仓库 {0}，公开在：",
+  "ja": "このモデルは GitHub アカウントの公開リポジトリ {0} にアップロードされ、次の場所で公開されます：",
+  "ko": "이 모델은 GitHub 계정의 공개 저장소 {0}에 업로드되어 다음 위치에 공개됩니다:"
+ },
+ "這 {0} 個模型會一起上傳到你 GitHub 帳號的公開倉庫 {1}，公開在：": {
+  "en": "These {0} models will be uploaded together to the public repository {1} of your GitHub account, public at:",
+  "zh-CN": "这 {0} 个模型会一起上传到你 GitHub 账号的公开仓库 {1}，公开在：",
+  "ja": "これら {0} 個のモデルはまとめて GitHub アカウントの公開リポジトリ {1} にアップロードされ、次の場所で公開されます：",
+  "ko": "이 {0}개 모델은 함께 GitHub 계정의 공개 저장소 {1}에 업로드되어 다음 위치에 공개됩니다:"
+ },
+ "任何拿到網址的人都看得到、也下載得到。": {
+  "en": "Anyone with the address can see and download them.",
+  "zh-CN": "任何拿到网址的人都看得到、也下载得到。",
+  "ja": "アドレスを知っている人は誰でも表示・ダウンロードできます。",
+  "ko": "주소를 아는 사람은 누구나 보고 내려받을 수 있습니다."
+ },
+ "等待另一個分享寫完網站…": {
+  "en": "Waiting for another share to finish writing the site…",
+  "zh-CN": "等待另一个分享写完网站…",
+  "ja": "別の共有がサイトを書き終えるのを待っています…",
+  "ko": "다른 공유가 사이트를 다 쓸 때까지 기다리는 중…"
+ },
+ "把選取的 .glb（沒選就是顯示中的那個；按住 Ctrl 或 Shift 可以選好幾個）一起寫進你的 GitHub Pages 網站並推送；網址貼到 Discord 會顯示成卡片，點開可以轉動模型": {
+  "en": "Write the selected .glb files (the one shown when none is selected; hold Ctrl or Shift to pick several) into your GitHub Pages site together and push; pasted into Discord the address shows as a card, opened the model turns",
+  "zh-CN": "把选取的 .glb（没选就是显示中的那个；按住 Ctrl 或 Shift 可以选好几个）一起写进你的 GitHub Pages 网站并推送；网址贴到 Discord 会显示成卡片，点开可以转动模型",
+  "ja": "選択した .glb（未選択なら表示中のもの。Ctrl か Shift で複数選択）をまとめて GitHub Pages サイトに書き込んでプッシュ。アドレスを Discord に貼るとカードになり、開くとモデルを回せます",
+  "ko": "선택한 .glb(선택하지 않으면 표시 중인 것; Ctrl 또는 Shift로 여러 개 선택)를 함께 GitHub Pages 사이트에 쓰고 푸시합니다. 주소를 Discord에 붙이면 카드로 보이고, 열면 모델을 돌릴 수 있습니다"
  }
 }

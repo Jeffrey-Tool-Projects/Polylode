@@ -110,13 +110,13 @@ def frames(clip: clips.Stored, skeleton, nodes: list[str], paths: dict) -> np.nd
 
 
 def add(document_path: Path, scene: RS.Scene, nodes: dict, extra: dict, fetch=None, log=print,
-        frames_of=None) -> int:
+        frames_of=None, pose_clips: bool = True, expressions: bool = True) -> int:
     """The display clips of the scene's model, held ones first, added to the document at *document_path* as
     animations (``document["animations"]``: name, rate, frames; ``arrays["anim<k>"]`` their bone frames); how many.
     *frames_of* ``(clip ids, bones) → {clip id: frames}`` works clips out elsewhere, side by side
     (``extractor.endfield_source.frames_in_workers``); a clip it does not give back is worked out here."""
     model = str(extra.get("model") or "")
-    ids = ensure(model, fetch, log)
+    ids = ensure(model, fetch, log) if pose_clips else []
     pairs = sorted(((ident, clips.read(ident)) for ident in ids), key=lambda pair: not pair[1].loop)
     pairs = [(ident, clip) for ident, clip in pairs if clip.frames >= 1]
     held = [clip for _ident, clip in pairs]
@@ -134,7 +134,8 @@ def add(document_path: Path, scene: RS.Scene, nodes: dict, extra: dict, fetch=No
         arrays[f"anim{k}"] = given if given is not None and given.shape == (clip.frames, len(bones), 4, 4) \
             else frames(clip, skeleton, bones, paths)
         document["animations"].append({"name": label, "clip": clip.name, "rate": clip.rate, "frames": clip.frames})
-    add_expressions(document, arrays, skeleton, bones, extra, fetch, log)
+    if expressions:
+        add_expressions(document, arrays, skeleton, bones, extra, fetch, log)
     np.savez(document_path.parent / document["arrays"], **arrays)
     document_path.write_text(json.dumps(document, ensure_ascii=False, indent=1), encoding="utf-8")
     return len(document["animations"])

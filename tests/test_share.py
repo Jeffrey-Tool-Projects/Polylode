@@ -36,7 +36,7 @@ def _git(folder, *arguments):
 def test_a_shared_model_is_written_committed_alone_and_pushed(tmp_path, monkeypatch):
     monkeypatch.setattr(preview, "derived_root", lambda: tmp_path / "derived")
     # the card is the preview's drawing, which needs OpenGL: here a stand-in image
-    monkeypatch.setattr(preview, "snapshot", lambda path, out, w, h: out.write_bytes(b"\x89PNG card") and out)
+    monkeypatch.setattr(preview, "snapshot", lambda path, out, w, h, **_: out.write_bytes(b"\x89PNG card") and out)
     remote = tmp_path / "remote.git"
     subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
     site = tmp_path / "site"
@@ -137,7 +137,7 @@ def test_a_model_folder_without_its_model_is_not_listed(tmp_path):
 def test_a_clones_list_is_written_again_from_the_models_left_in_it(tmp_path, monkeypatch):
     """The --tidy job: a model folder deleted from the clone comes off the front page and list, committed alone."""
     monkeypatch.setattr(preview, "derived_root", lambda: tmp_path / "derived")
-    monkeypatch.setattr(preview, "snapshot", lambda path, out, w, h: out.write_bytes(b"\x89PNG card") and out)
+    monkeypatch.setattr(preview, "snapshot", lambda path, out, w, h, **_: out.write_bytes(b"\x89PNG card") and out)
     remote = tmp_path / "remote.git"
     subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
     site = tmp_path / "site"
@@ -159,3 +159,46 @@ def test_a_clones_list_is_written_again_from_the_models_left_in_it(tmp_path, mon
                             check=True).stdout.strip()
     assert pushed == share.TIDY_MESSAGE
     assert share.tidy(site, log=lambda _l: None)[1] == []                    # nothing more to take off
+
+
+def test_the_shared_pages_list_expressions_apart_from_the_poses():
+    page = share._page("x", "https://me.github.io/m/models/x/")
+    front = share._index([{"name": "a", "title": "A"}], "https://me.github.io/m/", "1")
+    assert 'id="pose"' in page and 'id="face"' in page and '"expression/"' in page
+    assert 'id="face"' in front and '"expression/"' in share.SITE_SCRIPT
+
+
+def test_several_models_are_committed_to_a_clone_as_one(tmp_path, monkeypatch):
+    monkeypatch.setattr(preview, "derived_root", lambda: tmp_path / "derived")
+    monkeypatch.setattr(preview, "snapshot", lambda path, out, w, h, **_: out.write_bytes(b"\x89PNG card") and out)
+    site = tmp_path / "site"
+    site.mkdir()
+    _git(site, "init")
+    _git(site, "config", "user.email", "me@example.com")
+    _git(site, "config", "user.name", "Me")
+    _git(site, "remote", "add", "origin", "https://github.com/Me/models.git")
+    models = [preview.triangle_glb(tmp_path / f"c_{n}_slg_skin_0123456789.glb") for n in "AB"]
+    pages, live = share.publish_many(models, site, log=lambda _l: None, push=False)
+    assert pages == ["https://me.github.io/models/models/c_a_slg_skin/", "https://me.github.io/models/models/c_b_slg_skin/"]
+    log = subprocess.run(["git", "-C", str(site), "log", "--format=%s"], capture_output=True, text=True,
+                         check=True).stdout.splitlines()
+    assert log[0] == "Share c_a_slg_skin, c_b_slg_skin" and not live
+    assert [e["name"] for e in json.loads((site / share.LIST).read_text(encoding="utf-8"))] == ["c_a_slg_skin",
+                                                                                               "c_b_slg_skin"]
+
+
+def test_a_model_whose_card_cannot_be_drawn_is_shared_with_a_card_of_its_name(tmp_path, monkeypatch):
+    """pelica.glb never finished loading in the preview: its card failed, and with it a share of twenty."""
+    from PySide6.QtGui import QGuiApplication, QImage
+    QGuiApplication.instance() or QGuiApplication([])
+    monkeypatch.setattr(preview, "derived_root", lambda: tmp_path / "derived")
+
+    def stuck(path, out, w, h, **_):
+        raise ValueError("posed.glb did not load: loading")
+    monkeypatch.setattr(preview, "snapshot", stuck)
+    told = []
+    model = preview.triangle_glb(tmp_path / "pelica.glb")
+    page_url, written = share.write_model(model, tmp_path / "site", "https://me.github.io/m/", log=told.append)
+    card = QImage(str(tmp_path / "site" / share.MODELS / "pelica" / "card.png"))
+    assert (card.width(), card.height()) == share.CARD and page_url.endswith("/models/pelica/")
+    assert len(told) == 1 and "pelica.glb" in told[0]

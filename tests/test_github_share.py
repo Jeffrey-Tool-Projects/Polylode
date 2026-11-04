@@ -15,13 +15,16 @@ class FakeGitHub:
     """GitHub's endpoints the share calls, in memory: one user, their repositories, blobs, trees and commits."""
 
     def __init__(self, pages_api=403):
+        import threading
         self.repos, self.objects, self.calls, self.pages_api = {}, {}, [], pages_api
+        self.lock = threading.Lock()                     # a share uploads its files from several threads
         self.polls = iter([{"error": "authorization_pending"}, {"error": "slow_down", "interval": 10},
                            {"access_token": TOKEN}])
 
     def _store(self, value) -> str:
-        sha = f"{len(self.objects):040x}"
-        self.objects[sha] = value
+        with self.lock:
+            sha = f"{len(self.objects):040x}"
+            self.objects[sha] = value
         return sha
 
     def files(self, name="polylode-models") -> dict:
@@ -89,7 +92,7 @@ def fake(tmp_path, monkeypatch):
     monkeypatch.setattr(github, "ACCOUNT_FILE", tmp_path / "account.json")
     monkeypatch.setattr(github.time, "sleep", lambda _s: None)
     monkeypatch.setattr(preview, "derived_root", lambda: tmp_path / "derived")
-    monkeypatch.setattr(preview, "snapshot", lambda path, out, w, h: out.write_bytes(b"\x89PNG card") and out)
+    monkeypatch.setattr(preview, "snapshot", lambda path, out, w, h, **_: out.write_bytes(b"\x89PNG card") and out)
     return stand_in
 
 
@@ -315,3 +318,22 @@ def test_the_site_list_is_written_again_from_the_models_still_there_with_nothing
     with pytest.raises(github.ShareError, match="還沒有分享過模型"):
         github.tidy(lambda *_a: None, log=lambda _l: None)
     assert not fake.repos
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="DPAPI is Windows'")
+def test_several_models_are_shared_as_one_commit_with_one_list(fake, tmp_path):
+    from polylode.extractor import jobs
+    models = [preview.triangle_glb(tmp_path / f"c_{n}_slg_skin_0123456789.glb") for n in "ABCD"]
+    head = None
+    addresses, _settings, _live = github.publish_many(models, lambda *_a: None, log=lambda _l: None)
+    assert addresses == [f"https://someone.github.io/polylode-models/models/c_{n.lower()}_slg_skin/" for n in "ABCD"]
+    files = fake.files()
+    assert {e["name"] for e in json.loads(files["models.json"])} == {f"c_{n.lower()}_slg_skin" for n in "ABCD"}
+    assert all(f"models/c_{n.lower()}_slg_skin/model.glb" in files for n in "ABCD")
+    head = fake.objects[fake.repos["polylode-models"]["head"]]
+    assert head["message"] == "Share c_a_slg_skin, c_b_slg_skin, c_c_slg_skin and 1 more"
+    commits = [c for _m, c in fake.calls if c.endswith("/git/commits")]
+    assert len(commits) == 1                            # four models, one commit
+    # the window's command: an empty activity is an argument of its own, then every model
+    command = jobs.share_github_command(models[:2], "")
+    assert command[command.index("--share-github") + 1:] == ["", str(models[0]), str(models[1])]
