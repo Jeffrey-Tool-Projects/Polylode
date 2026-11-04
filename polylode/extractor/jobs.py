@@ -77,6 +77,16 @@ def share_github_command(model: Path, activity: str = "") -> list[str]:
     return _start("--share-github", str(model), *([activity] if activity else []))
 
 
+def tidy_command(site: Path, activity: str = "") -> list[str]:
+    """The front page and list of the site cloned at *site* written again from the models in it (``share.run_tidy``)."""
+    return _start("--tidy", str(site), *([activity] if activity else []))
+
+
+def tidy_github_command(activity: str = "") -> list[str]:
+    """The front page and list of the account's site written again from the models in it (``github.run_tidy``)."""
+    return _start("--tidy-github", *([activity] if activity else []))
+
+
 def view_host_command() -> list[str]:
     """The 3D view in a process of its own (``view_host.run``), its window shown in the program's."""
     return _start("--view-host")

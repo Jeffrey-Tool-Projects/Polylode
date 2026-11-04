@@ -16,8 +16,11 @@ buffer is ACL's ``compressed_tracks`` (tag ``0xAC11AC11``), every track a rotati
 space (on Xin, a spine track's translation is its ref pose's, 5.62 cm).  A sequence CUE4Parse does decode comes
 sampled instead (``<k>.bin``).  A frame is then made the way the case's rest is (``source_scene``): each bone's local transform —
 the clip's for a bone it keys, the case's own native local otherwise — mirrored and scaled as
-``source_scene.local_transform`` does, composed down the case's bones, and each world frame's uniform scale taken out
-and its rotation made orthonormal (``bake_uniform``): unposed, that is ``bone_rest`` again.
+``source_scene.local_transform`` does, composed down the case's bones, scale and all, and the transform Unreal skins
+with (that world after the inverse of the native rest) carried onto ``bone_rest`` (``rigscene.carried``): unposed,
+that is ``bone_rest`` again.  Taking each world's scale out instead (``bake_uniform``'s way, :func:`_rigid`) drew what a
+clip shrinks at its rest size: Xin's weapon, which ``Ui_Chip_End`` and ``Ui_Resonant_Start`` hide by scaling it to
+nothing and ``Ui_Weapon_*`` hold at 0.2, stood 30 mm out, whole.
 """
 from __future__ import annotations
 
@@ -27,6 +30,7 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial.transform import Rotation
 
+from ..endfield.rigscene import carried, least
 from .source_scene import C
 
 #: how far a held pose's last frame may be from its first: centimetres, and degrees
@@ -106,22 +110,10 @@ def _native_local(transform: np.ndarray) -> np.ndarray:
     return out
 
 
-#: a clip's scale below this on any axis hides the bone (a transition does, ``Ui_Chip_End`` on Xin)
-HIDDEN_SCALE = 1e-4
-
-
-def _local(transform: np.ndarray, rest_local: np.ndarray) -> np.ndarray:
-    """A clip's local for one bone, as :func:`_native_local`; a bone the clip scales to nothing keeps its rest scale.
-
-    The exported animation carries translation and rotation only (``interchange.glb``), so a clip's scale never
-    reaches the file; a scale of 0 would also leave its world frame no rotation to keep (:func:`_rigid`).  The
-    bone takes the clip's rotation and position, at the scale it has at rest."""
-    if np.abs(transform[7:10]).min() >= HIDDEN_SCALE:
-        return _native_local(transform)
-    out = _native_local(np.concatenate([transform[:7], [1.0, 1.0, 1.0]]))
-    u, _s, vt = np.linalg.svd(rest_local[:3, :3])
-    out[:3, :3] = out[:3, :3] @ (u @ vt).T @ rest_local[:3, :3]            # the rest's scale, its rotation taken out
-    return out
+def _shown(transform: np.ndarray) -> np.ndarray:
+    """A track's quaternion, position and scale, the scale no smaller than ``rigscene.least`` allows: Xin's weapon,
+    scaled to nothing, is drawn ``rigscene.LEAST_SCALE`` long and turned as the clip turns it."""
+    return np.concatenate([transform[:7], least(transform[7:10])])
 
 
 def _rigid(world: np.ndarray) -> np.ndarray:
@@ -142,13 +134,14 @@ def frames(record: dict, values: np.ndarray, bones: list[dict], native_rest: np.
                   for i, bone in enumerate(bones)]
     driven = {i: by_name[bone["name"]] for i, bone in enumerate(bones)
               if bone["name"] in by_name and keyed[by_name[bone["name"]]]}
+    rest_frames = [_rigid(w) for w in native_rest]                          # bone_rest, what the skin is bound to
     out = np.empty((len(values), len(bones), 4, 4), dtype=np.float32)
     for frame in range(len(values)):
         world = []
         for i, bone in enumerate(bones):
-            local = _local(values[frame, driven[i]], rest_local[i]) if i in driven else rest_local[i]
+            local = _native_local(_shown(values[frame, driven[i]])) if i in driven else rest_local[i]
             world.append(world[bone["parent"]] @ local if bone["parent"] >= 0 else local)
-        out[frame] = np.stack([_rigid(w) for w in world])
+        out[frame] = np.stack([carried(w, native_rest[i], rest_frames[i]) for i, w in enumerate(world)])
     return out
 
 

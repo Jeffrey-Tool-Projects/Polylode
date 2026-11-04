@@ -158,7 +158,14 @@ class ViewerPage(QWidget):
         self.share_button.setToolTip("把顯示中的 .glb 寫進你的 GitHub Pages 網站並推送；網址貼到 Discord 會顯示成卡片，點開可以轉動模型")
         self.share_button.clicked.connect(self.share)
         files_layout.addWidget(self.share_button)
+        self.tidy_button = QPushButton("更新網站清單")
+        self.tidy_button.setToolTip("依 GitHub 上還在的模型重寫網站首頁與清單（不上傳模型）：在 GitHub 刪掉的模型就會從首頁拿掉")
+        self.tidy_button.clicked.connect(self.tidy)
+        files_layout.addWidget(self.tidy_button)
         self.share_process: QProcess | None = None
+        #: what the running share job does: "share" a model, or "tidy" the site's list
+        self.share_kind = "share"
+        self.share_removed: list[str] = []
         self.sign_in_box: QMessageBox | None = None
 
         centre = QWidget()
@@ -313,8 +320,27 @@ class ViewerPage(QWidget):
         if QMessageBox.question(self, tr("分享到 GitHub Pages"), tr(
                 ask + "\n模型來自遊戲，公開前請自行確認可以分享。要繼續嗎？")) != QMessageBox.StandardButton.Yes:
             return
-        self.share_button.setEnabled(False)
         self.window_.log(f"分享 {Path(path).name} 到 {where}")
+        self._start_share("share", command)
+
+    def tidy(self) -> None:
+        """The site's front page and list written again from the models still on it, by a job of its own: a model
+        deleted on GitHub kept its card on the front page until the next share."""
+        from . import jobs
+        site = self.window_.settings.tool("pages_site")
+        activity = (self.window_.settings.tools.get(ACTIVITY) or "").strip()
+        command = jobs.tidy_command(site, activity) if site is not None else jobs.tidy_github_command(activity)
+        if QMessageBox.question(self, tr("更新網站清單"), tr(
+                "依網站上還在的模型重寫首頁與模型清單，已經刪掉的模型會從首頁拿掉。不會上傳任何模型。要繼續嗎？")) \
+                != QMessageBox.StandardButton.Yes:
+            return
+        self.window_.log("更新網站清單")
+        self._start_share("tidy", command)
+
+    def _start_share(self, kind: str, command: list[str]) -> None:
+        self.share_button.setEnabled(False)
+        self.tidy_button.setEnabled(False)
+        self.share_kind, self.share_removed = kind, []
         self.share_url, self.share_error, self.share_settings, self.share_live = "", "", "", False
         self.sign_in_box = None
         self.share_process = QProcess(self)
@@ -333,6 +359,9 @@ class ViewerPage(QWidget):
                 self.share_live = text == "yes"
             elif kind == "PAGES":
                 self.share_settings = text
+            elif kind == "REMOVED":
+                self.share_removed.append(text)
+                self.window_.log(f"  從清單拿掉：{text}")
             elif kind == "DEVICE":
                 code, _, address = text.partition(" ")
                 self._sign_in(code, address)
@@ -373,8 +402,25 @@ class ViewerPage(QWidget):
     def _share_done(self, code: int, _status) -> None:
         self._signed_in()
         self.share_button.setEnabled(True)
+        self.tidy_button.setEnabled(True)
         self.share_process = None
         self.window_.settings_page.refresh_account()
+        if self.share_kind == "tidy":
+            if code != 0 or not self.share_url:
+                QMessageBox.warning(self, tr("更新網站清單"),
+                                    tr(self.share_error) or tr("沒有更新完成，原因寫在下方的紀錄。"))
+                return
+            removed = "\n".join(self.share_removed)
+            text = (f"已從首頁拿掉 {len(self.share_removed)} 個已刪除的模型：\n{removed}" if self.share_removed
+                    else "網站清單跟網站上的模型一致，沒有要拿掉的。")
+            text += f"\n\nGitHub Pages 發佈要一點時間，之後 {self.share_url} 就會更新。"
+            self.window_.log(f"  網站清單已更新：{self.share_url}")
+            box = QMessageBox(QMessageBox.Information, tr("更新網站清單"), tr(text), QMessageBox.Ok, self)
+            open_button = box.addButton(tr("在瀏覽器開啟"), QMessageBox.ActionRole)
+            box.exec()
+            if box.clickedButton() is open_button:
+                QDesktopServices.openUrl(QUrl(self.share_url))
+            return
         if code != 0 or not self.share_url:
             QMessageBox.warning(self, tr("分享到 GitHub Pages"),
                                 tr(self.share_error) or tr("分享沒有完成，原因寫在下方的紀錄。"))

@@ -60,6 +60,8 @@ class FakeGitHub:
         if rest == "/contents/models.json":
             listed = self.files(name).get("models.json")
             return (200, listed) if listed is not None else (404, b"")
+        if rest == "/git/trees/main?recursive=1":
+            return 200, {"tree": [{"path": path, "type": "blob"} for path in self.files(name)], "truncated": False}
         if rest == "/git/ref/heads/main":
             return 200, {"object": {"sha": repo["head"]}}
         if rest.startswith("/git/commits/") and method == "GET":
@@ -132,6 +134,33 @@ def test_a_share_signs_in_makes_the_repository_and_commits_the_page(fake, tmp_pa
     assert listed == {"c_a_slg_skin", "c_b_slg_skin"}
     front = fake.files()["index.html"].decode()
     assert 'href="models/c_a_slg_skin/"' in front and 'href="models/c_b_slg_skin/"' in front
+
+
+def delete_folder(fake, folder: str, name="polylode-models") -> None:
+    """*folder* deleted from the repository the way GitHub's own page does it: a commit without its files."""
+    repo = fake.repos[name]
+    tree = {path: sha for path, sha in fake.objects[fake.objects[repo["head"]]["tree"]].items()
+            if not path.startswith(folder + "/")}
+    repo["head"] = fake._store({"tree": fake._store(tree), "parents": [repo["head"]]})
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="DPAPI is Windows'")
+def test_a_model_deleted_from_the_repository_leaves_the_list_at_the_next_share(fake, tmp_path, monkeypatch):
+    """A model whose folder was deleted on GitHub stayed in models.json: every share wrote its card back."""
+    for stem in ("c_A_slg_skin_0123456789", "c_B_slg_skin_0123456789"):
+        github.publish(preview.triangle_glb(tmp_path / f"{stem}.glb"), lambda *_a: None, log=lambda _l: None)
+    delete_folder(fake, "models/c_a_slg_skin")
+    github.publish(preview.triangle_glb(tmp_path / "c_C_slg_skin_0123456789.glb"), lambda *_a: None,
+                   log=lambda _l: None)
+    listed = {e["name"] for e in json.loads(fake.files()["models.json"])}
+    assert listed == {"c_b_slg_skin", "c_c_slg_skin"}
+    assert 'href="models/c_a_slg_skin/"' not in fake.files()["index.html"].decode()
+    # an answer GitHub cut short says nothing of what is gone: the list is kept as it is
+    assert github.still_there(TOKEN, "Someone", "main") == {"c_b_slg_skin", "c_c_slg_skin"}
+    monkeypatch.setattr(github, "_request", lambda method, url, *a, **k: (200, {"tree": [], "truncated": True})
+                        if "/git/trees/" in url else fake(method, url, *a, **k))
+    assert github.still_there(TOKEN, "Someone", "main") is None
+    assert {e["name"] for e in github.read_list(TOKEN, "Someone", branch="main")} == listed
 
 
 def test_pages_turned_on_by_the_api_leaves_nothing_to_click(fake):
@@ -219,3 +248,28 @@ def test_a_file_over_the_upload_limit_is_pushed_with_git(fake, tmp_path, monkeyp
     with pytest.raises(github.GitHubError, match="100 MB"):
         github.commit(TOKEN, "Someone", "main", {"huge.glb": huge}, "Share huge")
 
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="DPAPI is Windows'")
+def test_the_site_list_is_written_again_from_the_models_still_there_with_nothing_uploaded(fake, tmp_path):
+    """Folders deleted on GitHub left index.html and models.json as they were: nine cards, each page a 404."""
+    for stem in ("c_A_slg_skin_0123456789", "c_B_slg_skin_0123456789"):
+        github.publish(preview.triangle_glb(tmp_path / f"{stem}.glb"), lambda *_a: None, log=lambda _l: None)
+    delete_folder(fake, "models/c_a_slg_skin")
+    url, removed = github.tidy(lambda *_a: pytest.fail("signed in again"), log=lambda _l: None)
+    assert url == "https://someone.github.io/polylode-models/" and removed == ["c_a_slg_skin"]
+    files = fake.files()
+    assert {e["name"] for e in json.loads(files["models.json"])} == {"c_b_slg_skin"}
+    front = files["index.html"].decode()
+    assert 'href="models/c_b_slg_skin/"' in front and "c_a_slg_skin" not in front
+    assert "card.remove()" in files["site.js"].decode()                   # the page drops a dead card itself too
+    head = fake.objects[fake.repos["polylode-models"]["head"]]
+    assert head["message"] == "Update the model list"
+    assert not any(path.startswith("models/") and path.endswith("model.glb") and "c_a" in path for path in files)
+    # a second run finds nothing more to take off
+    assert github.tidy(lambda *_a: None, log=lambda _l: None)[1] == []
+    # an account that never shared has nothing to tidy, and no repository is made for it
+    fake.repos.clear()
+    with pytest.raises(github.ShareError, match="還沒有分享過模型"):
+        github.tidy(lambda *_a: None, log=lambda _l: None)
+    assert not fake.repos

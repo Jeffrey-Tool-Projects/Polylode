@@ -14,6 +14,8 @@ Rectangle {
     // a multiplier on the three lights
     property real light: 1.0
     property string hint: "選一個模型後按「預覽」"
+    // a file loaded and framed: the view's process then looks for its poses (view_host.Poses)
+    signal loaded()
     // set from Python in the chosen language (preview.PreviewPanel.apply_texts)
     property string hintSource: ""
     property string loadingText: "載入中…"
@@ -91,6 +93,11 @@ Rectangle {
         camera.eulerRotation = Qt.vector3d(0, 0, 0);
     }
 
+    // framed again from the angle it is seen from now: a pose shown elsewhere than the rest (view_host.Poses)
+    function refit() {
+        look(origin.eulerRotation.y, origin.eulerRotation.x);
+    }
+
     View3D {
         id: view
         anchors.fill: parent
@@ -125,6 +132,7 @@ Rectangle {
 
         RuntimeLoader {
             id: loader
+            objectName: "loader"
             // set by root.onSourceChanged, a frame after the file is chosen
             // a newly loaded model is seen from the front, framed to its box, whatever the last one was turned to
             onStatusChanged: {
@@ -137,6 +145,7 @@ Rectangle {
                     root.measuredHigh = box.high ? box.high : Qt.vector3d(0, 0, 0);
                 }
                 root.look(0, 0);
+                root.loaded();
             }
         }
     }

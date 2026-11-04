@@ -13,9 +13,17 @@ GF2's clips bind the bones themselves (a generic rig: the trunk and limbs are Tr
 character clips), so a frame is the bones' local transforms in Unity's space; :func:`poses` turns them into the
 exported bones' frames the way the scene's rest is made (``endfield.convert.to_project`` of ``prefab.local_matrix``,
 the root at the origin, ``rigscene.rest_matrix`` of the world).
+
+``rest_matrix`` takes the scale out, so a posed frame is not ``rest_matrix`` of the clip's world but the transform Unity
+skins with (:func:`skinned`: the world after the inverse of the rest world), scale and shear and all.  Display clips
+scale bones (``CommandCenterBackGround`` sets Clukay SSR01's ``root`` to 1.202; a shoulder chain to 0.931, the rig's
+``…_Ctrl_Jnt_skin`` helpers unevenly up to 2×, Cheyanne SSR0101's skirt chains unevenly at three levels); with the scale
+taken out every bone below a scaled one stood that much further from its parent on a skin drawn at its rest size —
+the eyes, on bones of their own, sat up off the face, and the body lost its shape.
 """
 from __future__ import annotations
 
+import re
 import struct
 import zlib
 
@@ -144,9 +152,43 @@ def _rest_trs(local: np.ndarray) -> tuple:
     return unity[:3, 3], _quaternions(unity[:3, :3] / scale), scale
 
 
+#: a skeleton bone of the rig's own naming (``Scapula_L``, ``Spine1_M``, ``IndexFinger2_R``): props, hair, cloth and
+#: the rig's ``…_Ctrl_Jnt_skin`` helpers are named otherwise
+SKELETON = re.compile(r"_[LMR]$")
+#: further than this off its place, metres, a bone is hidden, not moved: the game sends a part it does not show far
+#: away (Cheyanne SSR0101's shoes 217 m in her bedroom, Clukay SSR01's axe 100 km in class)
+HIDDEN = 10.0
+
+
+def strays(frames: np.ndarray, rest: np.ndarray, parents: list[int], names: list[str]) -> tuple[float, int]:
+    """The most a skeleton bone (:data:`SKELETON`, below another) moves off its rest place under its parent over the
+    clip's *frames* ``(frames, bones, 4, 4)``, in the parent's own (unscaled) frame: ``(metres, bone)``, ``(0, -1)``
+    when none does.  The hips under the rig's root are not counted: a pose lowers them to crouch or lie down; nor is
+    a frame that sends a bone further than :data:`HIDDEN` away, which hides it.
+
+    A bone of a skeleton keeps its distance to its parent; a cutscene's clip does not, where its camera cannot see:
+    GF2's ``Upgrade_*`` push both shoulder blades a metre off the chest while the camera is on the face."""
+    worst, which = 0.0, -1
+    for bone, parent in enumerate(parents):
+        if parent < 0 or not (SKELETON.search(names[bone]) and SKELETON.search(names[parent])):
+            continue
+        placed = np.linalg.solve(frames[:, parent].astype(np.float64), frames[:, bone].astype(np.float64))[:, :3, 3]
+        resting = np.linalg.solve(rest[parent], rest[bone])[:3, 3]
+        off = np.linalg.norm(placed - resting, axis=1)
+        moved = float(off[off < HIDDEN].max(initial=0.0))
+        if moved > worst:
+            worst, which = moved, bone
+    return worst, which
+
+
+#: a bone's frame as Unity skins with it, shared with Endfield's poses
+skinned = RS.skinned
+
+
 def poses(tree: dict, nodes: dict, paths: dict, bones: list[str]) -> np.ndarray:
     """The clip played on the stored *nodes* (``name → (parent, local)``, *paths* below the root): the frames of
-    the nodes *bones*, ``(frames, bones, 4, 4)``, in the space of the scene's ``bone_rest``."""
+    the nodes *bones*, ``(frames, bones, 4, 4)``, in the space of the scene's ``bone_rest``, as Unity skins with them
+    (:func:`skinned`)."""
     times, by_hash = transforms(tree)
     root = next(name for name, (parent, _local) in nodes.items() if not parent)
     driven = {name: by_hash[path_hash(path)] for name, path in paths.items()
@@ -165,6 +207,11 @@ def poses(tree: dict, nodes: dict, paths: dict, bones: list[str]) -> np.ndarray:
     for name in nodes:
         visit(name)
     rests = {name: _rest_trs(np.asarray(nodes[name][1], dtype=np.float64)) for name in driven}
+    resting: dict[str, np.ndarray] = {}
+    for name in order:
+        parent, local = nodes[name]
+        local = np.asarray(local, dtype=np.float64)
+        resting[name] = local if not parent else resting[parent] @ local
     out = np.empty((len(times), len(bones), 4, 4), dtype=np.float32)
     for frame in range(len(times)):
         world: dict[str, np.ndarray] = {}
@@ -176,8 +223,9 @@ def poses(tree: dict, nodes: dict, paths: dict, bones: list[str]) -> np.ndarray:
                 position, rotation, scale = rests[name]
                 position = curves_of[POSITION][frame] if POSITION in curves_of else position
                 rotation = curves_of[ROTATION][frame] if ROTATION in curves_of else rotation
-                scale = curves_of[SCALE][frame] if SCALE in curves_of else scale
+                scale = RS.least(curves_of[SCALE][frame]) if SCALE in curves_of else scale
                 local = _local(position, rotation, scale)
             world[name] = local if not parent else world[parent] @ local
-        out[frame] = np.stack([RS.rest_matrix(world[name]) for name in bones])
+        for k, name in enumerate(bones):
+            out[frame, k] = skinned(world[name], resting[name])
     return out

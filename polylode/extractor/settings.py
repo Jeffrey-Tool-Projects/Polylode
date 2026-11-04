@@ -22,7 +22,7 @@ class Settings:
     #: ``.glb`` needs no Blender (``interchange.glb``); ``.blend`` and FBX do
     formats: list = field(default_factory=lambda: ["glb"])
     #: a character's display poses written into its ``.glb`` as animations, where the game has them
-    #: (``endfield/poses``); a preview leaves them out (``preview.preview_settings``)
+    #: (``endfield/poses``); a preview carries them too, to switch between (``preview.preview_settings``)
     poses: bool = True
 
     def install(self, source: str) -> Path | None:

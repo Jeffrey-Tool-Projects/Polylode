@@ -27,7 +27,8 @@ colour, an empty pass), that becomes ``alphaMode``.  A part hidden at rest is no
 
 Animations: a scene that carries clips (``document["animations"]``, each one's bone frames per frame in
 ``arrays["anim<k>"]``, in the space of ``bone_rest``: an Endfield character's display poses, ``endfield/poses``)
-writes each as a glTF animation, the bones' local translation and rotation.  A key is kept only where leaving it
+writes each as a glTF animation, the bones' local translation, rotation and (a bone a clip grows, shrinks or
+stretches, ``gf2.clips.skinned``) scale.  A key is kept only where leaving it
 out would move its bone by more than :data:`KEY_METRES` or turn it by more than :data:`KEY_QUATERNION` from the
 line glTF draws between the keys kept (:func:`keys`): written whole, every bone at every frame, a GF2 outfit's 34
 poses came to 105 MB, over GitHub's 100 MB a file.
@@ -238,6 +239,8 @@ STILL = 1e-6
 #: how far a dropped key may sit from the line between the keys kept: metres of translation, and quaternion
 #: components (1e-4 is about 0.01°)
 KEY_METRES, KEY_QUATERNION = 1e-4, 1e-4
+#: the same two for a bone's scale, a factor: the frames come as float32, whose rigid 3×3 is 1 within ~1e-7
+STILL_SCALE, KEY_SCALE = 1e-5, 1e-4
 
 
 def keys(values: np.ndarray, tolerance: float) -> np.ndarray:
@@ -298,6 +301,65 @@ def _trs_node(local: np.ndarray) -> dict:
     return node
 
 
+def _matrices(translation: np.ndarray, rotation: np.ndarray, scale: np.ndarray) -> np.ndarray:
+    """``(..., 4, 4)`` from translation, rotation (``xyzw``) and scale, as glTF composes a node: T·R·S."""
+    x, y, z, w = np.moveaxis(rotation, -1, 0)
+    out = np.zeros(translation.shape[:-1] + (4, 4))
+    out[..., 0, :3] = np.stack([1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], -1)
+    out[..., 1, :3] = np.stack([2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], -1)
+    out[..., 2, :3] = np.stack([2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)], -1)
+    out[..., :3, :3] *= scale[..., None, :]
+    out[..., :3, 3] = translation
+    out[..., 3, 3] = 1.0
+    return out
+
+
+def _fitted(local: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Local frames ``(..., 4, 4)`` as the translation, rotation and scale that come nearest them: the rotation nearest
+    the 3×3 (its polar factor) and the scale along that rotation's axes.  Exact for a frame that is a rotation and
+    a scale; for one with shear (below a bone scaled unevenly), the TRS closest to it, where :func:`_trs`'s axis
+    lengths and the rotation of the columns divided by them drifted off with each level of a stretched chain."""
+    m = np.asarray(local, dtype=np.float64)[..., :3, :3]
+    u, _size, vt = np.linalg.svd(m)
+    u[..., :, -1] *= np.where(np.linalg.det(u @ vt) < 0, -1.0, 1.0)[..., None]
+    turn = u @ vt
+    scale = np.einsum("...ji,...ji->...i", turn, m)
+    return np.asarray(local, dtype=np.float64)[..., :3, 3], _quaternions(turn), scale
+
+
+def _local_trs(frames: np.ndarray, parents: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The bones' local translation, rotation and scale ``(frames, bones, …)`` that put each bone at its frame.
+
+    Each is taken against its parent as glTF will place it (its own TRS composed down the chain), not the parent's
+    frame itself: below a bone scaled unevenly, a child's turn carries a shear no TRS holds, and measured against
+    the frames that small miss added up down every chain — Cheyanne SSR0101's skirt tips sat 106 mm off.  Taken so,
+    each bone stands exactly at its place and only its own turn is approximate.  Rigid frames come out the same."""
+    count = frames.shape[1]
+    placed = frames.copy()
+    translation = np.empty(frames.shape[:2] + (3,))
+    rotation = np.empty(frames.shape[:2] + (4,))
+    scale = np.empty(frames.shape[:2] + (3,))
+    done = np.zeros(count, dtype=bool)
+
+    def visit(bone: int) -> None:
+        if done[bone]:
+            return
+        parent = parents[bone]
+        if parent >= 0:
+            visit(parent)
+            local = np.linalg.solve(placed[:, parent], frames[:, bone])
+        else:
+            local = frames[:, bone]
+        translation[:, bone], rotation[:, bone], scale[:, bone] = _fitted(local)
+        made = _matrices(translation[:, bone], rotation[:, bone], scale[:, bone])
+        placed[:, bone] = made if parent < 0 else placed[:, parent] @ made
+        done[bone] = True
+
+    for bone in range(count):
+        visit(bone)
+    return translation, rotation, scale
+
+
 def _animations(document: dict, arrays, rest: np.ndarray, builder: _Builder, first: int) -> list[dict]:
     """``document["animations"]`` as glTF animations of the bone nodes (numbered from *first*)."""
     parents = np.array([bone["parent"] for bone in document["bones"]])
@@ -310,9 +372,7 @@ def _animations(document: dict, arrays, rest: np.ndarray, builder: _Builder, fir
         frames = np.einsum("ij,fnjk->fnik", TO_Y_UP, np.asarray(arrays[f"anim{k}"], dtype=np.float64))
         if frames.shape[1:] != rest.shape:
             raise GlbError(f"animation {record['name']}: {frames.shape[1]} bones for {len(rest)}")
-        local = frames.copy()
-        local[:, child] = np.linalg.solve(frames[:, parents[child]], frames[:, child])
-        translation, rotation, _scale = _trs(local)
+        translation, rotation, scale = _local_trs(frames, parents)
         # one hemisphere along the clip, so interpolation between frames takes the short way
         for f in range(1, len(rotation)):
             flip = np.sum(rotation[f] * rotation[f - 1], axis=-1) < 0
@@ -323,8 +383,10 @@ def _animations(document: dict, arrays, rest: np.ndarray, builder: _Builder, fir
         for bone in range(len(rest)):
             moved_t = np.abs(translation[:, bone] - rest_t[bone]).max() > STILL
             near = np.minimum(np.abs(rotation[:, bone] - rest_q[bone]), np.abs(rotation[:, bone] + rest_q[bone]))
+            moved_s = np.abs(scale[:, bone] - 1).max() > STILL_SCALE
             for path, values, moved, tolerance in (("translation", translation[:, bone], moved_t, KEY_METRES),
-                                                   ("rotation", rotation[:, bone], near.max() > STILL, KEY_QUATERNION)):
+                                                   ("rotation", rotation[:, bone], near.max() > STILL, KEY_QUATERNION),
+                                                   ("scale", scale[:, bone], moved_s, KEY_SCALE)):
                 if moved:
                     kept = keys(values, tolerance)
                     marks = kept.tobytes()

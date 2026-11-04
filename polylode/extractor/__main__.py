@@ -1,6 +1,6 @@
 """``python -m polylode.extractor`` (or the packaged program): the window, ``--run-job <job.json>``
 ``--scan <source> <settings.json>``, ``--share <model.glb> <site folder>``, ``--share-github <model.glb>``,
-``--selftest <report.json>``, or a model file to open in the viewer."""
+``--tidy <site folder>``, ``--tidy-github``, ``--selftest <report.json>``, or a model file to open in the viewer."""
 from __future__ import annotations
 
 import sys
@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     from .blender_files import load_source_modules
     load_source_modules()
     if not argv or argv[0] not in ("--run-job", "--scan", "--selftest", "--discover-wuwa-keys", "--download-wuwa-keys",
-                                       "--share", "--share-github", "--view-host"):
+                                       "--share", "--share-github", "--tidy", "--tidy-github", "--view-host"):
         from .migrate import from_islandlife
         from_islandlife(lambda _line: None)      # the window's first start: the old folder's data, once
     if len(argv) == 2 and argv[0] == "--run-job":
@@ -37,6 +37,12 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) in (2, 3) and argv[0] == "--share-github":
         from .github import run_share as run_github_share
         return run_github_share(*argv[1:])
+    if len(argv) in (2, 3) and argv[0] == "--tidy":
+        from .share import run_tidy
+        return run_tidy(*argv[1:])
+    if len(argv) in (1, 2) and argv[0] == "--tidy-github":
+        from .github import run_tidy
+        return run_tidy(*argv[1:])
     if argv == ["--view-host"]:
         from .view_host import run as run_view_host
         return run_view_host()
@@ -110,7 +116,7 @@ def selftest(path: str) -> int:
     from .preview import use_opengl
     use_opengl()                     # before the application: the check draws with OpenGL, not Qt Quick's default
     QGuiApplication.instance() or QGuiApplication([])
-    from .preview import load_check, load_errors, triangle_glb
+    from .preview import TRIANGLE_POSES, load_check, load_errors, triangle_glb
     report["preview_qml_errors"] = load_errors()
     # the importer that reads .glb is a plugin of its own (``plugins/assetimporters``): only loading a file finds it
     # missing, which the window then reported as "Unknown error" (§7.1455)
@@ -119,6 +125,10 @@ def selftest(path: str) -> int:
         report["preview_load"] = load_check(triangle_glb(Path(folder) / "triangle.glb"))
     if report["preview_load"]["state"] != "ready":
         report["preview_qml_errors"].append(f"a .glb does not load: {report['preview_load']['state']}")
+    # a model's poses are the loader's Qt Quick Timeline objects (view_host.Poses): a program without the
+    # module draws the model and lists none
+    elif report["preview_load"]["poses"] != list(TRIANGLE_POSES):
+        report["preview_qml_errors"].append(f"the poses of a .glb are not found: {report['preview_load']['poses']}")
     ok = (all(v == "ok" for v in report["imports"].values()) and isinstance(report["sources"], list)
           and not report["blender_files_missing"] and not report["bundled_missing"] and report["program_exists"]
           and not report["preview_qml_errors"] and report["fmod"] == "ok" and not report["web_missing"])

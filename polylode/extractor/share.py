@@ -160,9 +160,12 @@ LIST = "models.json"
 
 
 def entries_in(site: Path) -> list[dict]:
-    """The models shared on the site cloned at *site*, from each one's ``model.json``."""
+    """The models shared on the site cloned at *site*, from each one's ``model.json``; a folder whose ``model.glb``
+    is gone (deleted from the site) is not one."""
     found = []
     for meta in (site / MODELS).glob("*/model.json"):
+        if not (meta.parent / "model.glb").is_file():
+            continue
         try:
             data = json.loads(meta.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -222,8 +225,20 @@ def _index(entries: list[dict], url: str, activity: str = "") -> str:
 """
 
 
-#: the front page's script (:data:`SCRIPT`); it does nothing outside a Discord Activity, where the cards are links
-SITE_SCRIPT = """// Inside a Discord Activity (Discord loads this page with ?frame_id=…): Discord's handshake, then the models open
+#: the front page's script (:data:`SCRIPT`): it takes off the cards of models deleted since the page was written, and
+#: inside a Discord Activity opens the models on the page itself (elsewhere the cards are links)
+SITE_SCRIPT = """// A model deleted from the site keeps its card until the next share writes this page again: a card whose image
+// does not load is taken off once the model's own file answers 404 (not for a network that failed for a moment).
+for (const image of document.querySelectorAll("a.card img")) {
+  const card = image.closest("a.card");
+  const check = () => fetch(`models/${card.dataset.name}/model.json`, { method: "HEAD", cache: "no-store" })
+    .then((answer) => { if (answer.status === 404) card.remove(); })
+    .catch(() => {});
+  if (image.complete && !image.naturalWidth) check();
+  else image.addEventListener("error", check);
+}
+
+// Inside a Discord Activity (Discord loads this page with ?frame_id=…): Discord's handshake, then the models open
 // here, turned and posed on this page; navigating to a model's own page would lose the frame_id the SDK reads.
 // Opened anywhere else the cards stay plain links to each model's page.
 const app = document.body.dataset.activity;
@@ -317,6 +332,13 @@ def write_model(model: Path, site: Path, url: str, title: str = "",
     (folder / "model.json").write_text(json.dumps({"title": title, "source": model.name, "shared": entry["shared"]},
                                                   ensure_ascii=False, indent=1), encoding="utf-8")
     entries = [e for e in (entries_in(site) if others is None else others) if e.get("name") != name] + [entry]
+    return page_url, [folder, *write_front(site, entries, url, activity)]
+
+
+def write_front(site: Path, entries: list[dict], url: str, activity: str = "") -> list[Path]:
+    """The site's front page, list (:data:`LIST`), script and the viewer it serves, written into *site* for
+    *entries*; the files written."""
+    site = Path(site)
     (site / ".nojekyll").touch()
     (site / LIST).write_text(json.dumps(entries, ensure_ascii=False, indent=1), encoding="utf-8")
     (site / "index.html").write_text(_index(entries, url, activity), encoding="utf-8")
@@ -324,7 +346,59 @@ def write_model(model: Path, site: Path, url: str, title: str = "",
     (site / VENDOR).mkdir(exist_ok=True)
     for file in VENDORED:
         shutil.copyfile(WEB / file, site / VENDOR / file)
-    return page_url, [folder, site / "index.html", site / LIST, site / ".nojekyll", site / SCRIPT, site / VENDOR]
+    return [site / "index.html", site / LIST, site / ".nojekyll", site / SCRIPT, site / VENDOR]
+
+
+def listed(site: Path) -> list[str]:
+    """The names the site's list (:data:`LIST`) holds now, whatever is left of them."""
+    try:
+        entries = json.loads((Path(site) / LIST).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [e["name"] for e in entries if isinstance(e, dict) and e.get("name")] if isinstance(entries, list) else []
+
+
+#: the commit a site's front page and list are written again by, with no model shared (:func:`tidy`)
+TIDY_MESSAGE = "Update the model list"
+
+
+def tidy(site: Path, log=print, push: bool = True, activity: str = "") -> tuple[str, list[str]]:
+    """The front page and list of the site cloned at *site* written again from the models still in it, committed
+    (only those files) and pushed: deleting a model's folder rewrites neither, and its card stayed on the front page.
+    The site's address and the models taken off the list."""
+    site = Path(site)
+    url = check_site(site)
+    before = listed(site)
+    entries = entries_in(site)
+    kept = {e["name"] for e in entries}
+    log(f"寫入 {site}")
+    paths = [str(p.relative_to(site)) for p in write_front(site, entries, url, activity)]
+    _git(site, "add", "--", *paths)
+    if _git(site, "status", "--porcelain", "--", *paths):
+        _git(site, "commit", "-m", TIDY_MESSAGE, "--", *paths)
+        if push:
+            log("推送到 GitHub…")
+            _git(site, "push", "origin", "HEAD")
+    return url, [name for name in before if name not in kept]
+
+
+def report_tidy(work) -> int:
+    """A tidy job's lines: ``LOG``, ``REMOVED <name>`` per model taken off the list, ``URL <site>``, or ``ERROR``."""
+    try:
+        url, removed = work(lambda line: print(f"LOG {line}", flush=True))
+    except Exception as failure:  # noqa: BLE001 - every failure is the window's to show, never a bare traceback
+        print(f"ERROR {failure if isinstance(failure, ShareError) else f'{type(failure).__name__}: {failure}'}",
+              flush=True)
+        return 1
+    for name in removed:
+        print(f"REMOVED {name}", flush=True)
+    print(f"URL {url}", flush=True)
+    return 0
+
+
+def run_tidy(site: str, activity: str = "") -> int:
+    """``--tidy <site>``: :func:`tidy` as the window's job (:func:`report_tidy`)."""
+    return report_tidy(lambda log: tidy(Path(site), log, activity=activity))
 
 
 #: how long a share waits for its page to be served, and how often it looks: seconds.  Pages builds a push in about

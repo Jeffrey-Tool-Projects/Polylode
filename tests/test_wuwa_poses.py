@@ -4,6 +4,7 @@ import json
 import numpy as np
 from scipy.spatial.transform import Rotation
 
+from polylode.endfield.rigscene import LEAST_SCALE
 from polylode.wuthering_waves import poses as W
 
 
@@ -108,8 +109,9 @@ def test_missing_acl_decoder_reports_that_poses_cannot_be_exported(tmp_path, mon
         source._poses_of(None, package, tmp_path, tmp_path / "poses", lambda message: None)
 
 
-def test_a_bone_a_clip_scales_to_nothing_keeps_its_rest_scale_and_the_clips_turn():
-    # a transition hides a part by scaling its bone to 0: its world frame had no rotation left and the export failed
+def test_a_bone_a_clip_scales_to_nothing_is_drawn_that_small_and_keeps_the_clips_turn():
+    # a transition hides a part by scaling its bone to 0 (Xin's weapon in Ui_Chip_End): drawn at its rest size it
+    # stood out whole; as a singular frame it had no rotation left and the export failed
     record = {"bones": ["Hips", "Prop"], "keyed": [True, True]}
     bones = [{"name": "Hips", "parent": -1}, {"name": "Prop", "parent": 0}]
     native = np.stack([np.eye(4), np.eye(4)])
@@ -118,5 +120,14 @@ def test_a_bone_a_clip_scales_to_nothing_keeps_its_rest_scale_and_the_clips_turn
     values = np.array([[[0, 0, 0, 1, 0, 0, 0, 1, 1, 1], [*turn, 0, 0, 50, 0, 0, 0]]], dtype=np.float64)
     frames = W.frames(record, values, bones, native)
     assert np.isfinite(frames).all()
+    size = np.linalg.svd(frames[0, 1, :3, :3].astype(np.float64), compute_uv=False)
+    assert np.allclose(size, LEAST_SCALE, rtol=1e-3)                  # hidden as the game hides it, not singular
     shown = W.frames(record, np.concatenate([values[:, :, :7], np.ones((1, 2, 3))], axis=2), bones, native)
-    assert np.allclose(frames, shown, atol=1e-6)                       # as if the clip had kept the scale at 1
+    assert np.allclose(frames[0, 1, :3, 3], shown[0, 1, :3, 3], atol=1e-6)    # where the clip puts it
+    turned = frames[0, 1, :3, :3] / LEAST_SCALE
+    assert np.allclose(turned, shown[0, 1, :3, :3], atol=1e-3)                # turned as the clip turns it
+    # a bone the clip grows is drawn grown, its child carried with it
+    big = values.copy()
+    big[0, 1, 7:10] = 2.0
+    grown = W.frames(record, big, bones, native)
+    assert np.allclose(np.linalg.svd(grown[0, 1, :3, :3].astype(np.float64), compute_uv=False), 2.0, atol=1e-5)

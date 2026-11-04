@@ -180,6 +180,42 @@ def rest_matrix(world: np.ndarray) -> np.ndarray:
     return out
 
 
+#: the shortest a frame's axis may be: a bone a clip scales to nothing is drawn that small, not singular
+LEAST_SCALE = 1e-4
+
+
+def least(scale) -> np.ndarray:
+    """A clip's local scale with no axis shorter than :data:`LEAST_SCALE`, its sign kept: a part the clip hides by
+    scaling it to nothing keeps the clip's turn (a zero scale leaves none, and glTF spun it as it shrank)."""
+    scale = np.asarray(scale, dtype=np.float64)
+    return np.where(np.abs(scale) < LEAST_SCALE, np.where(scale < 0, -LEAST_SCALE, LEAST_SCALE), scale)
+
+
+def carried(world: np.ndarray, rest_world: np.ndarray, rest_frame: np.ndarray) -> np.ndarray:
+    """A posed bone's frame for a skin bound to *rest_frame*: the transform the game skins with (*world* after the
+    inverse of *rest_world*, both in one space) carried onto *rest_frame* — scale and shear and all, where the game's
+    rig scales the bone or one above it.  An axis shorter than :data:`LEAST_SCALE` (a part the clip hides by scaling
+    it to nothing) is drawn that long, never singular."""
+    out = np.asarray(world, dtype=np.float64) @ np.linalg.inv(np.asarray(rest_world, dtype=np.float64)) \
+        @ np.asarray(rest_frame, dtype=np.float64)
+    u, size, vt = np.linalg.svd(out[:3, :3])
+    if size.min() < LEAST_SCALE:
+        out[:3, :3] = u @ np.diag(np.maximum(size, LEAST_SCALE)) @ vt
+    return out
+
+
+def skinned(world: np.ndarray, rest: np.ndarray) -> np.ndarray:
+    """A bone's frame as Unity skins with it: its *world* in the clip after the inverse of its *rest* world, carried
+    onto the scene's rigid rest (:func:`rest_matrix` of *rest*, what the bone's vertices are bound to) — :func:`carried`
+    in the scene's space.  Where a clip only moves and turns a bone this is ``rest_matrix(world)``.  A bone with no
+    volume at rest (kept at scale 0) is placed rigidly."""
+    rest = np.asarray(rest, dtype=np.float64)
+    resting = TO_Z_UP @ rest
+    if abs(np.linalg.det(resting[:3, :3])) < 1e-12:
+        return rest_matrix(world)
+    return carried(TO_Z_UP @ np.asarray(world, dtype=np.float64), resting, rest_matrix(rest))
+
+
 def _bones(nodes: dict, kept: list) -> list:
     worlds = world_matrices(nodes)
     names = unique_names(kept)

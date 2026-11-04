@@ -311,6 +311,69 @@ def test_a_scenes_poses_are_animations_of_its_bones_and_the_bones_are_written_as
     assert "matrix" in still["nodes"][2] and "animations" not in still
 
 
+def test_a_pose_that_grows_a_bone_writes_its_scale_and_its_children_keep_their_rest_offsets(tmp_path):
+    """GF2's CommandCenterBackGround sets Clukay SSR01's root to 1.202: with the scale left out, every bone below
+    stood 1.2 times further from its parent on a skin of its rest size, the eyes up off the face."""
+    from polylode.endfield import rigscene as RS
+    from polylode.gf2.clips import skinned
+    document, arrays = _scene(tmp_path)
+    rest = arrays["bone_rest"].astype(np.float64)
+    big = np.diag([1.202, 1.202, 1.202, 1.0])
+    # the root grown about its own origin: the spine carried 1.202 times further out, and grown with it
+    root = rest[0] @ big
+    spine = root @ np.linalg.solve(rest[0], rest[1])
+    arrays["anim0"] = np.stack([np.stack([root, spine])] * 2).astype(np.float32)
+    document["animations"] = [{"name": "big", "rate": 30.0, "frames": 2}]
+    glb.write(document, arrays, tmp_path, tmp_path / "big.glb")
+    gltf, accessor, _view = _read(tmp_path / "big.glb")
+    (animation,) = gltf["animations"]
+    channels = {(c["target"]["node"], c["target"]["path"]): animation["samplers"][c["sampler"]]
+                for c in animation["channels"]}
+    assert set(channels) == {(1, "scale")}                          # the spine neither moves nor turns from its parent
+    assert np.allclose(accessor(channels[(1, "scale")]["output"]), 1.202, atol=1e-5)
+    # the frame Unity skins with: rest_matrix of the world for a bone only moved and turned, whatever its rest's own
+    # scale; the clip's growth on top where it scales it; tiny, not singular, where it scales it to nothing
+    stretched = np.diag([1.0, 2.0, 0.5, 1.0])
+    moved = _turn(0.7) @ stretched
+    moved[:3, 3] = [0.1, 0.2, 0.3]
+    assert np.allclose(skinned(moved, stretched), RS.rest_matrix(moved))
+    frame = skinned(big @ stretched, stretched)
+    assert np.allclose(frame[:3, :3], 1.202 * RS.rest_matrix(stretched)[:3, :3])
+    assert np.linalg.svd(skinned(np.diag([0.0, 1, 1, 1]), np.eye(4))[:3, :3], compute_uv=False).min() > 0
+    # a frame with shear (a child turned below an unevenly scaled parent) comes out the TRS nearest it
+    sheared = np.diag([1.0, 2.0, 0.5, 1.0]) @ _turn(0.6)
+    t, q, s = glb._fitted(sheared[None])
+    fit = glb._matrices(t, q, s)[0]
+    assert np.linalg.norm(fit[:3, :3] - sheared[:3, :3]) < np.linalg.norm(
+        glb._matrices(*glb._trs(sheared[None]))[0][:3, :3] - sheared[:3, :3])
+
+
+def test_below_an_unevenly_scaled_bone_every_joint_still_lands_on_its_place():
+    """Measured against the frames, the shear a child's turn takes below an unevenly scaled bone (which no TRS holds)
+    added up down a chain: Cheyanne SSR0101's skirt tips sat 106 mm off.  Against the parent as glTF composes it, each
+    joint is exact."""
+    parents = np.array([-1, 0, 1, 2])
+    frames = np.stack([np.eye(4)] * 4)[None].copy()
+    frames[0, 0, :3, :3] = np.diag([1.0, 2.0, 0.5])                    # the root scaled unevenly
+    for bone in (1, 2, 3):                                             # each next one turned 40° and 0.3 m further
+        turned = np.eye(4)
+        turned[:3, :3] = _turn(0.7)[:3, :3] * (1.0 + 0.4 * bone)
+        frames[0, bone] = turned
+        frames[0, bone, :3, 3] = [0.3 * bone, 0.1 * bone, 0.05 * bone]
+    translation, rotation, scale = glb._local_trs(frames, parents)
+    made = glb._matrices(translation, rotation, scale)[0]
+    placed = [made[0]]
+    for bone in (1, 2, 3):
+        placed.append(placed[parents[bone]] @ made[bone])
+    for bone in range(4):
+        assert np.allclose(placed[bone][:3, 3], frames[0, bone, :3, 3], atol=1e-12)
+    # rigid frames give the plain parent-relative locals
+    rigid = np.stack([np.eye(4), _turn(0.3)])[None].copy()
+    rigid[0, 1, :3, 3] = [0, 0.5, 0]
+    t, q, s = glb._local_trs(rigid, np.array([-1, 0]))
+    assert np.allclose(s, 1) and np.allclose(t[0, 1], [0, 0.5, 0]) and np.allclose(q[0, 1], glb._quaternions(_turn(0.3)[:3, :3]))
+
+
 def test_rotation_matrices_become_the_quaternions_that_give_them_back():
     from scipy.spatial.transform import Rotation
     turns = Rotation.random(200, random_state=7)

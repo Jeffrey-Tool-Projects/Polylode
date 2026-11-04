@@ -5,7 +5,8 @@ through ``RuntimeLoader``), into a cache of this program's own
 (:func:`cache_folder`), without Blender's read-back: it is for looking at,
 the files a user keeps come from the export queue.  A model previewed once is
 shown from the cache the next time.  ``preview.qml`` frames the model by its
-bounds; the mouse turns (left drag), pans (right drag) and zooms (wheel).
+bounds; the mouse turns (left drag), pans (right drag) and zooms (wheel).  A model with display poses (its glTF
+animations) plays the first, and the panel lists them to switch between (``view_host.Poses``).
 """
 from __future__ import annotations
 
@@ -17,7 +18,7 @@ import json
 
 from PySide6.QtCore import QObject, QProcess, Qt, QUrl, Signal
 from PySide6.QtGui import QVector3D, QWindow
-from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from ..core.paths import derived_root
 from . import settings as S
@@ -31,8 +32,9 @@ QML = Path(__file__).with_name("preview.qml")
 #: GF2's characters, and GF2's lower LOD levels hidden; 6: Wuthering Waves split by material; 7: Wuthering
 #: Waves' cut-outs from the game's shader, parallax fur as strand layers; 8: GF2's spare outfit parts and
 #: dormitory variants hidden; 9: every dormitory part of a model that is not the dormitory one; 10: every display
-#: pose, not only the held ones)
-CACHE_VERSION = 10
+#: pose, not only the held ones; 11: a preview carries the poses, to switch between, GF2's and Endfield's poses
+#: their scale, and no cutscene clip that pulls the body apart)
+CACHE_VERSION = 11
 
 
 def cache_folder(model: Model) -> Path:
@@ -68,23 +70,38 @@ def adopt(model: Model, written: Path) -> Path:
 
 
 def preview_settings(settings: S.Settings) -> S.Settings:
-    """*settings* for a preview job: ``.glb`` only, no Blender (its read-back takes minutes) and no poses (decoding
-    and playing a character's clips adds tens of seconds; the preview is drawn at rest)."""
-    return replace(settings, formats=["glb"], tools={k: v for k, v in settings.tools.items() if k != "blender"},
-                   poses=False)
+    """*settings* for a preview job: ``.glb`` only, no Blender (its read-back takes minutes).  The poses follow the
+    settings: decoding a character's clips adds tens of seconds, and with them the preview switches between them."""
+    return replace(settings, formats=["glb"], tools={k: v for k, v in settings.tools.items() if k != "blender"})
+
+
+#: the poses of :func:`triangle_glb`'s triangle: what :func:`load_check` finds the view reading
+TRIANGLE_POSES = ("rise", "slide")
 
 
 def triangle_glb(path: Path) -> Path:
-    """A one-triangle ``.glb`` at *path*: what :func:`load_check` reads."""
+    """A one-triangle ``.glb`` at *path*, moved by two animations (:data:`TRIANGLE_POSES`): what
+    :func:`load_check` reads."""
     import json
     import struct
-    positions = struct.pack("<9f", 0, 0, 0, 1, 0, 0, 0, 1, 0)
+    points = struct.pack("<9f", 0, 0, 0, 1, 0, 0, 0, 1, 0)
+    times = struct.pack("<2f", 0, 1)
+    moves = [struct.pack("<6f", 0, 0, 0, 0, 1, 0), struct.pack("<6f", 0, 0, 0, 1, 0, 0)]
+    positions = points + times + b"".join(moves)
+    views = [(0, len(points)), (len(points), len(times))] + \
+        [(len(points) + len(times) + 24 * k, 24) for k in range(len(moves))]
     document = {"asset": {"version": "2.0"}, "scene": 0, "scenes": [{"nodes": [0]}], "nodes": [{"mesh": 0}],
                 "meshes": [{"primitives": [{"attributes": {"POSITION": 0}}]}],
                 "buffers": [{"byteLength": len(positions)}],
-                "bufferViews": [{"buffer": 0, "byteLength": len(positions)}],
+                "bufferViews": [{"buffer": 0, "byteOffset": offset, "byteLength": size} for offset, size in views],
                 "accessors": [{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
-                               "min": [0, 0, 0], "max": [1, 1, 0]}]}
+                               "min": [0, 0, 0], "max": [1, 1, 0]},
+                              {"bufferView": 1, "componentType": 5126, "count": 2, "type": "SCALAR",
+                               "min": [0], "max": [1]}]
+                + [{"bufferView": 2 + k, "componentType": 5126, "count": 2, "type": "VEC3"} for k in range(len(moves))],
+                "animations": [{"name": name, "samplers": [{"input": 1, "output": 2 + k, "interpolation": "LINEAR"}],
+                                "channels": [{"sampler": 0, "target": {"node": 0, "path": "translation"}}]}
+                               for k, name in enumerate(TRIANGLE_POSES)]}
     text = json.dumps(document).encode()
     text += b" " * (-len(text) % 4)
     body = struct.pack("<II", len(text), 0x4E4F534A) + text + struct.pack("<II", len(positions), 0x004E4942) + positions
@@ -184,16 +201,19 @@ class Offscreen:
 
 def load_check(glb: Path, seconds: float = 30) -> dict:
     """``preview.qml`` loading *glb* the way the window does, drawn off-screen (:class:`Offscreen`): its loader
-    state and size.
+    state, size and the poses the view's process would list (``view_host.Poses``).
 
     The packaged program's ``--selftest`` reads a triangle with it: a missing Qt Quick 3D module or
-    importer plugin only shows when a file is actually loaded.  Needs a ``QGuiApplication``.
+    importer plugin only shows when a file is actually loaded, and the poses need Qt Quick Timeline, which the
+    loader makes them with.  Needs a ``QGuiApplication``.
     """
+    from .view_host import Poses
     view = Offscreen()
     if view.failure:
-        return {"state": view.failure, "size": 0.0}
+        return {"state": view.failure, "size": 0.0, "poses": []}
     state = view.load(glb, seconds)
-    return {"state": state, "size": float(view.root.property("size"))}
+    poses = Poses().read(view.root) if state == "ready" else []
+    return {"state": state, "size": float(view.root.property("size")), "poses": poses}
 
 
 def snapshot(path: Path, out: Path, width: int, height: int, seconds: float = 120) -> Path:
@@ -546,6 +566,18 @@ class PreviewPanel(QWidget):
         # the conversion a preview waits for (the file's own load is the view's bar)
         self.steps = StepBar()
         layout.addWidget(self.steps)
+        # the shown model's poses, as the view's process lists them once it has loaded the file (hidden with none)
+        self.pose_row = QWidget()
+        row = QHBoxLayout(self.pose_row)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(QLabel("姿勢"))
+        self.pose_list = QComboBox()
+        self.pose_list.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.pose_list.setMinimumContentsLength(12)
+        self.pose_list.currentIndexChanged.connect(self._pose_chosen)
+        row.addWidget(self.pose_list, 1)
+        self.pose_row.hide()
+        layout.addWidget(self.pose_row)
         #: the file shown (the view may read a display copy of it, :func:`shown_copy`)
         self.current: Path | None = None
         self.caption = QLabel("左鍵拖曳旋轉、右鍵平移、滾輪縮放")
@@ -583,16 +615,26 @@ class PreviewPanel(QWidget):
         self._host_lines += bytes(self.host.readAllStandardOutput())
         *lines, self._host_lines = self._host_lines.split(b"\n")
         for raw in lines:
-            kind, _, text = raw.decode("utf-8", "replace").strip().partition(" ")
-            if kind == "WINID" and self.container is None:
-                window = QWindow.fromWinId(int(text))
-                self.container = QWidget.createWindowContainer(window, self)
-                self.container.setMinimumSize(200, 200)
-                self.layout().replaceWidget(self.placeholder, self.container)
-                self.placeholder.hide()
-                self._write({"op": "show"})
-            elif kind == "ERROR":
-                self.placeholder.setText(text)
+            self._host_said(raw.decode("utf-8", "replace"))
+
+    def _host_said(self, line: str) -> None:
+        """One line the view's process wrote: its window, the poses of the model it loaded, or why it cannot start."""
+        kind, _, text = line.strip().partition(" ")
+        if kind == "WINID" and self.container is None:
+            window = QWindow.fromWinId(int(text))
+            self.container = QWidget.createWindowContainer(window, self)
+            self.container.setMinimumSize(200, 200)
+            self.layout().replaceWidget(self.placeholder, self.container)
+            self.placeholder.hide()
+            self._write({"op": "show"})
+        elif kind == "POSES":
+            try:
+                names = json.loads(text)
+            except ValueError:
+                names = []
+            self._list_poses([str(name) for name in names] if isinstance(names, list) else [])
+        elif kind == "ERROR":
+            self.placeholder.setText(text)
 
     def _host_ended(self, *_status) -> None:
         if self.container is not None:
@@ -601,6 +643,21 @@ class PreviewPanel(QWidget):
             self.container = None
         self.placeholder.show()
         self.host = None
+        self._list_poses([])
+
+    # -- poses ---------------------------------------------------------------------------------------------------
+    def _list_poses(self, names: list[str]) -> None:
+        """*names* listed to choose from, the first (the one the view plays) chosen; the row hidden with none."""
+        self.pose_list.blockSignals(True)
+        self.pose_list.clear()
+        self.pose_list.addItems(names)
+        self.pose_list.setCurrentIndex(0 if names else -1)
+        self.pose_list.blockSignals(False)
+        self.pose_row.setVisible(bool(names))
+
+    def _pose_chosen(self, index: int) -> None:
+        if index >= 0:
+            self._send({"op": "pose", "index": index})
 
     # -- what is shown -----------------------------------------------------------------------------------------
     def apply_texts(self) -> None:
@@ -620,6 +677,7 @@ class PreviewPanel(QWidget):
         self.current = Path(path)
         self._asked += 1
         asked = self._asked
+        self._list_poses([])
         self._ensure_host()
         named = caption if Path(path).name in caption else f"{caption}\n{Path(path).name}"
         self.caption.setText(tr(f"{named}\n載入中…"))
@@ -649,6 +707,7 @@ class PreviewPanel(QWidget):
     def show_message(self, text: str) -> None:
         self.current = None
         self._asked += 1
+        self._list_poses([])
         self.caption.setToolTip("")
         if self.root.values.get("source"):
             self.root.setProperty("source", QUrl())

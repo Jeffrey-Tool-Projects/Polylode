@@ -55,3 +55,26 @@ def test_an_outfits_poses_are_its_own_clips_off_the_battlefield():
     assert GP.outfit_of("c_VepleyDorm_skin") == "VepleyDorm"
     assert [r["name"] for r in GP.candidates(rows, "NikketaSSR0102")] == ["c_NikketaSSR0102_BarrackIdle",
                                                                            "c_NikketaSSR0102_Cloth_Idle"]
+
+
+def test_a_cutscene_clip_that_pulls_the_skeleton_apart_is_measured_by_its_skeleton_alone():
+    """GF2's Upgrade_* push both shoulder blades a metre off the chest while their camera is on the face: seen whole,
+    the body tears.  A crouch (the hips lowered under the root) and a prop sent away are not the skeleton's."""
+    names = ["root", "Root_M", "Chest_M", "Scapula_L", "axe_skin", "Shoes01_R"]
+    parents = [-1, 0, 1, 2, 2, 1]
+    rest = np.stack([np.eye(4)] * 6)
+    for bone, height in enumerate([0.0, 0.9, 1.3, 1.35, 1.4, 0.1]):
+        rest[bone, 1, 3] = height
+    frames = np.stack([rest] * 3).copy()
+    frames[1, 1:, 1, 3] -= 0.6                                # crouched: everything from the hips down 60 cm
+    frames[2, 4, 0, 3] = 100.0                                # the axe hidden 100 m away
+    frames[2, 5, 0, 3] = 217.0                                # shoes the skeleton's naming, hidden the same way
+    assert GP.TORN > G.strays(frames, rest, parents, names)[0]
+    frames[2, 3, 2, 3] += 1.0                                 # the shoulder blade a metre off the chest
+    moved, bone = G.strays(frames, rest, parents, names)
+    assert np.isclose(moved, 1.0) and names[bone] == "Scapula_L" and moved > GP.TORN
+    # a grown chest carries the blade with it: measured in the parent's own frame, not torn
+    grown = np.stack([rest] * 2).copy()
+    grown[1, 2, :3, :3] *= 1.5
+    grown[1, 3] = grown[1, 2] @ np.linalg.solve(rest[2], rest[3])
+    assert G.strays(grown, rest, parents, names)[0] < 1e-9

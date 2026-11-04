@@ -28,7 +28,8 @@ import urllib.request
 from pathlib import Path
 
 from ..core.paths import _platform_user_root
-from .share import LIST, ShareError, shared_stamp, slug, wait_live, write_model
+from .share import (LIST, MODELS, TIDY_MESSAGE, ShareError, report_tidy, shared_stamp, slug, wait_live, write_front,
+                    write_model)
 
 #: Polylode's OAuth app (device flow enabled)
 CLIENT_ID = "Ov23li8eFLr9Qb5BbBll"
@@ -219,8 +220,10 @@ def pages(token: str, login: str, branch: str, log=print, name: str = REPOSITORY
     return f"https://github.com/{login}/{name}/settings/pages"
 
 
-def read_list(token: str, login: str, name: str = REPOSITORY) -> list[dict]:
-    """The site's list of shared models (``share.LIST``); empty when there is none yet."""
+def read_list(token: str, login: str, name: str = REPOSITORY, branch: str | None = None) -> list[dict]:
+    """The site's list of shared models (``share.LIST``); empty when there is none yet.  With *branch*, only the
+    models whose ``model.glb`` is still on it (:func:`still_there`): one deleted from the repository stayed in the
+    list, and every share wrote its card back onto the front page, a broken image and a model that did not load."""
     status, raw = _request("GET", f"{API}/repos/{login}/{name}/contents/{LIST}", token,
                            accept="application/vnd.github.raw+json")
     if status != 200:
@@ -229,7 +232,23 @@ def read_list(token: str, login: str, name: str = REPOSITORY) -> list[dict]:
         entries = json.loads(raw)
     except ValueError:
         return []
-    return [e for e in entries if isinstance(e, dict) and e.get("name")] if isinstance(entries, list) else []
+    entries = [e for e in entries if isinstance(e, dict) and e.get("name")] if isinstance(entries, list) else []
+    there = still_there(token, login, branch, name) if branch else None
+    return entries if there is None else [e for e in entries if e["name"] in there]
+
+
+def still_there(token: str, login: str, branch: str, name: str = REPOSITORY) -> set[str] | None:
+    """The models whose ``models/<name>/model.glb`` is on *branch*; None when the branch's files cannot all be read
+    (an answer GitHub cut short): then nothing is taken off the list."""
+    status, answer = _request("GET", f"{API}/repos/{login}/{name}/git/trees/{branch}?recursive=1", token)
+    if status != 200 or not isinstance(answer, dict) or answer.get("truncated") or "tree" not in answer:
+        return None
+    found = set()
+    for item in answer["tree"]:
+        parts = str(item.get("path", "")).split("/")
+        if len(parts) == 3 and parts[0] == MODELS and parts[2] == "model.glb":
+            found.add(parts[1])
+    return found
 
 
 def push_with_git(token: str, login: str, branch: str, files: dict[str, Path], message: str, log=print,
@@ -315,7 +334,8 @@ def publish(model: Path, announce, log=print, activity: str = "") -> tuple[str, 
     url = pages_url(login)
     with tempfile.TemporaryDirectory() as folder:
         staging = Path(folder)
-        page_url, written = write_model(Path(model), staging, url, others=read_list(token, login), activity=activity)
+        page_url, written = write_model(Path(model), staging, url, others=read_list(token, login, branch=branch),
+                                        activity=activity)
         files = {}
         for item in written:
             for local in ([p for p in item.rglob("*") if p.is_file()] if item.is_dir() else [item]):
@@ -325,6 +345,39 @@ def publish(model: Path, announce, log=print, activity: str = "") -> tuple[str, 
         stamp = shared_stamp(written[0])
     settings_page = pages(token, login, branch, log)
     return page_url, settings_page, False if settings_page else wait_live(page_url, stamp, log)
+
+
+def tidy(announce, log=print, activity: str = "", name: str = REPOSITORY) -> tuple[str, list[str]]:
+    """The site's front page and list written again from the models still in the repository, as one commit: a model
+    folder deleted on GitHub left both as they were, its card on the front page and its page a 404.  The site's
+    address and the models taken off the list; nothing is uploaded but those files."""
+    token, login = signed_in(announce, log)
+    status, answer = _request("GET", f"{API}/repos/{login}/{name}", token)
+    if status != 200 or not isinstance(answer, dict):
+        raise ShareError(f"還沒有分享過模型：GitHub 帳號 {login} 沒有 {name} 倉庫")
+    branch = answer.get("default_branch") or "main"
+    every = read_list(token, login, name)
+    there = still_there(token, login, branch, name)
+    if there is None:
+        raise ShareError("GitHub 沒有回傳完整的檔案清單，沒有更動網站")
+    kept = [e for e in every if e["name"] in there]
+    url = pages_url(login, name)
+    with tempfile.TemporaryDirectory() as folder:
+        staging = Path(folder)
+        files = {}
+        for item in write_front(staging, kept, url, activity):
+            for local in ([p for p in item.rglob("*") if p.is_file()] if item.is_dir() else [item]):
+                files[local.relative_to(staging).as_posix()] = local
+        log("推送到 GitHub…")
+        commit(token, login, branch, files, TIDY_MESSAGE, log, name=name)
+    return url, [e["name"] for e in every if e["name"] not in there]
+
+
+def run_tidy(activity: str = "") -> int:
+    """``--tidy-github``: :func:`tidy` as the window's job (``share.report_tidy``), with ``DEVICE <code> <address>``
+    while the user signs in."""
+    return report_tidy(lambda log: tidy(lambda code, address: print(f"DEVICE {code} {address}", flush=True), log,
+                                        activity))
 
 
 def run_share(model: str, activity: str = "") -> int:

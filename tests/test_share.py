@@ -118,4 +118,44 @@ def test_the_front_page_is_the_named_discord_activity_and_a_plain_list_without_o
         assert 'src="vendor/model-viewer-4.0.0.min.js"' in page and 'src="site.js"' in page
         assert 'href="models/a/" data-name="a"' in page and "cdn." not in page        # nothing from outside the site
     assert "frame_id" in share.SITE_SCRIPT and share.SDK in share.SITE_SCRIPT
+    # a card whose model was deleted since the page was written comes off, once the model's file answers 404
+    assert "answer.status === 404" in share.SITE_SCRIPT and "card.remove()" in share.SITE_SCRIPT
+
+
+def test_a_model_folder_without_its_model_is_not_listed(tmp_path):
+    """A model deleted from the site (its model.glb gone) was listed again by the next share."""
+    for name, kept in (("a", True), ("b", False)):
+        folder = tmp_path / share.MODELS / name
+        folder.mkdir(parents=True)
+        (folder / "model.json").write_text(json.dumps({"title": name.upper(), "shared": "2026-11-04"}), encoding="utf-8")
+        if kept:
+            (folder / "model.glb").write_bytes(b"glTF")
+    assert [e["name"] for e in share.entries_in(tmp_path)] == ["a"]
     assert "cdn." not in share._page("x", "https://me.github.io/m/models/x/")
+
+
+def test_a_clones_list_is_written_again_from_the_models_left_in_it(tmp_path, monkeypatch):
+    """The --tidy job: a model folder deleted from the clone comes off the front page and list, committed alone."""
+    monkeypatch.setattr(preview, "derived_root", lambda: tmp_path / "derived")
+    monkeypatch.setattr(preview, "snapshot", lambda path, out, w, h: out.write_bytes(b"\x89PNG card") and out)
+    remote = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+    site = tmp_path / "site"
+    site.mkdir()
+    _git(site, "init")
+    _git(site, "config", "user.email", "me@example.com")
+    _git(site, "config", "user.name", "Me")
+    _git(site, "remote", "add", "origin", "https://github.com/Me/models.git")
+    _git(site, "remote", "set-url", "--push", "origin", str(remote))
+    for stem in ("c_A_slg_skin_0123456789", "c_B_slg_skin_0123456789"):
+        share.publish(preview.triangle_glb(tmp_path / f"{stem}.glb"), site, log=lambda _l: None, push=False)
+    _git(site, "rm", "-r", "-q", "models/c_a_slg_skin")
+    _git(site, "commit", "-q", "-m", "Remove a model")
+    url, removed = share.tidy(site, log=lambda _l: None)
+    assert url == "https://me.github.io/models/" and removed == ["c_a_slg_skin"]
+    assert [e["name"] for e in json.loads((site / share.LIST).read_text(encoding="utf-8"))] == ["c_b_slg_skin"]
+    assert "c_a_slg_skin" not in (site / "index.html").read_text(encoding="utf-8")
+    pushed = subprocess.run(["git", "-C", str(remote), "log", "-1", "--format=%s"], capture_output=True, text=True,
+                            check=True).stdout.strip()
+    assert pushed == share.TIDY_MESSAGE
+    assert share.tidy(site, log=lambda _l: None)[1] == []                    # nothing more to take off

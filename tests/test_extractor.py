@@ -497,6 +497,141 @@ def test_the_view_process_applies_what_the_window_sends(tmp_path, monkeypatch):
     assert host.waitForFinished(30000) and host.exitCode() == 0
 
 
+class _Loaded:
+    """An object of a loaded model as the view's process walks it: its class, name, children and properties."""
+
+    def __init__(self, kind, name="", children=(), log=None, **values):
+        self.kind, self.name, self.kids, self.log, self.values = kind, name, list(children), log, values
+
+    def metaObject(self):
+        from types import SimpleNamespace
+        return SimpleNamespace(className=lambda: self.kind,
+                               indexOfProperty=lambda name: 0 if name in self.values else -1)
+
+    def objectName(self):
+        return self.name
+
+    def children(self):
+        if self.kind == "QQuickKeyframe":
+            raise AssertionError("a keyframe is never walked into")
+        return self.kids
+
+    def property(self, name):
+        return self.values.get(name)
+
+    def setProperty(self, name, value):
+        self.values[name] = value
+        self.log.append((self.name, name, value))
+
+    def findChild(self, _kind, name):
+        return next((c for c in self.kids if c.name == name), None)
+
+    def stop(self):
+        self.values["running"] = False
+
+    def restart(self):
+        self.values["running"] = True
+
+
+def test_a_models_poses_are_found_listed_and_switched():
+    """The preview switches poses: the loader makes each glTF animation a Timeline, the first one enabled."""
+    import json
+    from polylode.extractor import view_host as H
+    log = []
+
+    def pose(name, enabled):
+        keys = _Loaded("QQuickKeyframeGroup", children=[_Loaded("QQuickKeyframe")])
+        return _Loaded("QQuickTimeline", f"{name}-timeline", [keys, _Loaded("QQuickTimelineAnimation", name, log=log,
+                                                                             running=True, loops=-1)],
+                       log=log, enabled=enabled, startFrame=0.0, currentFrame=0.0)
+    scene = _Loaded("QQuick3DNode", children=[_Loaded("QQuick3DModel"), pose("rise", True), pose("slide", False)])
+    root = _Loaded("Root", children=[_Loaded("QQuick3DRuntimeLoader", "loader", [scene])], log=log)
+    poses = H.Poses()
+    assert poses.read(root) == ["rise", "slide"]
+    timelines = [timeline for _name, timeline, _animation in poses.found]
+    animations = [animation for _name, _timeline, animation in poses.found]
+    assert [t.values["enabled"] for t in timelines] == [True, False]
+    assert [a.values["running"] for a in animations] == [True, False]     # every animation started, one shown
+    log.clear()
+    timelines[1].values["currentFrame"] = 500.0
+    assert poses.play(1)
+    # the shown one off before the next is on: a disabled timeline puts back what it moved
+    assert log.index(("rise-timeline", "enabled", False)) < log.index(("slide-timeline", "enabled", True))
+    assert [t.values["enabled"] for t in timelines] == [False, True] and timelines[1].values["currentFrame"] == 0.0
+    assert [a.values["running"] for a in animations] == [False, True]
+    assert not poses.play(2) and not poses.play(-1)
+    # the window's commands: a pose by its place in the list, a new file forgetting the last one's
+    H.apply(root, None, json.dumps({"op": "pose", "index": 0}), poses)
+    assert [t.values["enabled"] for t in timelines] == [True, False]
+    H.apply(root, None, json.dumps({"op": "pose", "index": "x"}), poses)
+    H.apply(root, None, json.dumps({"op": "set", "name": "source", "value": {"url": ""}}), poses)
+    assert poses.found == [] and root.values["source"].isEmpty()
+    assert H.Poses().read(_Loaded("Root", log=log)) == []                  # nothing loaded: no poses
+
+
+def test_a_pose_that_places_the_character_elsewhere_is_framed_where_it_is():
+    """GF2's CommandCenterBackGround seats Clukay SSR01 2.4 m to the side: the view framed the rest's box, empty."""
+    from PySide6.QtGui import QVector3D
+    from polylode.extractor import view_host as H
+    log = []
+    at = {"hips": (0, 0.9, 0), "head": (0, 1.5, 0), "shoe": (0, 0.05, 0)}
+
+    def joint(name, children=()):
+        return _Loaded("QQuick3DNode", name, children, log=log, scenePosition=QVector3D(*at[name]))
+    head, shoe = joint("head"), joint("shoe")
+    hips = joint("hips", [head, shoe])
+    mesh = _Loaded("QQuick3DModel", "body", log=log, scenePosition=QVector3D(0, 0, 0))   # stays at the origin
+
+    def timeline(name, enabled):
+        group = _Loaded("QQuickKeyframeGroup", log=log, target=hips)
+        return _Loaded("QQuickTimeline", name, [group, _Loaded("QQuickTimelineAnimation", name, log=log, running=True)],
+                       log=log, enabled=enabled, startFrame=0.0, currentFrame=0.0)
+    scene = _Loaded("QQuick3DNode", "scene", [hips, mesh, timeline("idle", True), timeline("seated", False)], log=log,
+                    scenePosition=QVector3D(0, 0, 0))
+
+    class Root(_Loaded):
+        def __init__(self):
+            super().__init__("Root", children=[_Loaded("QQuick3DRuntimeLoader", "loader", [scene], log=log)], log=log,
+                             framed=True, frameLow=QVector3D(-0.3, 0, -0.2), frameHigh=QVector3D(0.3, 1.7, 0.2))
+            self.refits = 0
+
+        def refit(self):
+            self.refits += 1
+    root = Root()
+    poses = H.Poses()
+    assert poses.read(root) == ["idle", "seated"] and {n.name for n in poses.nodes} == {"hips", "head", "shoe"}
+    assert root.refits == 1                                       # framed on the first pose once loaded
+    # the second pose seats the character 2.4 m to the side, a shoe hidden 217 m away
+    at.update(hips=(-2.4, 0.9, 1.0), head=(-2.4, 1.5, 1.0), shoe=(217.0, 0.05, 0))
+    for node in (hips, head, shoe):
+        node.values["scenePosition"] = QVector3D(*at[node.name])
+    poses.play(1)
+    low, high = root.values["frameLow"], root.values["frameHigh"]
+    assert root.refits == 2
+    assert (round(low.x(), 3), round(high.x(), 3)) == (-2.7, -2.1)      # the rest's margins round where she is now
+    assert (round(low.z(), 3), round(high.z(), 3)) == (0.8, 1.2) and round(high.y(), 3) == 1.7
+    assert H.joint_box([], 1.0) is None
+
+
+def test_the_preview_panel_lists_the_poses_the_view_found(monkeypatch):
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    from polylode.extractor.preview import PreviewPanel
+    QApplication.instance() or QApplication([])
+    panel = PreviewPanel()
+    assert not panel.pose_row.isVisibleTo(panel)
+    panel._host_said('POSES ["BarrackIdle", "姿勢 2"]\n')
+    assert panel.pose_row.isVisibleTo(panel)
+    assert [panel.pose_list.itemText(i) for i in range(panel.pose_list.count())] == ["BarrackIdle", "姿勢 2"]
+    assert panel.pose_list.currentIndex() == 0 and not [c for c in panel.root.sent if c["op"] == "pose"]
+    panel.pose_list.setCurrentIndex(1)
+    assert panel.root.sent[-1] == {"op": "pose", "index": 1}
+    panel.show_message("x")                                                 # another file: its own poses, later
+    assert not panel.pose_row.isVisibleTo(panel) and panel.pose_list.count() == 0
+    panel._host_said("POSES not json")
+    assert not panel.pose_row.isVisibleTo(panel)
+
+
 def test_the_window_fits_a_small_screen(tmp_path, monkeypatch):
     """§7.1455: the settings page set the window's minimum width at 1,393 px, wider than a laptop at 150 %."""
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")

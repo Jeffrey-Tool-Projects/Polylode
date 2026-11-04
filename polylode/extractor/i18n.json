@@ -1823,11 +1823,11 @@
   "ja": "リーダーが古いためモーションをデコードできません。更新するか新しいリーダーを選んでください。静止モデルのみ必要な場合はポーズをオフにしてください。",
   "ko": "리더가 오래되어 동작을 디코딩할 수 없습니다. 리더를 업데이트하거나 최신 리더를 선택하세요. 정적 모델만 필요하면 포즈를 끄세요."
  },
- "角色有姿勢時一起寫進 .glb（終末地、少女前線 2、鳴潮；分享的網頁可以切換）": {
-  "en": "Write a character's poses into the .glb when it has them (Endfield, Girls' Frontline 2, Wuthering Waves; the shared page switches between them)",
-  "zh-CN": "角色有姿势时一起写进 .glb（终末地、少女前线 2、鸣潮；分享的网页可以切换）",
-  "ja": "キャラクターにポーズがあれば .glb に書き込む（終末地・ドールズフロントライン2・鳴潮。共有ページで切り替え可能）",
-  "ko": "캐릭터에 포즈가 있으면 .glb에 함께 쓰기(종말지, 소녀전선 2, 명조; 공유 페이지에서 전환 가능)"
+ "角色有姿勢時一起寫進 .glb（終末地、少女前線 2、鳴潮；預覽和分享的網頁可以切換）": {
+  "en": "Write a character's poses into the .glb when it has them (Endfield, Girls' Frontline 2, Wuthering Waves; the preview and the shared page switch between them)",
+  "zh-CN": "角色有姿势时一起写进 .glb（终末地、少女前线 2、鸣潮；预览和分享的网页可以切换）",
+  "ja": "キャラクターにポーズがあれば .glb に書き込む（終末地・ドールズフロントライン2・鳴潮。プレビューと共有ページで切り替え可能）",
+  "ko": "캐릭터에 포즈가 있으면 .glb에 함께 쓰기(종말지, 소녀전선 2, 명조; 미리보기와 공유 페이지에서 전환 가능)"
  },
  "找不到動作解碼需要的 ACL 程式庫（{0}）。請設定含解碼器的 AnimeStudio；若只要靜態模型，請關閉姿勢。": {
   "en": "The ACL library needed to decode animations was not found ({0}). Configure AnimeStudio with the decoder; turn off poses if you only want a still model.",
@@ -1936,5 +1936,77 @@
   "zh-CN": "推送到 GitHub（Git）…",
   "ja": "GitHub にプッシュ中（Git）…",
   "ko": "GitHub에 푸시 중(Git)…"
+ },
+ "{0}：過場動作，{1} 離開原位 {2} cm（只給鏡頭看的部分），不寫": {
+  "en": "{0}: a cutscene clip, {1} leaves its place by {2} cm (only for its camera); not written",
+  "zh-CN": "{0}：过场动作，{1} 离开原位 {2} cm（只给镜头看的部分），不写",
+  "ja": "{0}：カットシーン用のモーション、{1} が元の位置から {2} cm 離れる（カメラ専用の部分）ため書き込まない",
+  "ko": "{0}: 컷신 동작, {1}이(가) 제자리에서 {2} cm 벗어남(카메라 전용 부분), 쓰지 않음"
+ },
+ "更新網站清單": {
+  "en": "Update the site's list",
+  "zh-CN": "更新网站清单",
+  "ja": "サイトの一覧を更新",
+  "ko": "사이트 목록 업데이트"
+ },
+ "依 GitHub 上還在的模型重寫網站首頁與清單（不上傳模型）：在 GitHub 刪掉的模型就會從首頁拿掉": {
+  "en": "Rewrite the site's front page and list from the models still on GitHub (no model is uploaded): models deleted on GitHub come off the front page",
+  "zh-CN": "依 GitHub 上还在的模型重写网站首页与清单（不上传模型）：在 GitHub 删掉的模型就会从首页拿掉",
+  "ja": "GitHub に残っているモデルからサイトのトップページと一覧を書き直す（モデルはアップロードしない）：GitHub で削除したモデルはトップページから外れる",
+  "ko": "GitHub에 남아 있는 모델로 사이트 첫 페이지와 목록을 다시 씀(모델은 업로드하지 않음): GitHub에서 삭제한 모델은 첫 페이지에서 빠짐"
+ },
+ "依網站上還在的模型重寫首頁與模型清單，已經刪掉的模型會從首頁拿掉。不會上傳任何模型。要繼續嗎？": {
+  "en": "The front page and the model list will be rewritten from the models still on the site; deleted models come off the front page. No model is uploaded. Continue?",
+  "zh-CN": "依网站上还在的模型重写首页与模型清单，已经删掉的模型会从首页拿掉。不会上传任何模型。要继续吗？",
+  "ja": "サイトに残っているモデルからトップページとモデル一覧を書き直します。削除済みのモデルはトップページから外れます。モデルはアップロードしません。続けますか？",
+  "ko": "사이트에 남아 있는 모델로 첫 페이지와 모델 목록을 다시 씁니다. 삭제된 모델은 첫 페이지에서 빠집니다. 모델은 업로드하지 않습니다. 계속할까요?"
+ },
+ "沒有更新完成，原因寫在下方的紀錄。": {
+  "en": "The update did not finish; the reason is in the log below.",
+  "zh-CN": "没有更新完成，原因写在下方的记录。",
+  "ja": "更新が完了しませんでした。理由は下のログにあります。",
+  "ko": "업데이트가 끝나지 않았습니다. 이유는 아래 기록에 있습니다."
+ },
+ "已從首頁拿掉 {0} 個已刪除的模型：": {
+  "en": "Took {0} deleted models off the front page:",
+  "zh-CN": "已从首页拿掉 {0} 个已删除的模型：",
+  "ja": "削除済みのモデル {0} 個をトップページから外しました：",
+  "ko": "삭제된 모델 {0}개를 첫 페이지에서 뺐습니다:"
+ },
+ "網站清單跟網站上的模型一致，沒有要拿掉的。": {
+  "en": "The site's list matches the models on it; nothing to take off.",
+  "zh-CN": "网站清单跟网站上的模型一致，没有要拿掉的。",
+  "ja": "サイトの一覧はサイト上のモデルと一致しています。外すものはありません。",
+  "ko": "사이트 목록이 사이트의 모델과 일치합니다. 뺄 것이 없습니다."
+ },
+ "GitHub Pages 發佈要一點時間，之後 {0} 就會更新。": {
+  "en": "GitHub Pages takes a moment to publish; {0} updates after that.",
+  "zh-CN": "GitHub Pages 发布要一点时间，之后 {0} 就会更新。",
+  "ja": "GitHub Pages の公開には少し時間がかかります。その後 {0} が更新されます。",
+  "ko": "GitHub Pages 게시에는 잠시 시간이 걸립니다. 그 뒤 {0}이(가) 업데이트됩니다."
+ },
+ "  從清單拿掉：{0}": {
+  "en": "  Taken off the list: {0}",
+  "zh-CN": "  从清单拿掉：{0}",
+  "ja": "  一覧から外した：{0}",
+  "ko": "  목록에서 뺌: {0}"
+ },
+ "  網站清單已更新：{0}": {
+  "en": "  Site list updated: {0}",
+  "zh-CN": "  网站清单已更新：{0}",
+  "ja": "  サイトの一覧を更新：{0}",
+  "ko": "  사이트 목록 업데이트됨: {0}"
+ },
+ "還沒有分享過模型：GitHub 帳號 {0} 沒有 {1} 倉庫": {
+  "en": "Nothing shared yet: the GitHub account {0} has no {1} repository",
+  "zh-CN": "还没有分享过模型：GitHub 账号 {0} 没有 {1} 仓库",
+  "ja": "まだモデルを共有していません：GitHub アカウント {0} に {1} リポジトリがありません",
+  "ko": "아직 공유한 모델이 없습니다: GitHub 계정 {0}에 {1} 저장소가 없습니다"
+ },
+ "GitHub 沒有回傳完整的檔案清單，沒有更動網站": {
+  "en": "GitHub did not return the whole file list; the site was not changed",
+  "zh-CN": "GitHub 没有返回完整的文件清单，没有更动网站",
+  "ja": "GitHub がファイル一覧を完全に返さなかったため、サイトは変更していません",
+  "ko": "GitHub가 전체 파일 목록을 돌려주지 않아 사이트를 바꾸지 않았습니다"
  }
 }

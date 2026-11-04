@@ -6,7 +6,7 @@ fire, cover…); the others are what the outfit is shown in off the battlefield:
 (the owner wants every pose, 2026-11-04); the held ones — the clips the game loops (``m_LoopTime``, as Endfield's:
 on Nikketa's SSR0102 the eight idles) — come first.  A clip whose transform curves mostly miss the outfit's nodes
 (fewer than :data:`BOUND`: the ``…_Gen`` ones bind none, a ``…_Camera`` one moves the camera) is not one of its
-poses.
+poses, nor is a cutscene's clip that pulls the body apart where its camera does not look (:data:`TORN`).
 
 The bundle index already lists every clip (``bundles.scan``: one ``AnimationClip`` container each) but not by name;
 :func:`index` names them once, opening only the bundles that hold clips, and again only for a bundle that changed.
@@ -24,6 +24,11 @@ from . import bundles, clips
 
 #: the share of a clip's transform curves that must drive the outfit's own nodes
 BOUND = 0.5
+#: how far a skeleton bone may move off its place under its parent before a clip is taken for a cutscene's, drawn for
+#: its camera and not to be seen whole (``clips.strays``): ``Upgrade_*`` move Clukay SSR01's shoulder blade 1.0 m and
+#: Cheyanne SSR0101's neck 0.46 m, Clukay's ``Class_*`` a shoulder blade 0.54 m; every other clip of the two moves its
+#: skeleton 0.13 m at most (Cheyanne's ``Class_*``, a knee; Clukay's ``Love_4``, a shoulder 0.11 m)
+TORN = 0.4
 INDEX = "clip_index.jsonl"
 
 
@@ -139,13 +144,21 @@ def add(document_path: Path, scene, nodes: dict, extra: dict, ident: str, instal
     document = json.loads(document_path.read_text(encoding="utf-8"))
     arrays = dict(np.load(document_path.parent / document["arrays"]))
     bones = [bone.node for bone in scene.bones]
+    rest = np.stack([bone.rest for bone in scene.bones]).astype(np.float64)
+    parents = [bone.parent for bone in scene.bones]
     document["animations"] = []
-    for k, ((name, tree), label) in enumerate(zip(held, labels([n for n, _t in held]))):
+    for (name, tree), label in zip(held, labels([n for n, _t in held])):
         frames = clips.poses(tree, nodes, paths, bones)
+        moved, bone = clips.strays(frames, rest, parents, bones)
+        if moved > TORN:
+            log(f"  {label}：過場動作，{bones[bone]} 離開原位 {moved * 100:.0f} cm（只給鏡頭看的部分），不寫")
+            continue
         log(f"寫入姿勢 {label}（{len(frames)} 格）")
-        arrays[f"anim{k}"] = frames
+        arrays[f"anim{len(document['animations'])}"] = frames
         document["animations"].append({"name": label, "clip": name, "rate": float(tree["m_SampleRate"]) or 30.0,
                                        "frames": len(frames)})
+    if not document["animations"]:
+        return 0
     np.savez(document_path.parent / document["arrays"], **arrays)
     document_path.write_text(json.dumps(document, ensure_ascii=False, indent=1), encoding="utf-8")
-    return len(held)
+    return len(document["animations"])

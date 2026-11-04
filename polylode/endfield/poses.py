@@ -9,8 +9,11 @@ pose rather than a move between two.
 
 Each is played on the item's own skeleton the way the runtime plays it (:func:`actor.build_skeleton`,
 :func:`clips.to_animation`, ``Skeleton.evaluate``), and every frame is kept as the exported bones' frames: the
-evaluated world matrix through :func:`rigscene.rest_matrix`, which is how the scene's ``bone_rest`` is made from
-the same nodes — at rest the two agree exactly (0 on endminm's 400 bones).  These clips drive the trunk and limbs
+transform the runtime skins with (:func:`rigscene.skinned`: the evaluated world after the inverse of the rest world,
+on the scene's ``bone_rest``, which :func:`rigscene.rest_matrix` makes from the same nodes — at rest the two agree
+exactly, 0 on endminm's 400 bones).  ``rest_matrix`` of the evaluated world alone took a clip's scale out: the face
+bones a clip scales (jsspsi's lips to 0.35, her pupils to 0.16 and eye highlights to 0.27; endminf's teeth to 0.32
+and tongue to 0.41) kept their rest size, the face 8–12 mm off the game's.  These clips drive the trunk and limbs
 through their transform tracks (``Bip001_Pelvis``, ``Bip001_Spine``…: 321 of 332 tracks find a bone), so no
 humanoid retargeting is involved.
 
@@ -78,10 +81,11 @@ def frames(clip: clips.Stored, skeleton, nodes: list[str], paths: dict) -> np.nd
     space (as ``bone_rest``)."""
     animation, _matched = clips.to_animation(clip, skeleton, paths)
     rows = [skeleton.index[node] for node in nodes]
+    rest = skeleton.evaluate(None)
     out = np.empty((clip.frames, len(nodes), 4, 4), dtype=np.float32)
     for frame in range(clip.frames):
         world = skeleton.evaluate(animation.sample(frame / clip.rate))
-        out[frame] = np.stack([RS.rest_matrix(world[row]) for row in rows])
+        out[frame] = np.stack([RS.skinned(world[row], rest[row]) for row in rows])
     return out
 
 
