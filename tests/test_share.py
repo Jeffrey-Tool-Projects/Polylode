@@ -70,7 +70,7 @@ def test_a_shared_model_is_written_committed_alone_and_pushed(tmp_path, monkeypa
                             capture_output=True, text=True, check=True).stdout.split()
     assert pushed[:2] == ["Share", "c_x_slg_skin"]
     assert "notes.txt" not in pushed and "models/c_x_slg_skin/model.glb" in pushed   # only the model's files
-    assert "vendor/model-viewer-4.0.0.min.js" in pushed and "site.js" in pushed
+    assert f"vendor/{share.VIEWER}" in pushed and "site.js" in pushed
     with pytest.raises(share.ShareError, match="只能分享 .glb"):
         share.publish(tmp_path / "x.fbx", site, push=False)
 
@@ -115,7 +115,7 @@ def test_the_front_page_is_the_named_discord_activity_and_a_plain_list_without_o
     activity = share._index(entries, "https://me.github.io/m/", "636443597507395605")
     assert 'data-activity=""' in plain and 'data-activity="636443597507395605"' in activity
     for page in (plain, activity):
-        assert 'src="vendor/model-viewer-4.0.0.min.js"' in page and 'src="site.js"' in page
+        assert f'src="vendor/{share.VIEWER}"' in page and 'src="site.js"' in page
         assert 'href="models/a/" data-name="a"' in page and "cdn." not in page        # nothing from outside the site
     assert "frame_id" in share.SITE_SCRIPT and share.SDK in share.SITE_SCRIPT
     # a card whose model was deleted since the page was written comes off, once the model's file answers 404

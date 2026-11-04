@@ -2,7 +2,7 @@
 
 **English** · [繁體中文](docs/i18n/README.zh-TW.md) · [简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Español](docs/i18n/README.es.md) · [Français](docs/i18n/README.fr.md) · [Deutsch](docs/i18n/README.de.md)
 
-**Step-by-step user guide:** [https://je-chen.github.io/Polylode/](https://je-chen.github.io/Polylode/)
+**Step-by-step user guide:** [https://jeffrey-tool-projects.github.io/Polylode/](https://jeffrey-tool-projects.github.io/Polylode/)
 
 Polylode mines the character models out of the games you have installed — *poly*gons from the *lode* — and
 writes them as textured, rigged files you can open anywhere: glTF (`.glb`), FBX and Blender (`.blend`). It is a
@@ -29,7 +29,8 @@ The English window, taken from a real scan and preview with `tools/screenshots.p
 ## Features
 
 - **Scan, tick, export.** Each game has a page: scan the install, search, tick the models and export them in a
-  queue. Every scan and export runs in a process of its own, so a failing converter never takes the window down.
+  queue that converts several at once (two by default). Every scan and export runs in a process of its own, so a
+  failing converter never takes the window down.
 - **Finds your installs.** Before a scan it offers the copies it finds in your Steam libraries; any folder you pick
   may be the game's, the one above it or one inside its data.
 - **Three formats, no Blender needed for two.** `.glb` and FBX are written by Polylode itself (skeleton, skinned
@@ -39,21 +40,23 @@ The English window, taken from a real scan and preview with `tools/screenshots.p
   written from the rules read out of each game's shaders. Where glTF/FBX cannot blend a layer, its effect is baked
   into the texture beneath it; the `.blend` keeps real layers. Wuthering Waves' cut-out coverage comes from running the game's own compiled shader, and its parallax fur is built as layers of strands. Endfield's effect materials (wings, glows) are run through the game's own compiled shader and baked, and emission maps are written as emission; a material that cannot be drawn is made invisible and logged, never drawn grey.
 - **Preview before exporting.** Select a row and press Preview (or double-click): the model is converted to `.glb`
-  into a cache and shown beside the list — left-drag turns, right-drag pans, the wheel zooms. **Convert again** makes it anew, after this program or the game files are updated.
+  into a cache and shown beside the list — left-drag turns, right-drag pans, the wheel zooms. A character's poses and
+  its expressions have a menu each, an expression held over the pose. **Convert again** makes it anew, after this program or the game files are updated.
 - **Model viewer.** Lists every model in your output folder and opens any `.glb`, `.gltf`, `.fbx` or `.obj`
   (dropped, chosen, or passed as `Polylode.exe <file>` so it can be your "Open with" program): front, back, side
-  and top views, wireframe, light or dark background, light strength, and what a glTF holds. A listed model can be
-  deleted to the recycle bin.
+  and top views, wireframe, light or dark background, light strength, and what a glTF holds. Listed models can be
+  deleted to the recycle bin, several at once.
 - **Share to Discord through GitHub Pages.** Discord shows no 3D model, so the viewer's **Share on GitHub Pages…**
-  writes the `.glb` shown into your own GitHub Pages site as a page that turns it in any browser, pushes it and
-  copies its link; pasted in Discord, the link shows as a card with the model's picture.
+  writes the `.glb` shown, or every one selected, into your own GitHub Pages site as a page that turns it in any
+  browser, pushes them as one commit and copies the links; pasted in Discord, a link shows as a card with the model's
+  picture.
 - **Five languages.** English, 繁體中文, 简体中文, 日本語 and 한국어; it follows your system until you choose one in
   Settings, and switching applies at once.
 
 ## Download
 
 Take the latest `Polylode-<version>-windows-x64.zip` from the
-[Releases](https://github.com/JE-Chen/Polylode/releases) page, unzip it anywhere and run `Polylode.exe`. It carries everything it needs:
+[Releases](https://github.com/Jeffrey-Tool-Projects/Polylode/releases) page, unzip it anywhere and run `Polylode.exe`. It carries everything it needs:
 AnimeStudio (for Endfield), the Wuthering Waves reader, a .NET 10 runtime, the glTF importer and a software OpenGL for computers without a GPU
 driver.
 
@@ -72,6 +75,11 @@ asset maps, GF2 index and stores are moved over on the first start, so nothing i
 
 - **Output folder** — where exports go, one folder per model: `<output>\<game>\<model id>\`.
 - **Export formats** — `.glb`, FBX and `.blend`; tick any of them.
+- **Poses** and **Expressions** — a character's display poses, and its expressions (shape keys; Endfield's face
+  controls and presets), written into its `.glb` as animations of their own; each can be turned off.
+- **Character shading** — off unless ticked: the character's shader data beside each export (`<model>.shaders`) and,
+  with Blender set, a shaded `.blend` (minutes a model).
+- **Exports at once** — how many models the export queue converts side by side (1–4, two by default).
 - **Blender executable** — optional. Needed only for `.blend`; when it is set, every `.glb` and FBX is also read
   back in Blender as a check.
 - **Install folders** — may stay empty: a scan asks for each one and offers the copies it finds in your Steam
@@ -101,15 +109,20 @@ first preview of a model converts it (seconds to a minute, with its own bar); af
 it from the cache at once. In the view: **left-drag** turns, **right-drag** pans, the **wheel** zooms. Each model
 is framed whole and centred when it loads.
 
+A character with poses plays the first, and the **Pose** menu under the view switches between them; the view frames
+each pose where it places the character. Its expressions are in an **Expression** menu of their own ("None" first): the
+one chosen is held over the pose, so a pose and an expression can be seen together.
+
 A preview stays as it was first made. **Convert again** converts the selected row anew — after updating Polylode
 or the game — and replaces the cached one once the new one is done; until then the earlier one is kept.
 
 ### 5. Exporting
 
-Tick the models (**Select all** and **Select none** act on the rows the search shows) and press
-**Export ticked models**. The queue at the bottom runs them one at a time: ⏳ waiting, ▶ running, ✓ written,
-✗ failed — the log beside it says why. The bar under the queue counts models; the one below it shows the step of
-the model being written. Closing the window while an export runs asks first.
+Tick the models (the **Select all** box ticks or clears every row the search shows, and is part-ticked when some
+are) and press **Export ticked models**. The queue at the bottom runs as many at once as **Settings → Exports at
+once** allows: ⏳ waiting, ▶ running, ✓ written, ✗ failed — the log beside it says why, each line tagged with its
+model when several run. The bar under the queue counts models; the one below it shows the step of a model being
+written. Closing the window while an export runs asks first.
 
 ### 6. Model viewer
 
@@ -118,7 +131,8 @@ start `Polylode.exe <file>` (so it can be your "Open with" program) to look at a
 `.obj`. **Front**, **Back**, **Left**, **Right** and **Top** turn the model; **Wireframe**, the background button
 and **Light** change how it is drawn. The panel on the right lists what a glTF holds — meshes, vertices, bones,
 shape keys and each material's blending — and marks a file written by older rules, to be exported again.
-**Delete…** moves the model, its sibling files and its texture folder to the recycle bin.
+**Delete…** moves the selected models (Ctrl- or Shift-click picks several), their sibling files and their texture
+folders to the recycle bin.
 
 ### 7. Sharing on GitHub Pages (for Discord)
 
@@ -127,14 +141,16 @@ on a GitHub Pages site in your own GitHub account; the page turns the model in a
 as a card with the model's picture. No clone is made; only a file over 12 MB needs Git installed, to push it
 (GitHub's upload API refuses larger requests).
 
-1. Open a `.glb` in the model viewer and press **Share on GitHub Pages…**. It names the address the model will be public
-   at and asks before going on.
+1. Open a `.glb` in the model viewer, or select several (Ctrl- or Shift-click), and press **Share on GitHub Pages…**. It
+   names the addresses the models will be public at and asks before going on. Another share may start while one runs:
+   they take turns writing the site.
 2. The first time, it opens GitHub's sign-in page in your browser and shows a short code (already copied): enter it and
    authorize Polylode. It asks only for `public_repo` (making and writing public repositories) and keeps the
    authorization on this computer, encrypted for your Windows user. **Settings → GitHub account → Sign out** forgets it;
    GitHub's Settings → Applications revokes it.
-3. It makes the public repository `polylode-models` in your account (once), and uploads `models/<name>/` (the model, a
-   1200×630 card picture drawn as the preview shows it, and the page) with the site's list of models, as one commit.
+3. It makes the public repository `polylode-models` in your account (once), and uploads `models/<name>/` for each model
+   (the model, a 1200×630 card picture drawn as the preview shows it, and the page) with the site's list of models, as
+   one commit.
 4. The link is copied: `https://<account>.github.io/polylode-models/models/<name>/`. The first time, if Pages is not on
    for the repository yet, the message offers **Open Pages settings**: choose **Deploy from a branch**, `main`,
    `/ (root)` and Save — once. (Turning it on from the program would need access to all your private repositories,
@@ -145,13 +161,17 @@ as a card with the model's picture. No clone is made; only a file over 12 MB nee
 and the moves between them follow (an Endfield character's `ui` clips, decoded from the install the first time, about
 half a minute; a Girls' Frontline 2 outfit's clips off the battlefield — barracks, wardrobe, bedroom, ending —, named
 once at the first export, a few minutes; a Wuthering Waves character's `CommonAnim/UiAnim` clips on its own skeleton,
-decoded with the reader built from this version, an older reader leaves them out). The shared page has a **Pose** menu
-to switch between them, and its card shows the first one. **Settings → Poses** turns this off; previews never include
-them. Only the keys a pose needs are written (a key is left out where the motion between its neighbours is within
+decoded with the reader built from this version, an older reader leaves them out). The preview and the shared page have a
+**Pose** menu to switch between them, and the card shows the first one. **Settings → Poses** turns this off.
+Expressions (**Settings → Expressions**) are listed apart, in an **Expression** menu, and the one chosen is held over
+the pose there too. Only the keys a pose needs are written (a key is left out where the motion between its neighbours is within
 0.1 mm and 0.01°), so a model with thirty-odd poses stays well under GitHub's 100 MB a file.
 
 Already have a Pages site? Set **Settings → GitHub Pages site folder** to its local clone: sharing then commits there
 and pushes with Git instead.
+
+Deleted a model's folder on GitHub? **Update the site's list** in the viewer writes the front page and the list again
+from the models still on the site; nothing is uploaded but those files.
 
 Only `.glb` can be shared, up to 100 MB (GitHub's file limit); sharing a model again replaces its page. Everything
 shared is public: the models come from games, so make sure you may share them. The program's own folder is refused
@@ -162,7 +182,7 @@ as a site.
 A link card in Discord is a picture: Discord lets only a few sites put something you can operate in a chat. A Discord
 Activity is the way in: with a Discord application's **Application ID** under **Settings → Discord Activity**, the
 shared site's front page is also that application's Activity — open it from Discord's Activities menu in a voice or
-text channel, pick a model, and turn it, zoom and switch its poses there. Set the application up once in the Discord
+text channel, pick a model, and turn it, zoom, switch its poses and expressions and set its **Light** there. Set the application up once in the Discord
 Developer Portal: **Activities → URL Mappings**, root `/` to `<account>.github.io/polylode-models` (no `https://`);
 then **Activities → Settings → Enable Activities**; under **Installation**, tick User Install and Guild Install. Share
 a model once more after setting the ID, so the front page is written for it. The site serves its own copies of the 3D

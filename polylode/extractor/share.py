@@ -26,7 +26,8 @@ from pathlib import Path
 #: under a page already shared.
 WEB = Path(__file__).with_name("web")
 VENDOR = "vendor"
-VIEWER = "model-viewer-4.0.0.min.js"
+#: 4.1 is the first to play an animation over another (appendAnimation): an expression is held over the pose
+VIEWER = "model-viewer-4.1.0.min.js"
 SDK = "discord-embedded-app-sdk-2.5.0.js"
 VENDORED = (VIEWER, SDK, "LICENSE-model-viewer.txt", "LICENSE-discord-embedded-app-sdk.txt")
 #: the front page's script: in a Discord Activity (launched with ``frame_id``) the handshake and the models opened
@@ -141,6 +142,15 @@ def _page(title: str, url: str) -> str:
   const face = document.getElementById("face");
   const EXPRESSION = "expression/";
   const show = (name) => {{ viewer.animationName = name; viewer.currentTime = 0; viewer.play(); }};
+  // an expression is played over the pose (the body keeps it; alone, it fell back to the rest pose), weighted to win
+  // where both move the face
+  let held = "";
+  const hold = (name) => {{
+    if (typeof viewer.appendAnimation !== "function") {{ show(name || pick.value); return; }}
+    if (held) viewer.detachAnimation(held, {{ fade: false }});
+    held = name;
+    if (name) viewer.appendAnimation(name, {{ weight: 10, fade: false }});
+  }};
   viewer.addEventListener("load", () => {{
     const names = viewer.availableAnimations;
     const poses = names.filter((name) => !name.startsWith(EXPRESSION));
@@ -154,8 +164,8 @@ def _page(title: str, url: str) -> str:
     if (poses.length) {{ pick.value = poses[0]; show(poses[0]); }}
     box.hidden = false;
   }});
-  pick.addEventListener("change", () => {{ face.value = ""; show(pick.value); }});
-  face.addEventListener("change", () => show(face.value || pick.value));
+  pick.addEventListener("change", () => {{ show(pick.value); hold(face.value); }});
+  face.addEventListener("change", () => hold(face.value));
 </script>
 </body>
 </html>
@@ -213,6 +223,8 @@ def _index(entries: list[dict], url: str, activity: str = "") -> str:
   #view .bar {{ position: fixed; top: 10px; left: 12px; display: flex; gap: 10px; align-items: center; z-index: 1; }}
   #view button, #view select {{ background: #262a33; color: inherit; border: 1px solid #3a3f4b; border-radius: 6px;
                                padding: 4px 10px; font: inherit; }}
+  #view .light {{ display: flex; gap: 6px; align-items: center; }}
+  #view .light input {{ width: 110px; accent-color: #2f6feb; }}
 </style>
 <script type="module" src="{VENDOR}/{VIEWER}"></script>
 <script type="module" src="{SCRIPT}"></script>
@@ -224,7 +236,9 @@ def _index(entries: list[dict], url: str, activity: str = "") -> str:
 </div>
 <section id="view" hidden>
   <div class="bar"><button id="back">← All models</button><label class="poses" hidden>Pose <select id="pose"></select></label>
-    <label class="faces" hidden>Expression <select id="face"></select></label></div>
+    <label class="faces" hidden>Expression <select id="face"></select></label>
+    <label class="light" title="How bright the model is lit">Light <input id="light" type="range" min="0.2" max="3"
+      step="0.05" value="1"></label></div>
   <model-viewer camera-controls touch-action="none"
                 interaction-prompt="none" environment-image="neutral" exposure="1" shadow-intensity="0.6"
                 autoplay></model-viewer>
@@ -265,7 +279,17 @@ if (app && params.has("frame_id")) {
   const faces = view.querySelector(".faces");
   const face = document.getElementById("face");
   const show = (name) => { viewer.animationName = name; viewer.currentTime = 0; viewer.play(); };
+  // an expression is played over the pose (the body keeps it; alone, it fell back to the rest pose), weighted to win
+  // where both move the face
+  let held = "";
+  const hold = (name) => {
+    if (typeof viewer.appendAnimation !== "function") { show(name || pick.value); return; }
+    if (held) viewer.detachAnimation(held, { fade: false });
+    held = name;
+    if (name) viewer.appendAnimation(name, { weight: 10, fade: false });
+  };
   viewer.addEventListener("load", () => {
+    held = "";
     pick.replaceChildren();
     face.replaceChildren(new Option("—", ""));
     const names = viewer.availableAnimations;
@@ -277,8 +301,8 @@ if (app && params.has("frame_id")) {
     for (const name of looks) face.add(new Option(name.slice("expression/".length), name));
     if (poses.length) show(poses[0]);
   });
-  pick.addEventListener("change", () => { face.value = ""; show(pick.value); });
-  face.addEventListener("change", () => show(face.value || pick.value));
+  pick.addEventListener("change", () => { show(pick.value); hold(face.value); });
+  face.addEventListener("change", () => hold(face.value));
   for (const card of document.querySelectorAll("a.card")) {
     card.addEventListener("click", (event) => {
       event.preventDefault();
@@ -287,6 +311,9 @@ if (app && params.has("frame_id")) {
     });
   }
   document.getElementById("back").addEventListener("click", () => { view.hidden = true; viewer.removeAttribute("src"); });
+  // how bright the model is lit (the viewer's exposure), kept from one model to the next
+  const light = document.getElementById("light");
+  light.addEventListener("input", () => { viewer.exposure = Number(light.value); });
 }
 """
 
