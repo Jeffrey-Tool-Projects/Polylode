@@ -123,22 +123,27 @@ class GF2Source:
     def _poses(self, install: Path, scene, document: Path, ident: str, log: Log) -> int:
         """The outfit's held display poses (``gf2.poses``) into *document*, the clips named once per install."""
         from ..gf2 import poses, store
+        from .sources import shared_writes
         root = store.root()
-        rows = poses.index(install, root / "bundle_index.jsonl", root / poses.INDEX, log)
+        with shared_writes("gf2", log):                  # the clip index every outfit shares
+            rows = poses.index(install, root / "bundle_index.jsonl", root / poses.INDEX, log)
         return poses.add(document, scene, store.read_item(ident).nodes, store.read_extra(ident) or {}, ident, install,
                          rows, log)
 
     def _export(self, model: Model, settings, output: Path, formats: list[str], log: Log) -> list[Path]:
         from ..gf2.batch import convert_entry, load_results, save_results
         from ..gf2.export import export_one, scene_document
-        from .sources import blender_for, write_own
+        from .sources import blender_for, shared_writes, write_own
         blender = blender_for(settings, formats, BLENDER)
-        install, catalog, declared = self._catalog(settings, log, index=False)
-        entry = model.detail["entry"]
-        results = load_results()
-        progress.step("從安裝轉換模型")
-        outcome = convert_entry(catalog, entry, declared, results, log=log)
-        save_results(install, results)
+        # the store and the results file every model shares: read, converted into and written back by one job at a
+        # time (two side by side each wrote back its own copy of the results, the other's entry lost)
+        with shared_writes("gf2", log):
+            install, catalog, declared = self._catalog(settings, log, index=False)
+            entry = model.detail["entry"]
+            results = load_results()
+            progress.step("從安裝轉換模型")
+            outcome = convert_entry(catalog, entry, declared, results, log=log)
+            save_results(install, results)
         row = results[f'{entry["cab"]}/{entry["id"]}']
         if outcome != "converted":
             raise ExtractorError(f"{model.ident} 沒有轉換：{row.get('reason', outcome)}")
@@ -150,18 +155,19 @@ class GF2Source:
             if not exported.get("ok"):
                 raise ExtractorError(f"{row['ident']} 讀回沒有通過：{'; '.join(exported.get('problems') or [])}")
             written += copy_out(Path(exported["fbx"]), exported.get("blend"), output, ["blend"])
-        if any(kind in formats for kind in ("glb", "fbx")):
+        if settings.export_shaders or any(kind in formats for kind in ("glb", "fbx")):
             # into the job's output: the store's exports/<ident>.fbx is the Blender-checked one export_one recorded
             progress.step("組合場景")
             scene, _selection, _layout, _folder, document = scene_document(row["ident"], declared)
-            if settings.poses and "glb" in formats:
+            if settings.poses and ("glb" in formats or settings.export_shaders):
                 progress.step("寫入姿勢")
                 self._poses(install, scene, document, row["ident"], log)
             # glTF and FBX cannot multiply or add the eye layers: their effect is baked into the eye's map
             # (gf2.eye_bake, owner 2026-11-02); the .blend above keeps them as layers
             from ..gf2.eye_bake import bake
             progress.step("把眼睛疊層烘進貼圖")
-            written += write_own(formats, bake(document, log), output, row["ident"], blender, log)
+            written += write_own(formats, bake(document, log), output, row["ident"], blender, log,
+                                 export_shaders=settings.export_shaders)
         return written
 
 

@@ -152,14 +152,30 @@ def config_root() -> Path:
     return derived_root() / "assets_cache" / "wuthering_waves" / "config"
 
 
+#: where a .NET runtime is downloaded, for the message that says one is needed
+DOTNET_DOWNLOAD = "https://dotnet.microsoft.com/download/dotnet/10.0"
+
+
+def runtime_for(reader: Path, dotnet: Path) -> None:
+    """Say plainly when the reader cannot be started for want of a runtime: a ``wuwa.dll`` runs through *dotnet*, which
+    must hold .NET 10 (a folder named for it that was not one — the game's own — failed as a bare WinError 2)."""
+    if reader.suffix.lower() == ".exe" or has_runtime(dotnet):
+        return
+    found = find_dotnet()
+    hint = (f"這台電腦的 {found} 有 .NET 10：把這個欄位清空就會用它。" if found else
+            f"這台電腦沒有 .NET 10：到 {DOTNET_DOWNLOAD} 安裝 .NET 10 Runtime（x64），或改用內建執行環境的打包版。")
+    raise ExtractorError(f"「{DOTNET.label}」不是 .NET 10 執行環境（要有 dotnet.exe 與 shared\\Microsoft.NETCore.App\\10.*）："
+                         f"{dotnet}。{hint}")
+
+
 def _reader(settings, mode: str, output: Path, argument: str, log: Log) -> None:
     from ..wuthering_waves import extract
     try:
         from . import bundled
-        extract.run(require(settings, READER, bundled.wuwa_reader() or find_reader()),
-                    require(settings, DOTNET, bundled.dotnet() or find_dotnet()),
-                    require(settings, INSTALL),
-                    require(settings, KEYS), output, mode, argument, log)
+        reader = require(settings, READER, bundled.wuwa_reader() or find_reader())
+        dotnet = require(settings, DOTNET, bundled.dotnet() or find_dotnet())
+        runtime_for(reader, dotnet)
+        extract.run(reader, dotnet, require(settings, INSTALL), require(settings, KEYS), output, mode, argument, log)
     except extract.ReaderError as failure:
         raise ExtractorError(str(failure)) from None
 
@@ -252,9 +268,14 @@ class WuwaSource:
 
     def export(self, model: Model, settings, output: Path, formats: list[str], log: Log) -> list[Path]:
         """Dump each part with the reader, assemble the display model, have Blender build and read it back."""
-        from ..wuthering_waves.source_scene import assemble
-        from .sources import blender_for, write_own
-        blender = blender_for(settings, formats, BLENDER)
+        from .sources import shared_writes
+        # the tables, the parts (shared between models) and their materials go into folders every model reads: one
+        # job at a time; assembling the model and what follows run beside the others
+        with shared_writes("wuwa", log):
+            root, row, sources = self._dumped(model, settings, log)
+        return self._assembled(model, settings, output, formats, log, root, row, sources)
+
+    def _dumped(self, model: Model, settings, log: Log):
         root = extract_config(settings, log)
         row = next((r for r in display_models(root, log) if r["ident"] == model.ident), None)
         if row is None:
@@ -278,6 +299,12 @@ class WuwaSource:
         listing.write_text(json.dumps({"models": dumped}), encoding="utf-8")
         progress.step("讀取材質")
         _reader(settings, "metadata", sources, str(listing), log)
+        return root, row, sources
+
+    def _assembled(self, model: Model, settings, output: Path, formats: list[str], log: Log, root, row, sources):
+        from ..wuthering_waves.source_scene import assemble
+        from .sources import blender_for, write_own
+        blender = blender_for(settings, formats, BLENDER)
         log("組合顯示模型（主網格、子網格、插槽裝飾）…")
         progress.step("組合顯示模型")
         try:
@@ -286,12 +313,14 @@ class WuwaSource:
             raise ExtractorError(f"{model.ident} 組合失敗：{refusal}") from None
         # a masked material's coverage as the game's own shader gives it (shader_bake), for every format
         from ..wuthering_waves.shader_bake import bake_case
-        bake_case(case, GameFiles(settings, log), log, progress.step)
+        from .sources import shared_writes
+        with shared_writes("wuwa", log):                 # GameFiles fills the shader cache every model reads
+            bake_case(case, GameFiles(settings, log), log, progress.step)
         # the fur shader's parallax depth as layers of strands (fur_shells), after the coverage it stands on
         from ..wuthering_waves.fur_shells import apply as fur_layers
         progress.step("把毛髮視差做成毛絲層")
         fur_layers(case, log)
-        if settings.poses and "glb" in formats:
+        if settings.poses and ("glb" in formats or settings.export_shaders):
             progress.step("寫入姿勢")
             self._poses(settings, row["parts"][0]["package"], case, sources / f"{model.ident}.anim", log)
         written = []
@@ -301,7 +330,8 @@ class WuwaSource:
                 progress.report(number, 2, "以 Blender 建 .blend 並讀回")
                 blender_run(blender, mode, case, model.ident)
             written.append(Path(shutil.copy2(case / f"{model.ident}.blend", output / f"{model.ident}.blend")))
-        return written + write_own(formats, case / "source_document.json", output, model.ident, blender, log)
+        return written + write_own(formats, case / "source_document.json", output, model.ident, blender, log,
+                                   export_shaders=settings.export_shaders)
 
 
 def _poses_of(settings, package: str, case: Path, folder: Path, log: Log) -> int:
@@ -309,11 +339,14 @@ def _poses_of(settings, package: str, case: Path, folder: Path, log: Log) -> int
     from ..wuthering_waves import poses
     ui = poses.ui_folder(package)
     if not ui:
-        return 0
-    listed = [line[:-len(".uasset")] for line in archive_index(settings, log).read_text(encoding="utf-8").splitlines()
+        return poses.add(case, [], package, log)
+    from .sources import shared_writes
+    with shared_writes("wuwa", log):                     # the install's file list, written once a game version
+        index = archive_index(settings, log)
+    listed = [line[:-len(".uasset")] for line in index.read_text(encoding="utf-8").splitlines()
               if line.startswith(ui) and line.endswith(".uasset") and "/" not in line[len(ui):]]
     if not listed:
-        return 0
+        return poses.add(case, [], package, log)
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True)
     (folder / "list.txt").write_text("\n".join(listed) + "\n", encoding="utf-8")
@@ -333,7 +366,10 @@ def _poses_of(settings, package: str, case: Path, folder: Path, log: Log) -> int
             decoder = acl.Decoder(require(settings, EXPORTER, bundled.animestudio()))
         except (acl.AclError, ExtractorError) as missing:
             raise ExtractorError(f"找不到動作解碼需要的 ACL 程式庫（{missing}）。請設定含解碼器的 AnimeStudio；若只要靜態模型，請關閉姿勢。") from None
-    records = [poses.read(folder, k, decoder) for k in range(len(listed)) if (folder / f"{k}.json").is_file()]
+    indices = [k for k in range(len(listed)) if (folder / f"{k}.json").is_file()]
+    if any("curves" not in json.loads((folder / f"{k}.json").read_text(encoding="utf-8")) for k in indices):
+        raise ExtractorError("讀取器版本太舊，沒有導出表情曲線。請更新或選擇新版讀取器。")
+    records = [poses.read(folder, k, decoder) for k in indices]
     return poses.add(case, records, package, log)
 
 

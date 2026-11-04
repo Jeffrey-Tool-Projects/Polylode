@@ -14,7 +14,8 @@ from pathlib import Path
 from ..core.paths import frozen
 
 #: Files the converters read as source, relative to the project (or program) root.
-REQUIRED = ("polylode/gf2/blender_worker.py", "polylode/gf2/export.py", "polylode/gf2/fbx_tangents.py",
+REQUIRED = ("polylode/extractor/blender_shader.py",
+            "polylode/gf2/blender_worker.py", "polylode/gf2/export.py", "polylode/gf2/fbx_tangents.py",
             "polylode/gf2/precision.py", "polylode/endfield/fbxfile.py", "polylode/endfield/rigscene.py",
             "tools/ef_fbx_blender.py", "tools/wuwa_source_blender.py")
 

@@ -291,9 +291,10 @@ def posed(glb: Path, out: Path, animation: int = 0) -> Path:
         accessor = document["accessors"][animations[animation]["samplers"][channel["sampler"]]["output"]]
         view = document["bufferViews"][accessor["bufferView"]]
         start = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
-        width = widths[accessor["type"]]
-        first = list(struct.unpack_from(f"<{width}f", binary, start))
         node = document["nodes"][channel["target"]["node"]]
+        width = (len(document["meshes"][node["mesh"]]["primitives"][0].get("targets", []))
+                 if channel["target"]["path"] == "weights" else widths[accessor["type"]])
+        first = list(struct.unpack_from(f"<{width}f", binary, start))
         node.pop("matrix", None)
         node[channel["target"]["path"]] = first
     text = json.dumps(document, ensure_ascii=False).encode("utf-8")

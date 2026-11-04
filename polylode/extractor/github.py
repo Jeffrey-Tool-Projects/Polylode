@@ -18,6 +18,7 @@ the repository's Settings → Pages.
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import os
 import sys
@@ -49,9 +50,16 @@ class GitHubError(ShareError):
     """GitHub refused or could not be reached."""
 
 
+#: seconds waited before each further try of a request the network broke off: a share is a dozen requests, some of
+#: them megabytes, and one connection GitHub closed (WinError 10054) failed the whole share
+RETRY_WAITS = (2, 5, 10, 20)
+
+
 def _request(method: str, url: str, token: str | None = None, body: dict | None = None,
              accept: str = "application/vnd.github+json"):
-    """``(status, payload)``: the JSON answer, or the bytes of a raw one."""
+    """``(status, payload)``: the JSON answer, or the bytes of a raw one.  A request the network breaks off is sent
+    again after each of :data:`RETRY_WAITS`: every one the share makes can be (a blob is named by its content, a ref
+    set to the same commit twice is set once)."""
     headers = {"Accept": accept, "User-Agent": "Polylode", "X-GitHub-Api-Version": "2022-11-28"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -59,14 +67,21 @@ def _request(method: str, url: str, token: str | None = None, body: dict | None 
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
-    request = urllib.request.Request(url, data=data, method=method, headers=headers)
-    try:
-        with urllib.request.urlopen(request, timeout=300) as answer:
-            status, raw = answer.status, answer.read()
-    except urllib.error.HTTPError as failure:
-        status, raw = failure.code, failure.read()
-    except urllib.error.URLError as failure:
-        raise GitHubError(f"連不上 GitHub：{failure.reason}") from None
+    for wait in (*RETRY_WAITS, None):
+        request = urllib.request.Request(url, data=data, method=method, headers=headers)
+        try:
+            with urllib.request.urlopen(request, timeout=300) as answer:
+                status, raw = answer.status, answer.read()
+            break
+        except urllib.error.HTTPError as failure:
+            status, raw = failure.code, failure.read()
+            break
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as failure:
+            # a reset or a dropped connection, while sending or while reading the answer
+            if wait is None:
+                reason = failure.reason if isinstance(failure, urllib.error.URLError) else failure
+                raise GitHubError(f"連不上 GitHub：{reason}（試了 {len(RETRY_WAITS) + 1} 次）") from None
+            time.sleep(wait)
     # a raw file asked for (``…raw+json``) is its bytes, not JSON to parse: parsed here, a JSON file came back
     # as the list it holds and its reader parsed it again — every share after the first stopped there
     if "json" in accept and "raw" not in accept:

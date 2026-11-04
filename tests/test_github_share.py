@@ -189,6 +189,48 @@ def test_a_raw_file_comes_back_as_its_bytes_and_an_api_answer_as_json(monkeypatc
     assert github._request("GET", "https://api.github.com/x") == (200, [{"name": "a"}])
 
 
+def test_a_connection_github_closes_is_tried_again_before_the_share_gives_up(monkeypatch):
+    """WinError 10054 (the remote host closed the connection) on one of a share's requests failed the whole share."""
+    import io
+    import urllib.error
+
+    class Answer(io.BytesIO):
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+    tries, waits = [], []
+    failures = [urllib.error.URLError(ConnectionResetError(10054, "closed by the remote host")),
+                ConnectionResetError(10054, "closed while the answer was read")]
+
+    def urlopen(request, timeout):
+        tries.append(request.get_method())
+        if failures:
+            raise failures.pop(0)
+        return Answer(b'{"sha": "abc"}')
+    monkeypatch.setattr(github.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(github.time, "sleep", waits.append)
+    assert github._request("POST", "https://api.github.com/x", "t", {"content": "x"}) == (200, {"sha": "abc"})
+    assert tries == ["POST"] * 3 and waits == list(github.RETRY_WAITS[:2])
+    # every try broken off: one error that says so, not a traceback
+    monkeypatch.setattr(github.urllib.request, "urlopen",
+                        lambda request, timeout: (_ for _ in ()).throw(ConnectionResetError(10054, "closed")))
+    with pytest.raises(github.GitHubError, match="連不上 GitHub.*試了 5 次"):
+        github._request("GET", "https://api.github.com/x")
+    # an answer GitHub gave (an HTTP error) is not tried again
+    calls = []
+
+    def refused(request, timeout):
+        calls.append(1)
+        raise urllib.error.HTTPError(request.full_url, 422, "Unprocessable", {}, io.BytesIO(b'{"message": "no"}'))
+    monkeypatch.setattr(github.urllib.request, "urlopen", refused)
+    assert github._request("GET", "https://api.github.com/x") == (422, {"message": "no"}) and calls == [1]
+
+
 def test_a_401_for_a_large_upload_keeps_the_sign_in_and_a_refused_sign_in_lets_it_go(fake, monkeypatch):
     # GitHub answers a too-large upload with 401 Bad credentials (measured): the token is let go only when /user
     # refuses it as well — letting it go at the upload signed the user in again at every share, to fail again

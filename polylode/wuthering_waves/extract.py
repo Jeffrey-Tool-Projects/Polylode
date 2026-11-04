@@ -39,9 +39,12 @@ def run(reader: Path, dotnet: Path, install: Path, keys: Path, output: Path, mod
     workdir = derived_root() / "assets_cache" / "wuthering_waves" / "reader_runtime"
     workdir.mkdir(parents=True, exist_ok=True)
     log(f"讀取遊戲檔案（{mode}）…")
-    done = subprocess.run(command(reader, dotnet, install, keys, output, mode, argument), capture_output=True,
-                          text=True, encoding="utf-8", errors="replace", check=False, env=environment, cwd=workdir,
-                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    line = command(reader, dotnet, install, keys, output, mode, argument)
+    try:
+        done = subprocess.run(line, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+                              env=environment, cwd=workdir, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except OSError as failure:          # the program itself is not there (WinError 2), or cannot be run
+        raise ReaderError(f"無法啟動讀取器 {line[0]}：{failure.strerror or failure}") from None
     if done.returncode != 0:
         raise ReaderError(f"讀取器 {mode} exit {done.returncode}：{(done.stdout + done.stderr)[-1500:]}")
     return done.stdout

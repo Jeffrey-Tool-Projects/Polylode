@@ -53,8 +53,8 @@ TYPES = {1: "SCALAR", 2: "VEC2", 3: "VEC3", 4: "VEC4", 16: "MAT4"}
 #: the rules a file was written by, kept in ``asset.extras.rules``: a viewer says a file of older rules
 #: should be exported again (1: coverage — overlays, transparency, cut-outs, eye layers; 2: GF2's eye layers
 #: baked into the eye's map — §7.1455; 3: the sources' vertex colours as ``_SOURCE_COLOR``, not ``COLOR_0``, and GF2's
-#: lower LOD levels hidden; 4: Wuthering Waves' one mesh as a part per material section)
-RULES = 4
+#: lower LOD levels hidden; 4: Wuthering Waves' one mesh as a part per material section; 5: expression animations)
+RULES = 6
 #: where a source's vertex colours go: an application attribute (the spec's leading underscore), not
 #: ``COLOR_0``, which every glTF viewer multiplies into the base colour.  The three games keep shader data
 #: there (GF2's are outline normals, about (0.5, 0.5, 1)), never a colour their materials multiply by; as
@@ -164,6 +164,20 @@ def _material(name: str, record: dict, folder: Path, builder: _Builder, gltf: di
                 "doubleSided": True}
     extras = {key: value for key, value in record.items() if key not in ("maps",)}
     extras["maps"] = {key: {k: v for k, v in value.items() if k != "sha256"} for key, value in record["maps"].items()}
+    # Native lighting lookups are portable too; texture indices explicitly name
+    # their glTF resources instead of relying on the conversion cache's paths.
+    for prop in ("_DiffRampMap", "_ShadowLutTex", "_RampMap", "_RMOTex", "_MetallicGlossMap"):
+        entry = record["maps"].get(prop)
+        if entry is None:
+            continue
+        path = (folder / entry["file"]).resolve()
+        key = (path, None)
+        if key not in images:
+            data, mime = _image(path)
+            gltf["images"].append({"name": path.stem, "bufferView": builder.view(data), "mimeType": mime})
+            gltf["textures"].append({"source": len(gltf["images"]) - 1, "sampler": 0})
+            images[key] = len(gltf["textures"]) - 1
+        extras["maps"][prop]["texture"] = images[key]
     base = record["maps"].get(record.get("base") or "")
     alpha_from = record.get("alpha_from") if record.get("alpha_from") in ("r", "g", "b") else None
     if base is not None:
@@ -367,6 +381,8 @@ def _animations(document: dict, arrays, rest: np.ndarray, builder: _Builder, fir
     rest_local = rest.copy()
     rest_local[child] = np.linalg.solve(rest[parents[child]], rest[child])
     rest_t, rest_q, _rest_s = _trs(rest_local)
+    animated_shapes = {index for index, part in enumerate(document["parts"]) if part["shapes"]
+                       and any(f"p{index}_anim{k}_weights" in arrays for k in range(len(document["animations"])))}
     out = []
     for k, record in enumerate(document["animations"]):
         frames = np.einsum("ij,fnjk->fnik", TO_Y_UP, np.asarray(arrays[f"anim{k}"], dtype=np.float64))
@@ -395,6 +411,21 @@ def _animations(document: dict, arrays, rest: np.ndarray, builder: _Builder, fir
                     samplers.append({"input": times[marks], "output": builder.accessor(values[kept], FLOAT),
                                      "interpolation": "LINEAR"})
                     channels.append({"sampler": len(samplers) - 1, "target": {"node": first + bone, "path": path}})
+        for part_index, part in enumerate(document["parts"]):
+            if part_index not in animated_shapes:
+                continue
+            values = np.asarray(arrays.get(f"p{part_index}_anim{k}_weights",
+                                           np.zeros((len(frames), len(part["shapes"])))), dtype=np.float64)
+            if values.shape != (len(frames), len(part["shapes"])) or not np.isfinite(values).all():
+                raise GlbError(f"animation {record['name']}: invalid weights for {part['name']}")
+            kept = keys(values, KEY_SCALE)
+            marks = kept.tobytes()
+            if marks not in times:
+                times[marks] = builder.accessor(seconds[kept], FLOAT, bounds=True)
+            samplers.append({"input": times[marks], "output": builder.accessor(values[kept].ravel(), FLOAT),
+                             "interpolation": "LINEAR"})
+            channels.append({"sampler": len(samplers) - 1,
+                             "target": {"node": first + len(rest) + part_index, "path": "weights"}})
         if channels:
             out.append({"name": record["name"], "channels": channels, "samplers": samplers})
     return out
@@ -465,7 +496,9 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
     images: dict = {}
     material_index = {}
     for name, record in document["materials"].items():
-        gltf["materials"].append(_material(name, record, folder, builder, gltf, images))
+        material = _material(name, record, folder, builder, gltf, images)
+        material["extras"]["polylode_material_index"] = len(gltf["materials"])
+        gltf["materials"].append(material)
         material_index[name] = len(gltf["materials"]) - 1
 
     report = {"degenerate": {}, "unweighted": {}, "parts": len(document["parts"]), "bones": len(bones)}

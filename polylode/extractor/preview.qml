@@ -13,6 +13,76 @@ Rectangle {
     property bool wireframe: false
     // a multiplier on the three lights
     property real light: 1.0
+    property string characterStyle: "studio"
+    property var nativeMaterials: []
+    property var styledModels: []
+    property string styleStatus: ""
+    property string styleUnavailableText: "此模型無法套用角色著色；目前使用攝影棚"
+    Component { id: characterMaterial; CharacterMaterial {} }
+    onCharacterStyleChanged: applyStyle()
+    function clearStyles() {
+        for (var i = 0; i < styledModels.length; ++i) {
+            var item = styledModels[i];
+            item.model.materials = item.originals;
+            for (var j = 0; j < item.adapted.length; ++j) item.adapted[j].destroy();
+        }
+        styledModels = [];
+    }
+    function collectModels(node, result) {
+        if (node.materials !== undefined) {
+            var originals = [];
+            for (var m = 0; m < node.materials.length; ++m) originals.push(node.materials[m]);
+            result.push({model: node, originals: originals, adapted: []});
+        }
+        for (var i = 0; i < node.children.length; ++i) collectModels(node.children[i], result);
+    }
+    function applyStyle() {
+        for (var i = 0; i < styledModels.length; ++i) {
+            var item = styledModels[i];
+            item.model.materials = characterStyle === "studio" || !item.adapted.length ? item.originals : item.adapted;
+            for (var j = 0; j < item.adapted.length; ++j)
+                item.adapted[j].game = characterStyle === "wuwa" ? 3 : characterStyle === "gf2" ? 2 : 1;
+        }
+    }
+    function prepareStyles() {
+        clearStyles();
+        var models = [];
+        collectModels(loader, models);
+        styledModels = models;
+        styleStatus = "unavailable";
+        if (models.length !== nativeMaterials.length) return;
+        for (var i = 0; i < models.length; ++i)
+            if (models[i].originals.length !== nativeMaterials[i].length) return;
+        for (var i = 0; i < models.length; ++i) {
+            var item = models[i];
+            for (var j = 0; j < item.originals.length; ++j) {
+                var data = nativeMaterials[i][j];
+                var mat = characterMaterial.createObject(loader, {original: item.originals[j],
+                    intensity: Qt.binding(function() { return root.light; }),
+                    shadowBrightness: data.shadowBrightness === undefined ? .5 : data.shadowBrightness,
+                    shadowSaturation: data.shadowSaturation === undefined ? 1 : data.shadowSaturation,
+                    smoothness: data.smoothness === undefined ? .5 : data.smoothness,
+                    metallic: data.metallic || 0, specularLevel: data.specularLevel || 0,
+                    sourceFamily: data.family || "", rampAvailable: Boolean(data.ramp),
+                    surfaceAvailable: Boolean(data.surface), shadowLutAvailable: Boolean(data.shadowLut),
+                    rampSrgb: Boolean(data.rampSrgb), surfaceSrgb: Boolean(data.surfaceSrgb), shadowLutSrgb: Boolean(data.shadowLutSrgb),
+                    hasBase: Boolean(data.baseTexture), emission: data.emission || 0});
+                mat.baseMap.texture.source = data.baseTexture || "";
+                if (data.baseUv) mat.baseUv = Qt.vector4d(data.baseUv[0], data.baseUv[1], data.baseUv[2], data.baseUv[3]);
+                mat.baseRotation = data.baseRotation || 0;
+                mat.rampMap.texture.source = data.ramp || "";
+                mat.surfaceMap.texture.source = data.surface || "";
+                mat.shadowLutMap.texture.source = data.shadowLut || "";
+                var parameters = ["backShadowOffset", "frontShadowOffset", "shadowProcess", "shadowWidth",
+                                  "pbrRate", "specularPower", "metalSpecularPower"];
+                for (var p = 0; p < parameters.length; ++p)
+                    if (data[parameters[p]] !== undefined) mat[parameters[p]] = data[parameters[p]];
+                item.adapted.push(mat);
+            }
+        }
+        styleStatus = "";
+        applyStyle();
+    }
     property string hint: "選一個模型後按「預覽」"
     // a file loaded and framed: the view's process then looks for its poses (view_host.Poses)
     signal loaded()
@@ -30,6 +100,7 @@ Rectangle {
     // emptied at once and given the file a frame later, so the moving bar below is drawn before the
     // read holds the window
     onSourceChanged: {
+        clearStyles();
         loader.source = "";
         deferred.restart();
     }
@@ -145,6 +216,7 @@ Rectangle {
                     root.measuredHigh = box.high ? box.high : Qt.vector3d(0, 0, 0);
                 }
                 root.look(0, 0);
+                root.prepareStyles();
                 root.loaded();
             }
         }
@@ -173,6 +245,16 @@ Rectangle {
         }
     }
 
+    Text {
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: 8
+        color: "#e9ecf2"
+        wrapMode: Text.WordWrap
+        visible: root.characterStyle !== "studio" && root.styleStatus !== "" && root.state_ === "ready"
+        text: root.styleUnavailableText
+    }
     Text {
         id: message
         anchors.centerIn: parent

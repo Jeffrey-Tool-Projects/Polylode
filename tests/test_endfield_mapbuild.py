@@ -22,7 +22,7 @@ FAKE = textwrap.dedent("""
     if args[0] == "vfs-index":
         source = Path(args[2])
         out = Path(args[args.index("-o") + 1])
-        rows = []
+        rows = [dict(recordType="header", generatedAtEpoch=__import__("time").time_ns())]
         for n, (name, count) in enumerate((("a.chk", 2), ("b.chk", 5))):
             path = source / "VFS" / name
             rows.append(dict(recordType="chunk", chunkId=n, absolutePath=str(path), fileName=name, blockName="bundle",
@@ -79,8 +79,10 @@ def test_the_maps_are_made_in_batches_halved_when_out_of_memory_and_read_back(in
     assert len(cabs) == 7 and cabs.outside(game) == 0
     entry = cabs.entry("CAB-b-400")
     assert entry.offset == 400 and Path(entry.source).name == "b.chk"
+    receipts = {p: p.stat().st_mtime_ns for p in (tmp_path / "work" / "shards").glob("*/receipt.json")}
     again = MB.build(exe, game, tmp_path / "work", tmp_path / "meta", log.append)   # resumed: nothing re-run
     assert again["slots"] == 7
+    assert {p: p.stat().st_mtime_ns for p in receipts} == receipts
 
 
 def test_a_batch_whose_map_holds_other_slots_or_a_changed_chunk_is_refused(install, tmp_path):
@@ -101,3 +103,20 @@ def test_a_batch_whose_map_holds_other_slots_or_a_changed_chunk_is_refused(insta
         MB.run_shard(exe, small, work, {"index_sha256": "x", "cli_sha256": "y"})
     with pytest.raises(MB.MapBuildError, match="more memory"):
         MB.split([dict(small, offsets=[0])], small["key"])
+
+
+def test_added_asset_types_rebuild_cached_maps(install, tmp_path, monkeypatch):
+    game, exe = install
+    work = tmp_path / "work"
+    work.mkdir()
+    rows = MB.read_index(MB.run_index(exe, game, work, lambda line: None))
+    task = next(t for t in MB.plan(rows) if len(t["offsets"]) == 2)
+    identity = {"index_sha256": "x", "cli_sha256": "y"}
+    current = MB.TYPES
+    assert "MonoBehaviour" in current
+    monkeypatch.setattr(MB, "TYPES", tuple(t for t in current if t != "MonoBehaviour"))
+    assert MB.run_shard(exe, task, work, identity) == "verified"
+    assert MB.run_shard(exe, task, work, identity) == "kept"
+    monkeypatch.setattr(MB, "TYPES", current)
+    assert MB.run_shard(exe, task, work, identity) == "verified"
+    assert MB.run_shard(exe, task, work, identity) == "kept"

@@ -14,7 +14,7 @@ from pathlib import Path
 from PySide6.QtCore import QFile, QProcess, Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QCheckBox, QFileDialog, QMessageBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit,
+    QAbstractItemView, QCheckBox, QFileDialog, QMessageBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit,
     QPushButton, QSlider, QSplitter, QVBoxLayout, QWidget,
 )
 
@@ -29,6 +29,8 @@ SUFFIXES = (".glb", ".gltf", ".fbx", ".obj")
 #: fixed views as (label, yaw, pitch)
 VIEWS = (("正面", 0, 0), ("背面", 180, 0), ("左側", -90, 0), ("右側", 90, 0), ("上方", 0, -89))
 BACKDROPS = {"深色背景": "#1e2129", "淺色背景": "#e9ecf2"}
+#: how many of the files a delete takes are named in its question; the rest are counted
+LISTED = 30
 #: what one export writes for a model beside its file of the same name (and the FBX's extracted images)
 OUTPUTS = (*SUFFIXES, ".blend", ".json")
 
@@ -139,6 +141,8 @@ class ViewerPage(QWidget):
         self.search.textChanged.connect(self._filter)
         files_layout.addWidget(self.search)
         self.files = QListWidget()
+        # Ctrl- and Shift-click pick several models, which "刪除…" (and the Delete key) take together
+        self.files.setSelectionMode(QAbstractItemView.ExtendedSelection)
         # a long relative path keeps its folder and its end in sight
         self.files.setTextElideMode(Qt.ElideMiddle)
         self.files.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -149,7 +153,7 @@ class ViewerPage(QWidget):
         refresh.clicked.connect(self.refresh)
         buttons.addWidget(refresh)
         remove = QPushButton("刪除…")
-        remove.setToolTip("把選取的模型（同名的 .glb／.fbx／.blend… 與貼圖資料夾）移到資源回收筒")
+        remove.setToolTip("把選取的模型（同名的 .glb／.fbx／.blend… 與貼圖資料夾）移到資源回收筒；按住 Ctrl 或 Shift 可以選好幾個")
         remove.clicked.connect(self.delete_selected)
         buttons.addWidget(remove)
         files_layout.addLayout(buttons)
@@ -264,26 +268,35 @@ class ViewerPage(QWidget):
         background(self, find, found)
 
     def delete_selected(self) -> None:
-        """The selected exported model's files to the recycle bin, after saying which; only a model listed from
-        the output folder, never a file opened from elsewhere."""
-        item = self.files.currentItem()
-        path = item.data(Qt.UserRole) if item is not None else None
+        """The selected exported models' files to the recycle bin, after saying which: every model selected (Ctrl- or
+        Shift-click picks several), each with what was exported beside it; only models listed from the output folder,
+        never a file opened from elsewhere."""
         output = Path(self.window_.settings.output) if self.window_.settings.output else None
-        if not path or output is None or not Path(path).resolve().is_relative_to(output.resolve()):
-            QMessageBox.information(self, "刪除模型", "先在左邊的清單選一個輸出資料夾裡的模型。")
+        items = self.files.selectedItems() or ([self.files.currentItem()] if self.files.currentItem() else [])
+        models = [Path(item.data(Qt.UserRole)) for item in items if item.data(Qt.UserRole)]
+        if output is not None:
+            models = [path for path in models if path.resolve().is_relative_to(output.resolve())]
+        if not models or output is None:
+            QMessageBox.information(self, "刪除模型", "先在左邊的清單選輸出資料夾裡的模型（按住 Ctrl 或 Shift 可以選好幾個）。")
             return
-        doomed = outputs_of(Path(path))
-        names = "\n".join(f"  {p.relative_to(output)}" for p in doomed)
-        if QMessageBox.question(self, "刪除模型", "把這些移到資源回收筒？\n" + names) != QMessageBox.StandardButton.Yes:
+        doomed: list[Path] = []
+        for path in models:
+            doomed += [p for p in outputs_of(path) if p not in doomed]
+        shown = [f"  {p.relative_to(output)}" for p in doomed]
+        if len(shown) > LISTED:
+            shown = shown[:LISTED] + [f"  …另外 {len(doomed) - LISTED} 個"]
+        ask = (f"把這 {len(models)} 個模型的檔案移到資源回收筒？" if len(models) > 1 else "把這些移到資源回收筒？")
+        if QMessageBox.question(self, "刪除模型", ask + "\n" + "\n".join(shown)) != QMessageBox.StandardButton.Yes:
             return
         if self.panel.current is not None and self.panel.current.resolve() in {p.resolve() for p in doomed}:
             self.panel.show_message("已刪除")
             self.info.clear()
         failed = [p for p in doomed if not trash(p)]
-        folder = Path(path).parent
-        while folder != output and folder.is_dir() and not any(folder.iterdir()):
-            trash(folder)
-            folder = folder.parent
+        for path in models:                          # each model's folder, and the ones above it, left empty
+            folder = path.parent
+            while folder != output and folder.is_dir() and not any(folder.iterdir()):
+                trash(folder)
+                folder = folder.parent
         if failed:
             QMessageBox.warning(self, "刪除模型", "這些沒能移到資源回收筒：\n" + "\n".join(map(str, failed)))
         self.refresh()

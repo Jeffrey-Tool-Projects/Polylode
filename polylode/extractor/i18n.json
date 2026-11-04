@@ -143,12 +143,6 @@
   "ja": "すべて選択",
   "ko": "모두 선택"
  },
- "全不選": {
-  "en": "Select none",
-  "zh-CN": "全不选",
-  "ja": "選択解除",
-  "ko": "모두 해제"
- },
  "角色": {
   "en": "Character",
   "zh-CN": "角色",
@@ -737,12 +731,6 @@
   "ja": "削除…",
   "ko": "삭제…"
  },
- "把選取的模型（同名的 .glb／.fbx／.blend… 與貼圖資料夾）移到資源回收筒": {
-  "en": "Move the selected model (its .glb / .fbx / .blend… of the same name and its texture folder) to the recycle bin",
-  "zh-CN": "把选中的模型（同名的 .glb／.fbx／.blend… 与贴图文件夹）移到回收站",
-  "ja": "選択したモデル（同名の .glb／.fbx／.blend… とテクスチャフォルダ）をごみ箱へ移動",
-  "ko": "선택한 모델(같은 이름의 .glb/.fbx/.blend… 및 텍스처 폴더)을 휴지통으로 이동"
- },
  "線框": {
   "en": "Wireframe",
   "zh-CN": "线框",
@@ -790,12 +778,6 @@
   "zh-CN": "删除模型",
   "ja": "モデルを削除",
   "ko": "모델 삭제"
- },
- "先在左邊的清單選一個輸出資料夾裡的模型。": {
-  "en": "Select a model of the output folder in the list on the left first.",
-  "zh-CN": "先在左边的清单选一个输出文件夹里的模型。",
-  "ja": "先に左のリストで出力フォルダのモデルを選んでください。",
-  "ko": "먼저 왼쪽 목록에서 출력 폴더의 모델을 선택하세요."
  },
  "已刪除": {
   "en": "Deleted",
@@ -2008,5 +1990,173 @@
   "zh-CN": "GitHub 没有返回完整的文件清单，没有更动网站",
   "ja": "GitHub がファイル一覧を完全に返さなかったため、サイトは変更していません",
   "ko": "GitHub가 전체 파일 목록을 돌려주지 않아 사이트를 바꾸지 않았습니다"
+ },
+ "勾選或取消勾選列出的所有模型（有搜尋時只算搜尋到的）": {
+  "en": "Tick or untick every model listed (only those found, when searching)",
+  "zh-CN": "勾选或取消勾选列出的所有模型（有搜索时只算搜索到的）",
+  "ja": "一覧のモデルをすべてチェック／チェック解除（検索中は検索結果のみ）",
+  "ko": "목록의 모든 모델을 선택하거나 선택 해제(검색 중에는 검색된 것만)"
+ },
+ "連不上 GitHub：{0}（試了 {1} 次）": {
+  "en": "Could not reach GitHub: {0} (tried {1} times)",
+  "zh-CN": "连不上 GitHub：{0}（试了 {1} 次）",
+  "ja": "GitHub に接続できません：{0}（{1} 回試行）",
+  "ko": "GitHub에 연결할 수 없습니다: {0}({1}번 시도)"
+ },
+ "把選取的模型（同名的 .glb／.fbx／.blend… 與貼圖資料夾）移到資源回收筒；按住 Ctrl 或 Shift 可以選好幾個": {
+  "en": "Move the selected model (its .glb / .fbx / .blend… of the same name and its texture folder) to the recycle bin; hold Ctrl or Shift to pick several",
+  "zh-CN": "把选中的模型（同名的 .glb／.fbx／.blend… 与贴图文件夹）移到回收站；按住 Ctrl 或 Shift 可以选好几个",
+  "ja": "選択したモデル（同名の .glb／.fbx／.blend… とテクスチャフォルダ）をごみ箱へ移動。Ctrl か Shift を押しながらで複数選択",
+  "ko": "선택한 모델(같은 이름의 .glb/.fbx/.blend… 및 텍스처 폴더)을 휴지통으로 이동. Ctrl 또는 Shift를 누르고 여러 개 선택 가능"
+ },
+ "先在左邊的清單選輸出資料夾裡的模型（按住 Ctrl 或 Shift 可以選好幾個）。": {
+  "en": "First pick models in the output folder from the list on the left (hold Ctrl or Shift to pick several).",
+  "zh-CN": "先在左边的清单选输出文件夹里的模型（按住 Ctrl 或 Shift 可以选好几个）。",
+  "ja": "まず左の一覧で出力フォルダーのモデルを選んでください（Ctrl か Shift で複数選択）。",
+  "ko": "먼저 왼쪽 목록에서 출력 폴더의 모델을 선택하세요(Ctrl 또는 Shift로 여러 개 선택)."
+ },
+ "把這 {0} 個模型的檔案移到資源回收筒？": {
+  "en": "Move the files of these {0} models to the recycle bin?",
+  "zh-CN": "把这 {0} 个模型的文件移到回收站？",
+  "ja": "この {0} 個のモデルのファイルをごみ箱に移しますか？",
+  "ko": "이 {0}개 모델의 파일을 휴지통으로 옮길까요?"
+ },
+ "  …另外 {0} 個": {
+  "en": "  …and {0} more",
+  "zh-CN": "  …另外 {0} 个",
+  "ja": "  …ほか {0} 個",
+  "ko": "  …외 {0}개"
+ },
+ "「{0}」不是 .NET 10 執行環境（要有 dotnet.exe 與 shared\\Microsoft.NETCore.App\\10.*）：{1}。{2}": {
+  "en": "“{0}” is not a .NET 10 runtime (it needs dotnet.exe and shared\\Microsoft.NETCore.App\\10.*): {1}. {2}",
+  "zh-CN": "“{0}”不是 .NET 10 运行环境（要有 dotnet.exe 与 shared\\Microsoft.NETCore.App\\10.*）：{1}。{2}",
+  "ja": "「{0}」は .NET 10 ランタイムではありません（dotnet.exe と shared\\Microsoft.NETCore.App\\10.* が必要）：{1}。{2}",
+  "ko": "“{0}”은(는) .NET 10 런타임이 아닙니다(dotnet.exe와 shared\\Microsoft.NETCore.App\\10.* 필요): {1}. {2}"
+ },
+ "這台電腦的 {0} 有 .NET 10：把這個欄位清空就會用它。": {
+  "en": "This computer has .NET 10 at {0}: clear this field to use it.",
+  "zh-CN": "这台电脑的 {0} 有 .NET 10：把这个字段清空就会用它。",
+  "ja": "このコンピューターの {0} に .NET 10 があります。この欄を空にするとそれを使います。",
+  "ko": "이 컴퓨터의 {0}에 .NET 10이 있습니다. 이 칸을 비우면 그것을 사용합니다."
+ },
+ "這台電腦沒有 .NET 10：到 {0} 安裝 .NET 10 Runtime（x64），或改用內建執行環境的打包版。": {
+  "en": "This computer has no .NET 10: install the .NET 10 Runtime (x64) from {0}, or use the packaged program, which carries its own.",
+  "zh-CN": "这台电脑没有 .NET 10：到 {0} 安装 .NET 10 Runtime（x64），或改用内置运行环境的打包版。",
+  "ja": "このコンピューターには .NET 10 がありません。{0} から .NET 10 Runtime（x64）をインストールするか、ランタイム内蔵のパッケージ版を使ってください。",
+  "ko": "이 컴퓨터에는 .NET 10이 없습니다. {0}에서 .NET 10 Runtime(x64)을 설치하거나 런타임이 내장된 패키지 버전을 사용하세요."
+ },
+ "無法啟動讀取器 {0}：{1}": {
+  "en": "Could not start the reader {0}: {1}",
+  "zh-CN": "无法启动读取器 {0}：{1}",
+  "ja": "リーダー {0} を起動できません：{1}",
+  "ko": "리더 {0}을(를) 시작할 수 없습니다: {1}"
+ },
+ "攝影棚": {
+  "en": "Studio",
+  "zh-CN": "摄影棚",
+  "ja": "スタジオ",
+  "ko": "스튜디오"
+ },
+ "終末地角色著色": {
+  "en": "Endfield character shading",
+  "zh-CN": "终末地角色着色",
+  "ja": "エンドフィールドのキャラクターシェーディング",
+  "ko": "엔드필드 캐릭터 셰이딩"
+ },
+ "少女前線 2 角色著色": {
+  "en": "Girls’ Frontline 2 character shading",
+  "zh-CN": "少女前线 2 角色着色",
+  "ja": "ドールズフロントライン2のキャラクターシェーディング",
+  "ko": "소녀전선 2 캐릭터 셰이딩"
+ },
+ "鳴潮角色著色": {
+  "en": "Wuthering Waves character shading",
+  "zh-CN": "鸣潮角色着色",
+  "ja": "鳴潮のキャラクターシェーディング",
+  "ko": "명조 캐릭터 셰이딩"
+ },
+ "角色著色預覽改編；不含遊戲場景後製、投影與眼睛／頭髮專用效果": {
+  "en": "Adapted character shading preview; excludes game post-processing, cast shadows, and specialized eye/hair effects",
+  "zh-CN": "角色着色预览改编；不含游戏场景后期、投影与眼睛／头发专用效果",
+  "ja": "キャラクターシェーディングのプレビュー用移植。ゲームのポスト処理、投影、目・髪の専用効果は含みません",
+  "ko": "캐릭터 셰이딩 미리보기 이식. 게임 후처리, 투영 그림자 및 눈·머리카락 전용 효과는 제외됩니다"
+ },
+ "此模型無法套用角色著色；目前使用攝影棚": {
+  "en": "Character shading is unavailable for this model; using Studio",
+  "zh-CN": "此模型无法套用角色着色；目前使用摄影棚",
+  "ja": "このモデルにはキャラクターシェーディングを適用できません。スタジオ表示を使用します",
+  "ko": "이 모델에는 캐릭터 셰이딩을 적용할 수 없어 스튜디오 표시를 사용합니다"
+ },
+ "一併輸出 Blender 角色著色": {
+  "en": "Export Blender character shaders",
+  "zh-CN": "一并导出 Blender 角色着色",
+  "ja": "Blender キャラクターシェーダーも書き出す",
+  "ko": "Blender 캐릭터 셰이더 함께 내보내기"
+ },
+ "著色器": {
+  "en": "Shaders",
+  "zh-CN": "着色器",
+  "ja": "シェーダー",
+  "ko": "셰이더"
+ },
+ "匯出": {
+  "en": "Export",
+  "zh-CN": "导出",
+  "ja": "書き出し",
+  "ko": "내보내기"
+ },
+ "同時匯出": {
+  "en": "Exports at once",
+  "zh-CN": "同时导出",
+  "ja": "同時書き出し",
+  "ko": "동시 내보내기"
+ },
+ " 個模型": {
+  "en": " models",
+  "zh-CN": " 个模型",
+  "ja": " 個のモデル",
+  "ko": "개 모델"
+ },
+ "匯出佇列同時轉換幾個模型；每個都是自己的行程，記憶體與 CPU 用量跟著加倍": {
+  "en": "How many models the export queue converts at once; each is a process of its own, so memory and CPU use multiply",
+  "zh-CN": "导出队列同时转换几个模型；每个都是自己的进程，内存与 CPU 用量跟着加倍",
+  "ja": "書き出しキューで同時に変換するモデル数。それぞれ別プロセスなので、メモリと CPU の使用量も倍増します",
+  "ko": "내보내기 대기열이 동시에 변환하는 모델 수. 각각 별도 프로세스라 메모리와 CPU 사용량도 배로 늘어납니다"
+ },
+ "  [{0}] {1}": {
+  "en": "  [{0}] {1}",
+  "zh-CN": "  [{0}] {1}",
+  "ja": "  [{0}] {1}",
+  "ko": "  [{0}] {1}"
+ },
+ "寫出 {0}": {
+  "en": "Wrote {0}",
+  "zh-CN": "写出 {0}",
+  "ja": "書き出し {0}",
+  "ko": "출력 {0}"
+ },
+ "錯誤：{0}": {
+  "en": "Error: {0}",
+  "zh-CN": "错误：{0}",
+  "ja": "エラー：{0}",
+  "ko": "오류: {0}"
+ },
+ "以 {0} 個行程同時計算 {1} 個姿勢": {
+  "en": "Working out {1} poses in {0} processes at once",
+  "zh-CN": "以 {0} 个进程同时计算 {1} 个姿势",
+  "ja": "{0} 個のプロセスで {1} 個のポーズを同時計算",
+  "ko": "{0}개 프로세스로 포즈 {1}개를 동시에 계산"
+ },
+ "  一組姿勢平行計算失敗，改在本行程計算：{0}": {
+  "en": "  A group of poses failed in parallel; working them out here: {0}",
+  "zh-CN": "  一组姿势并行计算失败，改在本进程计算：{0}",
+  "ja": "  ポーズの並列計算の一部が失敗したため、このプロセスで計算：{0}",
+  "ko": "  일부 포즈의 병렬 계산이 실패해 이 프로세스에서 계산: {0}"
+ },
+ "等待另一個匯出或預覽寫完共用的轉換資料…": {
+  "en": "Waiting for another export or preview to finish writing the shared converted data…",
+  "zh-CN": "等待另一个导出或预览写完共用的转换数据…",
+  "ja": "別の書き出しまたはプレビューが共有の変換データを書き終えるのを待っています…",
+  "ko": "다른 내보내기나 미리보기가 공유 변환 데이터를 다 쓸 때까지 기다리는 중…"
  }
 }

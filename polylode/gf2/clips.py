@@ -71,9 +71,20 @@ def _evaluate(keys: list[tuple[float, tuple]], times: np.ndarray) -> np.ndarray:
     return ((a * dt + b) * dt + c) * dt + d
 
 
+#: where a clip's decoded curves are kept in its own typetree: the pose check, the frames and the expression curves
+#: all read them, and decoding a clip four times was a tenth of an outfit's export
+DECODED = "\0polylode curves"
+
+
 def curves(tree: dict) -> tuple[np.ndarray, np.ndarray]:
     """``(times, values)``: the clip's frames at its sample rate and every curve's value on them, ``(frames,
-    curves)``."""
+    curves)``; decoded once a clip (:data:`DECODED`)."""
+    if DECODED not in tree:
+        tree[DECODED] = _decode(tree)
+    return tree[DECODED]
+
+
+def _decode(tree: dict) -> tuple[np.ndarray, np.ndarray]:
     muscle = tree["m_MuscleClip"]
     blocks = muscle["m_Clip"]["data"]
     streamed, dense, constant = blocks["m_StreamedClip"], blocks["m_DenseClip"], blocks["m_ConstantClip"]["data"]
@@ -124,6 +135,48 @@ def transforms(tree: dict) -> tuple[np.ndarray, dict[int, dict[int, np.ndarray]]
     return times, out
 
 
+def shape_weights(tree: dict, parts: list[dict]) -> dict[int, np.ndarray]:
+    """Unity blend-shape bindings matched by renderer path and the bare shape-name CRC."""
+    times, values = curves(tree)
+    targets = {(path_hash(part["path"]), path_hash(name)): (index, column)
+               for index, part in enumerate(parts) if part.get("path")
+               for column, name in enumerate(part["shapes"])}
+    out, at = {}, 0
+    for binding in tree["m_ClipBindingConstant"]["genericBindings"]:
+        attribute, kind = int(binding["attribute"]), int(binding["typeID"])
+        width = DIMENSION.get(attribute, 1) if kind == TRANSFORM else 1
+        if at + width > values.shape[1]:
+            raise ClipError(f"the bindings take more than {values.shape[1]} curves")
+        target = targets.get((int(binding["path"]), attribute))
+        if kind == 137 and int(binding.get("customType", 0)) == 20 and target is not None:
+            index, column = target
+            weights = out.setdefault(index, np.zeros((len(times), len(parts[index]["shapes"])), dtype=np.float32))
+            weights[:, column] = values[:, at] / 100.0
+        at += width
+    return out
+
+
+def scalar_curves(tree: dict, parts: list[dict]) -> dict:
+    """Preserve non-transform source bindings, including controls without a glTF target."""
+    _times, values = curves(tree)
+    targets = {(path_hash(part["path"]), path_hash(name)) for part in parts if part.get("path")
+               for name in part["shapes"]}
+    bindings, columns, unbound, at = [], [], [], 0
+    for binding in tree["m_ClipBindingConstant"]["genericBindings"]:
+        kind, attribute = int(binding["typeID"]), int(binding["attribute"])
+        width = DIMENSION.get(attribute, 1) if kind == TRANSFORM else 1
+        if kind != TRANSFORM:
+            bindings.append({key: int(binding.get(key, 0)) for key in ("path", "attribute", "typeID", "customType")})
+            columns.append(at)
+            if kind != 137 or int(binding.get("customType", 0)) != 20 or (int(binding["path"]), attribute) not in targets:
+                unbound.append(len(bindings) - 1)
+        at += width
+    if at > values.shape[1]:
+        raise ClipError(f"the bindings take {at} curves of {values.shape[1]}")
+    return {"rate": float(tree["m_SampleRate"]) or 30.0, "bindings": bindings,
+            "values": values[:, columns].T.tolist(), "unbound": unbound}
+
+
 #: Unity's rotation orders (``RotationOrder``), what an Euler binding's customType names; 0 is the default, ZXY
 ORDERS = {0: "ZXY", 1: "XYZ", 2: "XZY", 3: "YZX", 4: "ZXY", 5: "ZYX", 6: "YXZ"}
 
@@ -142,6 +195,22 @@ def _local(position, rotation, scale) -> np.ndarray:
     return to_project(P.local_matrix({
         "m_LocalPosition": dict(zip(xyz, position)), "m_LocalRotation": dict(zip("XYZW", rotation)),
         "m_LocalScale": dict(zip(xyz, scale))}))
+
+
+def _locals(positions: np.ndarray, rotations: np.ndarray, scales: np.ndarray) -> np.ndarray:
+    """:func:`_local` of every frame at once: positions, quaternions (xyzw, normalised here as ``local_matrix`` does)
+    and scales ``(frames, …)`` as ``(frames, 4, 4)`` in this project's space."""
+    q = np.asarray(rotations, dtype=np.float64)
+    norm = np.linalg.norm(q, axis=1, keepdims=True)
+    x, y, z, w = (q / np.where(norm > 0, norm, 1.0)).T
+    out = np.zeros((len(q), 4, 4))
+    out[:, 0, :3] = np.stack([1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], -1)
+    out[:, 1, :3] = np.stack([2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], -1)
+    out[:, 2, :3] = np.stack([2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)], -1)
+    out[:, :3, :3] *= np.asarray(scales, dtype=np.float64)[:, None, :]
+    out[:, :3, 3] = positions
+    out[:, 3, 3] = 1.0
+    return to_project(out)
 
 
 def _rest_trs(local: np.ndarray) -> tuple:
@@ -181,6 +250,46 @@ def strays(frames: np.ndarray, rest: np.ndarray, parents: list[int], names: list
     return worst, which
 
 
+#: how far a bone's place under its parent may jump in one frame before it is taken for snapped out of place, metres:
+#: the display clips' own moves stay within 0.013 (Clukay SSR01's 42 clips), a camera trick jumps 0.11 (Love_4's left
+#: shoulder) to 1.0 (Upgrade_*'s shoulder blades)
+SNAP = 0.05
+
+
+def unsnapped(positions: np.ndarray, rest: np.ndarray) -> tuple[np.ndarray, int]:
+    """A bone's position curve ``(frames, 3)`` with the frames it is snapped out of place held at *rest*.  The curve is
+    cut where it jumps more than :data:`SNAP` in one frame; a stretch between cuts lying (by its median) more than
+    :data:`SNAP` off rest is snapped out — a snap may go out in steps, Class_* move a shoulder blade 0.33 m and then
+    0.54 m — and so is the run of frames more than :data:`SNAP` off joined to it (Class_* slide the blade 0.26 m out
+    before the jumps).  A curve with no such jump is a bone's own motion and is left whole, as is a stretch further
+    than :data:`HIDDEN` away (a part hidden).  The curve and how many frames were held.
+
+    GF2's display clips cheat for their camera with stepped keys: Love_4 pops Clukay SSR01's left shoulder 11 cm out of
+    the shoulder blade from 2.4 s to 6.07 s, the Upgrade clips both shoulder blades a metre; seen whole, the arm came
+    off.  Put back, the clip keeps every turn it makes."""
+    positions = np.asarray(positions, dtype=np.float64)
+    off = np.linalg.norm(positions - rest, axis=1)
+    held = np.zeros(len(positions), dtype=bool)
+    step = np.linalg.norm(np.diff(positions, axis=0), axis=1)
+    near = np.maximum(off[1:], off[:-1]) < HIDDEN
+    cuts = [0, *(np.flatnonzero((step > SNAP) & near) + 1).tolist(), len(positions)]
+    if len(cuts) > 2:
+        for start, stop in zip(cuts, cuts[1:]):
+            stretch = off[start:stop]
+            if len(stretch) and np.median(stretch) > SNAP and stretch.max() < HIDDEN:
+                held[start:stop] = True
+        if held.any():
+            # each run of frames off rest that a snapped stretch is part of, slide out and back included
+            away = (off > SNAP) & (off < HIDDEN)
+            edges = np.flatnonzero(np.diff(np.r_[0, away.astype(np.int8), 0]))
+            for start, stop in zip(edges[::2], edges[1::2]):
+                if held[start:stop].any():
+                    held[start:stop] = True
+    out = positions.copy()
+    out[held] = rest
+    return out, int(held.sum())
+
+
 #: a bone's frame as Unity skins with it, shared with Endfield's poses
 skinned = RS.skinned
 
@@ -207,25 +316,32 @@ def poses(tree: dict, nodes: dict, paths: dict, bones: list[str]) -> np.ndarray:
     for name in nodes:
         visit(name)
     rests = {name: _rest_trs(np.asarray(nodes[name][1], dtype=np.float64)) for name in driven}
+    # a bone below the skeleton snapped out of place for a camera is put back (unsnapped); the hips under the rig's
+    # root move the whole body and are left as they are
+    placed = {name: unsnapped(curves_of[POSITION], rests[name][0])[0] for name, curves_of in driven.items()
+              if POSITION in curves_of and SKELETON.search(nodes[name][0] or "")}
     resting: dict[str, np.ndarray] = {}
     for name in order:
         parent, local = nodes[name]
         local = np.asarray(local, dtype=np.float64)
         resting[name] = local if not parent else resting[parent] @ local
-    out = np.empty((len(times), len(bones), 4, 4), dtype=np.float32)
-    for frame in range(len(times)):
-        world: dict[str, np.ndarray] = {}
-        for name in order:
-            parent, local = nodes[name]
-            local = np.asarray(local, dtype=np.float64)
-            curves_of = driven.get(name)
-            if curves_of is not None:
-                position, rotation, scale = rests[name]
-                position = curves_of[POSITION][frame] if POSITION in curves_of else position
-                rotation = curves_of[ROTATION][frame] if ROTATION in curves_of else rotation
-                scale = RS.least(curves_of[SCALE][frame]) if SCALE in curves_of else scale
-                local = _local(position, rotation, scale)
-            world[name] = local if not parent else world[parent] @ local
-        for k, name in enumerate(bones):
-            out[frame, k] = skinned(world[name], resting[name])
+    # every frame of a bone at once: a node the clip leaves alone keeps one matrix, broadcast against its parent's
+    # frames (one bone, one frame at a time, an outfit's 40 clips took 4 minutes — 2.1 million small SVDs)
+    count = len(times)
+    world: dict[str, np.ndarray] = {}
+    for name in order:
+        parent, local = nodes[name]
+        local = np.asarray(local, dtype=np.float64)
+        curves_of = driven.get(name)
+        if curves_of is not None:
+            position, rotation, scale = rests[name]
+            positions = placed[name] if name in placed else \
+                curves_of[POSITION] if POSITION in curves_of else np.broadcast_to(position, (count, 3))
+            rotations = curves_of[ROTATION] if ROTATION in curves_of else np.broadcast_to(rotation, (count, 4))
+            scales = RS.least(curves_of[SCALE]) if SCALE in curves_of else np.broadcast_to(scale, (count, 3))
+            local = _locals(positions, rotations, scales)
+        world[name] = local if not parent else world[parent] @ local
+    out = np.empty((count, len(bones), 4, 4), dtype=np.float32)
+    for k, name in enumerate(bones):
+        out[:, k] = skinned(np.broadcast_to(world[name], (count, 4, 4)), resting[name])
     return out

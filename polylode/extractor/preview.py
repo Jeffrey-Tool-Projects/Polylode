@@ -33,8 +33,9 @@ QML = Path(__file__).with_name("preview.qml")
 #: Waves' cut-outs from the game's shader, parallax fur as strand layers; 8: GF2's spare outfit parts and
 #: dormitory variants hidden; 9: every dormitory part of a model that is not the dormitory one; 10: every display
 #: pose, not only the held ones; 11: a preview carries the poses, to switch between, GF2's and Endfield's poses
-#: their scale, and no cutscene clip that pulls the body apart)
-CACHE_VERSION = 11
+#: their scale, and no cutscene clip that pulls the body apart; 12: GF2's bones a clip snaps out of place for its
+#: camera put back; 13: expression controls and sampled morph weights; 14: portable character shading maps)
+CACHE_VERSION = 14
 
 
 def cache_folder(model: Model) -> Path:
@@ -72,7 +73,7 @@ def adopt(model: Model, written: Path) -> Path:
 def preview_settings(settings: S.Settings) -> S.Settings:
     """*settings* for a preview job: ``.glb`` only, no Blender (its read-back takes minutes).  The poses follow the
     settings: decoding a character's clips adds tens of seconds, and with them the preview switches between them."""
-    return replace(settings, formats=["glb"], tools={k: v for k, v in settings.tools.items() if k != "blender"})
+    return replace(settings, formats=["glb"], export_shaders=False, tools={k: v for k, v in settings.tools.items() if k != "blender"})
 
 
 #: the poses of :func:`triangle_glb`'s triangle: what :func:`load_check` finds the view reading
@@ -102,6 +103,15 @@ def triangle_glb(path: Path) -> Path:
                 "animations": [{"name": name, "samplers": [{"input": 1, "output": 2 + k, "interpolation": "LINEAR"}],
                                 "channels": [{"sampler": 0, "target": {"node": 0, "path": "translation"}}]}
                                for k, name in enumerate(TRIANGLE_POSES)]}
+    for name, width, values in (("NORMAL", 3, (0, 0, 1) * 3),
+                                ("TEXCOORD_0", 2, (0, 0, 1, 0, 0, 1))):
+        data = struct.pack(f"<{len(values)}f", *values)
+        document["bufferViews"].append({"buffer": 0, "byteOffset": len(positions), "byteLength": len(data)})
+        document["meshes"][0]["primitives"][0]["attributes"][name] = len(document["accessors"])
+        document["accessors"].append({"bufferView": len(document["bufferViews"]) - 1, "componentType": 5126,
+                                      "count": 3, "type": f"VEC{width}"})
+        positions += data
+    document["buffers"][0]["byteLength"] = len(positions)
     text = json.dumps(document).encode()
     text += b" " * (-len(text) % 4)
     body = struct.pack("<II", len(text), 0x4E4F534A) + text + struct.pack("<II", len(positions), 0x004E4942) + positions
@@ -177,6 +187,8 @@ class Offscreen:
     def load(self, path: Path, seconds: float = 30) -> str:
         """*path* shown, framed as the window frames it; the loader's state once it has settled."""
         import time
+        from .character_styles import descriptors
+        self.root.setProperty("nativeMaterials", descriptors(path))
         box = model_bounds(path)
         self.root.setProperty("framed", box is not None)
         if box is not None:
@@ -199,7 +211,7 @@ class Offscreen:
         return self.target.toImage()
 
 
-def load_check(glb: Path, seconds: float = 30) -> dict:
+def load_check(glb: Path, seconds: float = 30, styles: bool = False) -> dict:
     """``preview.qml`` loading *glb* the way the window does, drawn off-screen (:class:`Offscreen`): its loader
     state, size and the poses the view's process would list (``view_host.Poses``).
 
@@ -213,7 +225,11 @@ def load_check(glb: Path, seconds: float = 30) -> dict:
         return {"state": view.failure, "size": 0.0, "poses": []}
     state = view.load(glb, seconds)
     poses = Poses().read(view.root) if state == "ready" else []
-    return {"state": state, "size": float(view.root.property("size")), "poses": poses}
+    report = {"state": state, "size": float(view.root.property("size")), "poses": poses}
+    if styles and state == "ready":
+        from .character_styles import check_styles
+        report["styles"] = check_styles(view)
+    return report
 
 
 def snapshot(path: Path, out: Path, width: int, height: int, seconds: float = 120) -> Path:
@@ -578,6 +594,13 @@ class PreviewPanel(QWidget):
         row.addWidget(self.pose_list, 1)
         self.pose_row.hide()
         layout.addWidget(self.pose_row)
+        from .character_styles import STYLES
+        self.style_list = QComboBox()
+        for ident, label in STYLES:
+            self.style_list.addItem(label, ident)
+        self.style_list.currentIndexChanged.connect(
+            lambda _index: self.root.setProperty("characterStyle", self.style_list.currentData()))
+        layout.addWidget(self.style_list)
         #: the file shown (the view may read a display copy of it, :func:`shown_copy`)
         self.current: Path | None = None
         self.caption = QLabel("左鍵拖曳旋轉、右鍵平移、滾輪縮放")
@@ -663,7 +686,12 @@ class PreviewPanel(QWidget):
     def apply_texts(self) -> None:
         """The view's own texts (the hint, loading, a load error) in the chosen language."""
         from .i18n import tr
+        from .character_styles import LIMITS, STYLES
+        for index, (_ident, label) in enumerate(STYLES):
+            self.style_list.setItemText(index, tr(label))
+        self.style_list.setToolTip(tr(LIMITS))
         root = self.root
+        root.setProperty("styleUnavailableText", tr("此模型無法套用角色著色；目前使用攝影棚"))
         root.setProperty("loadingText", tr("載入中…"))
         root.setProperty("errorText", tr("讀不進這個檔案："))
         hint = root.property("hintSource") or root.property("hint")

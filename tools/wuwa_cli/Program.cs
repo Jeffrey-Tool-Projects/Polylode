@@ -166,6 +166,19 @@ if (args[3] == "anim")
         if (skeleton == null) { Console.WriteLine($"ANIM_SKIPPED {package} no skeleton"); continue; }
         var reference = skeleton.ReferenceSkeleton;
         var count = reference.FinalRefBoneInfo.Length;
+        var floatCurves = sequence.CompressedCurveData?.FloatCurves ?? sequence.RawCurveData?.FloatCurves;
+        var curveNames = floatCurves?.Select(curve => curve.CurveName.Text).ToArray()
+                         ?? sequence.CompressedCurveNames?.Select(curve => curve.DisplayName.Text).ToArray() ?? [];
+        var curveFrames = Math.Max(sequence.NumFrames, 1);
+        var curveRate = sequence.SequenceLength > 0 ? (curveFrames - 1) / sequence.SequenceLength : 30f;
+        var curveValues = floatCurves?.Select(curve => Enumerable.Range(0, curveFrames)
+            .Select(frame => curve.FloatCurve.Eval(curveRate > 0 ? frame / curveRate : 0)).ToArray()).ToArray();
+        if (floatCurves == null && sequence.CompressedCurveByteStream is { Length: > 0 } curveStream)
+            File.WriteAllBytes(Path.Combine(output, $"{k}.curves.acl"), curveStream);
+        else
+            File.Delete(Path.Combine(output, $"{k}.curves.acl"));
+        var curves = new { names = curveNames, rate = curveRate, values = curveValues,
+                           codec = sequence.CurveCodecPath };
         if (sequence.CompressedDataStructure == null && sequence.SerializedBoneByteStream is { Length: > 0 } stream)
         {
             // a codec this parser cannot decode (the game's ACL one): its buffer as serialized, which track drives
@@ -174,7 +187,7 @@ if (args[3] == "anim")
             File.WriteAllText(Path.Combine(output, $"{k}.json"), JsonConvert.SerializeObject(new
             {
                 package, name = sequence.Name, skeleton = skeleton.GetPathName(), codec = sequence.BoneCodecDDCHandle,
-                frames = sequence.NumFrames, length = sequence.SequenceLength, rate_scale = sequence.RateScale,
+                frames = sequence.NumFrames, length = sequence.SequenceLength, rate_scale = sequence.RateScale, curves,
                 additive = sequence.AdditiveAnimType != EAdditiveAnimationType.AAT_None,
                 bones = reference.FinalRefBoneInfo.Select(info => info.Name.Text),
                 tracks = sequence.CompressedTrackToSkeletonMapTable.Select(map => map.BoneTreeIndex),
@@ -204,7 +217,7 @@ if (args[3] == "anim")
         File.WriteAllText(Path.Combine(output, $"{k}.json"), JsonConvert.SerializeObject(new
         {
             package, name = sequence.Name, skeleton = skeleton.GetPathName(), rate = converted.FramesPerSecond,
-            frames, additive = converted.IsAdditive,
+            frames, additive = converted.IsAdditive, curves, rate_scale = MathF.Max(1, sequence.RateScale),
             bones = reference.FinalRefBoneInfo.Select(info => info.Name.Text),
             keyed = Enumerable.Range(0, count).Select(bone => bone < converted.Tracks.Count && converted.Tracks[bone].HasKeys())
         }, Formatting.Indented));

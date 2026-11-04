@@ -121,6 +121,10 @@ def add(document_path: Path, scene, nodes: dict, extra: dict, ident: str, instal
     """The outfit's display poses, held ones first, added to the document at *document_path* as animations
     (``endfield.poses.add`` writes the same fields); how many."""
     import numpy as np
+    from ..interchange.expressions import add_shapes
+    document_path = Path(document_path)
+    document = json.loads(document_path.read_text(encoding="utf-8"))
+    arrays = dict(np.load(document_path.parent / document["arrays"]))
     paths = extra.get("paths") or {}
     held = []
     for row in candidates(rows, outfit_of(ident)):
@@ -130,19 +134,14 @@ def add(document_path: Path, scene, nodes: dict, extra: dict, ident: str, instal
             log(f"  {row['name']}：{failure}")
             continue
         try:
-            if bound(tree, paths) < BOUND:
+            if bound(tree, paths) < BOUND and not clips.shape_weights(tree, document["parts"]):
                 continue
         except clips.ClipError as failure:
             log(f"  {row['name']}：{failure}")
             continue
         held.append((row["name"], tree))
     held.sort(key=lambda item: not item[1]["m_MuscleClip"].get("m_LoopTime"))
-    if not held:
-        return 0
     from ..endfield.poses import labels
-    document_path = Path(document_path)
-    document = json.loads(document_path.read_text(encoding="utf-8"))
-    arrays = dict(np.load(document_path.parent / document["arrays"]))
     bones = [bone.node for bone in scene.bones]
     rest = np.stack([bone.rest for bone in scene.bones]).astype(np.float64)
     parents = [bone.parent for bone in scene.bones]
@@ -154,9 +153,18 @@ def add(document_path: Path, scene, nodes: dict, extra: dict, ident: str, instal
             log(f"  {label}：過場動作，{bones[bone]} 離開原位 {moved * 100:.0f} cm（只給鏡頭看的部分），不寫")
             continue
         log(f"寫入姿勢 {label}（{len(frames)} 格）")
-        arrays[f"anim{len(document['animations'])}"] = frames
+        index = len(document["animations"])
+        arrays[f"anim{index}"] = frames
+        for part, weights in clips.shape_weights(tree, document["parts"]).items():
+            arrays[f"p{part}_anim{index}_weights"] = weights
+        scalar = clips.scalar_curves(tree, document["parts"])
+        if scalar["unbound"]:
+            log(f"  {label}：{len(scalar['unbound'])} 個其他控制保留於表情資料檔，未套用到模型")
         document["animations"].append({"name": label, "clip": name, "rate": float(tree["m_SampleRate"]) or 30.0,
-                                       "frames": len(frames)})
+                                       "frames": len(frames), "source_curves": scalar})
+    count = add_shapes(document, arrays)
+    if count:
+        log(f"寫入表情控制 {count} 個")
     if not document["animations"]:
         return 0
     np.savez(document_path.parent / document["arrays"], **arrays)

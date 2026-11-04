@@ -81,6 +81,7 @@ class Part:
     shapes: list = field(default_factory=list)   # (name, indices, deltas)
     hidden: bool = False       # the prefab ships this renderer switched off
     tangents: np.ndarray | None = None  # authored rest xyz and separate source handedness
+    source_node: str = ""
 
 
 @dataclass
@@ -191,16 +192,34 @@ def least(scale) -> np.ndarray:
     return np.where(np.abs(scale) < LEAST_SCALE, np.where(scale < 0, -LEAST_SCALE, LEAST_SCALE), scale)
 
 
+def _no_shorter(frames: np.ndarray) -> np.ndarray:
+    """*frames* ``(..., 4, 4)`` with no axis shorter than :data:`LEAST_SCALE` (only those that have one changed)."""
+    u, size, vt = np.linalg.svd(frames[..., :3, :3])
+    short = size.min(axis=-1) < LEAST_SCALE
+    if short.any():
+        frames = frames.copy()
+        frames[short, :3, :3] = u[short] @ (np.maximum(size[short], LEAST_SCALE)[..., None] * vt[short])
+    return frames
+
+
 def carried(world: np.ndarray, rest_world: np.ndarray, rest_frame: np.ndarray) -> np.ndarray:
     """A posed bone's frame for a skin bound to *rest_frame*: the transform the game skins with (*world* after the
     inverse of *rest_world*, both in one space) carried onto *rest_frame* — scale and shear and all, where the game's
     rig scales the bone or one above it.  An axis shorter than :data:`LEAST_SCALE` (a part the clip hides by scaling
-    it to nothing) is drawn that long, never singular."""
-    out = np.asarray(world, dtype=np.float64) @ np.linalg.inv(np.asarray(rest_world, dtype=np.float64)) \
-        @ np.asarray(rest_frame, dtype=np.float64)
-    u, size, vt = np.linalg.svd(out[:3, :3])
-    if size.min() < LEAST_SCALE:
-        out[:3, :3] = u @ np.diag(np.maximum(size, LEAST_SCALE)) @ vt
+    it to nothing) is drawn that long, never singular.  *world* may be one frame ``(4, 4)`` or every frame of a clip
+    ``(frames, 4, 4)``: the rest's inverse and the carrying are worked out once for them all."""
+    onto = np.linalg.inv(np.asarray(rest_world, dtype=np.float64)) @ np.asarray(rest_frame, dtype=np.float64)
+    return _no_shorter(np.asarray(world, dtype=np.float64) @ onto)
+
+
+def rest_matrices(worlds: np.ndarray) -> np.ndarray:
+    """:func:`rest_matrix` of every world matrix of a stack ``(..., 4, 4)``, in one go."""
+    moved = TO_Z_UP @ np.asarray(worlds, dtype=np.float64)
+    u, _size, vt = np.linalg.svd(moved[..., :3, :3])
+    u[..., :, -1] *= np.where(np.linalg.det(u @ vt) < 0, -1.0, 1.0)[..., None]
+    out = np.broadcast_to(np.eye(4), moved.shape).copy()
+    out[..., :3, :3] = u @ vt
+    out[..., :3, 3] = moved[..., :3, 3]
     return out
 
 
@@ -208,11 +227,11 @@ def skinned(world: np.ndarray, rest: np.ndarray) -> np.ndarray:
     """A bone's frame as Unity skins with it: its *world* in the clip after the inverse of its *rest* world, carried
     onto the scene's rigid rest (:func:`rest_matrix` of *rest*, what the bone's vertices are bound to) — :func:`carried`
     in the scene's space.  Where a clip only moves and turns a bone this is ``rest_matrix(world)``.  A bone with no
-    volume at rest (kept at scale 0) is placed rigidly."""
+    volume at rest (kept at scale 0) is placed rigidly.  *world* may be every frame of a clip ``(frames, 4, 4)``."""
     rest = np.asarray(rest, dtype=np.float64)
     resting = TO_Z_UP @ rest
     if abs(np.linalg.det(resting[:3, :3])) < 1e-12:
-        return rest_matrix(world)
+        return rest_matrices(world)
     return carried(TO_Z_UP @ np.asarray(world, dtype=np.float64), resting, rest_matrix(rest))
 
 
@@ -301,7 +320,8 @@ def _part(group: list, name: str, bone_index: dict, materials: list) -> Part:
         slots=(np.concatenate(slots) if slots else np.zeros(0, dtype=np.int32)),
         materials=materials, joints=np.where(weights > 0, table[local], 0).astype(np.int32),
         weights=weights.astype(np.float32), shapes=shapes,
-        hidden=bool(shader.get("_offNode") or shader.get("_rendOff")), tangents=tangents)
+        hidden=bool(shader.get("_offNode") or shader.get("_rendOff")), tangents=tangents,
+        source_node=str(shader["_rendName"]))
 
 
 def _material(shader: dict, files: dict) -> dict:
@@ -410,7 +430,7 @@ def write(scene: Scene, folder: Path, stem: str, extra: dict | None = None,
         for k, (_name, index, delta) in enumerate(part.shapes):
             arrays[f"p{i}_s{k}_idx"] = index
             arrays[f"p{i}_s{k}_delta"] = delta
-        parts.append({"name": part.name, "materials": part.materials,
+        parts.append({"name": part.name, "materials": part.materials, "path": paths.get(part.source_node, ""),
                       "hidden": part.hidden, "uvs": channels,
                       "colors": part.colors is not None,
                       "tangents": part.tangents is not None,

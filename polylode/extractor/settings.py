@@ -19,11 +19,17 @@ class Settings:
     output: str = ""
     #: the window's language (``i18n.LANGUAGES``); empty follows the system
     language: str = ""
-    #: ``.glb`` needs no Blender (``interchange.glb``); ``.blend`` and FBX do
+    #: ``.glb`` and FBX need no Blender; ``.blend`` and the shaded companion do
     formats: list = field(default_factory=lambda: ["glb"])
     #: a character's display poses written into its ``.glb`` as animations, where the game has them
     #: (``endfield/poses``); a preview carries them too, to switch between (``preview.preview_settings``)
     poses: bool = True
+    #: the character's shader data (``<model>.shaders``) and, with Blender set, a shaded ``.blend`` beside each export:
+    #: only when ticked — written every time, a Blender build took minutes a model and the folder was not asked for
+    export_shaders: bool = False
+    #: how many models the export queue converts at once (``app.Window``); each is a process of its own, and what they
+    #: share is written one at a time (``sources.shared_writes``)
+    parallel_exports: int = 2
 
     def install(self, source: str) -> Path | None:
         value = self.installs.get(source)
@@ -41,7 +47,8 @@ def load(path: Path | None = None) -> Settings:
     except (OSError, ValueError):
         return Settings()
     # every field read back, the language too: left out, the window's choice was forgotten at every start
-    known = {key: data[key] for key in ("installs", "tools", "output", "language", "formats", "poses") if key in data}
+    known = {key: data[key] for key in ("installs", "tools", "output", "language", "formats", "poses", "export_shaders",
+                                       "parallel_exports") if key in data}
     return Settings(**known)
 
 

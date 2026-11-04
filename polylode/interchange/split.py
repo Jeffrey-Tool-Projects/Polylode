@@ -17,6 +17,7 @@ PER_VERTEX = ("co", "no", "tan", "col", "jnt", "wgt")
 #: what else a part's arrays hold: its triangles, their material slots, and its shape keys
 PER_PART = ("tri", "slot")
 SHAPE = re.compile(r"s(\d+)_(idx|delta)")
+SHAPE_WEIGHTS = re.compile(r"anim\d+_weights")
 
 
 def section_name(part: str, material: str) -> str:
@@ -45,7 +46,7 @@ def by_material(document: dict, arrays: dict) -> tuple[dict, dict]:
     for index, part in enumerate(document["parts"]):
         own = {key[len(f"p{index}_"):]: value for key, value in arrays.items() if key.startswith(f"p{index}_")}
         unknown = [key for key in own if key not in PER_VERTEX + PER_PART
-                   and not key.startswith("uv") and not SHAPE.fullmatch(key)]
+                   and not key.startswith("uv") and not SHAPE.fullmatch(key) and not SHAPE_WEIGHTS.fullmatch(key)]
         if unknown:
             raise ValueError(f"{part['name']}: no rule to split {', '.join(sorted(unknown))}")
         slots = np.asarray(own["slot"])
@@ -63,7 +64,7 @@ def by_material(document: dict, arrays: dict) -> tuple[dict, dict]:
                          if key in PER_VERTEX or key.startswith("uv")}
                 piece["tri"] = renumber[triangles]
                 piece["slot"] = np.zeros(len(triangles), dtype=slots.dtype)
-                shapes = []
+                shapes, shape_indices = [], []
                 for number, name in enumerate(part.get("shapes", [])):
                     moved = np.asarray(own[f"s{number}_idx"])
                     inside = renumber[moved] >= 0
@@ -71,6 +72,10 @@ def by_material(document: dict, arrays: dict) -> tuple[dict, dict]:
                         piece[f"s{len(shapes)}_idx"] = renumber[moved[inside]]
                         piece[f"s{len(shapes)}_delta"] = np.asarray(own[f"s{number}_delta"])[inside]
                         shapes.append(name)
+                        shape_indices.append(number)
+                for key, value in own.items():
+                    if SHAPE_WEIGHTS.fullmatch(key):
+                        piece[key] = np.asarray(value)[:, shape_indices]
                 material = part["materials"][slot]
                 record = dict(part, name=section_name(part["name"], material), materials=[material], shapes=shapes)
                 pieces.append((record, piece))

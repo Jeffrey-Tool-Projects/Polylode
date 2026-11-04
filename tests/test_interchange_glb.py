@@ -1,6 +1,7 @@
 """The glTF binary writer (``interchange/glb.py``), read back by a reader written here from the spec."""
 import json
 import struct
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -9,6 +10,37 @@ from polylode.interchange import glb
 
 PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
        b"\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0\x00\x00\x03\x01\x01\x00\xc9\xfe\x92\xef\x00\x00\x00\x00IEND\xaeB`\x82")
+
+
+def test_native_lighting_maps_are_portable_and_gf2_multipliers_are_not_material_values(tmp_path, monkeypatch):
+    from polylode.extractor.character_styles import descriptors
+    monkeypatch.setenv("ISLANDLIFE_DERIVED_ROOT", str(tmp_path))
+    document, arrays = _scene(tmp_path)
+    skin = document["materials"]["skin"]
+    skin.update(shader="gf_shader/pbr/character/uber",
+                floats={"_UseRampMap": 1, "_Metallic": 1, "_Smoothness": 1})
+    skin["maps"]["_RampMap"] = {"file": "textures/base.png", "srgb": False}
+    path = tmp_path / "portable.glb"
+    glb.write(document, arrays, tmp_path, path)
+    (tmp_path / "textures/base.png").unlink()
+    parsed, _, _ = _read(path)
+    assert "texture" in parsed["materials"][0]["extras"]["maps"]["_RampMap"]
+    desc = descriptors(path)[0][0]
+    from PySide6.QtCore import QUrl
+    assert Path(QUrl(desc["ramp"]).toLocalFile()).read_bytes() == PNG
+    assert desc["metallic"] == 0 and desc["smoothness"] == .5
+
+
+def test_wuwa_shading_keeps_authored_zero_values(tmp_path, monkeypatch):
+    from polylode.extractor.character_styles import descriptors
+    monkeypatch.setenv("ISLANDLIFE_DERIVED_ROOT", str(tmp_path))
+    document, arrays = _scene(tmp_path)
+    document["materials"]["skin"]["native_material"] = {"Scalars": {
+        "ShadowProcess": 0, "FrontShadowProcessOffset": 0, "PBRRateIntensity": 0}}
+    path = tmp_path / "wuwa.glb"
+    glb.write(document, arrays, tmp_path, path)
+    desc = descriptors(path)[0][0]
+    assert desc["shadowProcess"] == desc["frontShadowOffset"] == desc["pbrRate"] == 0
 
 
 def _read(path):
@@ -66,6 +98,71 @@ def _scene(tmp_path):
                 "parts": [{"name": "body", "materials": ["skin", "cloth"], "uvs": [0], "colors": False,
                            "tangents": True, "shapes": ["smile"], "hidden": False}]}
     return document, arrays
+
+
+def test_expression_weights_survive_hidden_parts_material_splitting_and_the_shared_first_frame(tmp_path):
+    import copy
+    from polylode.interchange.split import by_material
+    from polylode.extractor.share import posed
+    document, arrays = _scene(tmp_path)
+    document["parts"][0]["shapes"] = ["smile", "blink"]
+    arrays["p0_s1_idx"] = np.array([3])
+    arrays["p0_s1_delta"] = np.array([[0, 0, .2]], np.float32)
+    hidden = copy.deepcopy(document["parts"][0])
+    hidden.update(name="hidden", hidden=True)
+    document["parts"].insert(0, hidden)
+    for key in list(arrays):
+        if key.startswith("p0_"):
+            arrays["p1_" + key[3:]] = arrays[key].copy()
+    document["animations"] = [{"name": "face", "rate": 30, "frames": 3}]
+    arrays["anim0"] = np.repeat(arrays["bone_rest"][None], 3, axis=0)
+    arrays["p1_anim0_weights"] = np.array([[.4, .2], [.7, .2], [1, .2]])
+    document, arrays = by_material(document, arrays)
+    target = tmp_path / "expressions.glb"
+    glb.write(document, arrays, tmp_path, target)
+    gltf, accessor, _ = _read(target)
+    animation = gltf["animations"][0]
+    assert len(gltf["meshes"]) == 2
+    for channel in animation["channels"]:
+        assert channel["target"]["path"] == "weights"
+        node = gltf["nodes"][channel["target"]["node"]]
+        names = gltf["meshes"][node["mesh"]]["extras"]["targetNames"]
+        values = accessor(animation["samplers"][channel["sampler"]]["output"]).reshape(-1, len(names))
+        np.testing.assert_allclose(values[:, names.index("smile")], [.4, 1])
+        if "blink" in names:
+            np.testing.assert_allclose(values[:, names.index("blink")], [.2, .2])
+    held, _, _ = _read(posed(target, tmp_path / "held.glb"))
+    for node in held["nodes"]:
+        if "mesh" in node:
+            names = held["meshes"][node["mesh"]]["extras"]["targetNames"]
+            np.testing.assert_allclose(node["weights"], [.4 if name == "smile" else .2 for name in names])
+
+
+def test_source_shape_names_are_selectable_expression_animations(tmp_path):
+    from polylode.interchange.expressions import add_shapes
+    document, arrays = _scene(tmp_path)
+    assert add_shapes(document, arrays) == 1
+    glb.write(document, arrays, tmp_path, tmp_path / "expressions.glb")
+    gltf, accessor, _ = _read(tmp_path / "expressions.glb")
+    animation = gltf["animations"][0]
+    assert animation["name"] == "expression/smile"
+    channel = next(c for c in animation["channels"] if c["target"]["path"] == "weights")
+    np.testing.assert_allclose(accessor(animation["samplers"][channel["sampler"]]["output"]), 1)
+
+
+def test_expression_sidecar_preserves_unbound_scalar_samples_and_authored_controls(tmp_path):
+    from polylode.interchange.expressions import write_sidecar
+    source = {"names": ["smile", "UI_Eyes_Control"], "rate": 30,
+              "values": [[.1, .3], [1, 0]], "unbound": ["UI_Eyes_Control"]}
+    document = {"source": "game/model", "animations": [
+        {"name": "idle", "clip": "ui_idle", "rate": 60, "frames": 2, "source_curves": source}],
+        "expression_controls": [{"kind": 0, "params": {"blush": ["_Blush", 0]}}]}
+    path = tmp_path / "scene.json"
+    path.write_text(json.dumps(document))
+    result = write_sidecar(path, tmp_path / "model.expressions.json")
+    back = json.loads(result.read_text(encoding="utf-8"))
+    assert back["animations"][0]["source_curves"] == source
+    assert back["expression_controls"] == document["expression_controls"]
 
 
 def test_the_file_is_the_scene_in_y_up_with_its_skin_shapes_and_base_map(tmp_path):

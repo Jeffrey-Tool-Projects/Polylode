@@ -47,7 +47,7 @@ LAYERS = ("StreamingAssets", "Persistent")
 GAME = "ArknightsEndfield"
 #: a batch's compressed bytes and file count (§7.1070's first plan; a batch out of memory is halved)
 BATCH_BYTES, BATCH_FILES = 512 * (1 << 20), 10000
-TYPES = ("AssetBundle:Parse", "GameObject", "Animator", "Mesh", "Avatar", "Material", "Shader", "Texture2D",
+TYPES = ("AssetBundle:Parse", "GameObject", "MonoBehaviour", "Animator", "Mesh", "Avatar", "Material", "Shader", "Texture2D",
          "AnimationClip")
 #: what :func:`run_shard` returns when AnimeStudio ran out of memory on the batch
 NEEDS_SPLIT = "needs split"
@@ -207,7 +207,7 @@ def run_shard(exe: Path, task: dict, work: Path, identity: dict) -> str:
     target = Path(work) / "shards" / task["key"]
     source = Path(task["absolutePath"])
     stat = source.stat()
-    own = {**identity, "source": str(source), "bytes": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+    own = {**identity, "types": list(TYPES), "source": str(source), "bytes": stat.st_size, "mtime_ns": stat.st_mtime_ns}
     receipt, assets, cab = target / "receipt.json", target / "current_shard.json", target / "cab_map" / "current_shard.bin"
     if receipt.is_file():
         previous = _read(receipt)
@@ -237,11 +237,17 @@ def run_shard(exe: Path, task: dict, work: Path, identity: dict) -> str:
     if offsets != set(task["offsets"]):
         raise MapBuildError(f"{task['key']}: the CAB map holds other slots than the batch "
                             f"(stale {sorted(offsets - set(task['offsets']))[:5]}, unread {sorted(set(task['offsets']) - offsets)[:5]})")
-    if any(Path(str(entry.source)).resolve() != source.resolve() for entry in entries.values()):
+    resolved_source = source.resolve()
+    if any(path.resolve() != resolved_source for path in {Path(str(entry.source)) for entry in entries.values()}):
         raise MapBuildError(f"{task['key']}: a CAB from another chunk")
     count = 0
+    checked_sources = set()
     for item in iter_entries(assets):
-        if Path(item["Source"]).resolve() != source.resolve() or int(item["Offset"]) not in set(task["offsets"]):
+        if item["Source"] not in checked_sources:
+            if Path(item["Source"]).resolve() != resolved_source:
+                raise MapBuildError(f"{task['key']}: an asset entry from outside the batch")
+            checked_sources.add(item["Source"])
+        if int(item["Offset"]) not in offsets:
             raise MapBuildError(f"{task['key']}: an asset entry from outside the batch")
         count += 1
     _write(receipt, {"identity": own, "slots": len(offsets), "cabs": len(entries), "asset_entries": count,
@@ -280,6 +286,7 @@ def merge(game: Path, tasks: list[dict], rows: list[dict], work: Path, meta: Pat
     game = Path(game).resolve()
     cabs = {layer: {} for layer in LAYERS}
     every: dict = {}
+    resolved_sources = {}
     shards = []
     for task in tasks:
         folder = Path(work) / "shards" / task["key"]
@@ -290,9 +297,12 @@ def merge(game: Path, tasks: list[dict], rows: list[dict], work: Path, meta: Pat
             raise MapBuildError(f"{source} is outside {game}")
         for entry in read_cabmap(folder / "cab_map" / "current_shard.bin").values():
             name = entry.name.casefold()
-            place = (Path(str(entry.source)).resolve(), entry.offset, entry.deps)
+            raw_source = str(entry.source)
+            if raw_source not in resolved_sources:
+                resolved_sources[raw_source] = Path(raw_source).resolve()
+            place = (resolved_sources[raw_source], entry.offset, entry.deps)
             seen = every.get(name)
-            if seen is not None and (Path(str(seen.source)).resolve(), seen.offset, seen.deps) != place:
+            if seen is not None and (resolved_sources[str(seen.source)], seen.offset, seen.deps) != place:
                 raise MapBuildError(f"CAB {entry.name} has two places in the current install")
             every[name] = cabs[layer][name] = entry
         shards.append((task, receipt, folder / "current_shard.json", layer, source))
@@ -324,9 +334,12 @@ def merge(game: Path, tasks: list[dict], rows: list[dict], work: Path, meta: Pat
         temporary = cab.with_suffix(".tmp")
         write_cabmap(temporary, game / layer, cabs[layer])
         reopened = read_cabmap(temporary)
+        for raw_source in {str(entry.source) for entry in reopened.values()}:
+            if raw_source not in resolved_sources:
+                resolved_sources[raw_source] = Path(raw_source).resolve()
         if len(reopened) != len(cabs[layer]) or any(
-                (Path(str(e.source)).resolve(), e.offset, e.deps)
-                != (Path(str(cabs[layer][n.casefold()].source)).resolve(), cabs[layer][n.casefold()].offset,
+                (resolved_sources[str(e.source)], e.offset, e.deps)
+                != (resolved_sources[str(cabs[layer][n.casefold()].source)], cabs[layer][n.casefold()].offset,
                     cabs[layer][n.casefold()].deps) for n, e in reopened.items()):
             raise MapBuildError(f"the {layer} CAB map does not read back as written")
         temporary.replace(cab)
@@ -344,8 +357,10 @@ def build(exe: Path, game: Path, work: Path, meta: Path, log=print) -> dict:
     exe, work, meta = Path(exe), Path(work), Path(meta)
     work.mkdir(parents=True, exist_ok=True)
     index = run_index(exe, game, work, log)
-    identity = {"index_sha256": sha(index), "cli_sha256": sha(exe.with_suffix(".dll") if exe.with_suffix(".dll").is_file() else exe)}
     rows = read_index(index)
+    identity = {"index_sha256": hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest(),
+                "cli_sha256": sha(exe.with_suffix(".dll") if exe.with_suffix(".dll").is_file() else exe),
+                "types": list(TYPES)}
     plan_path = work / "plan.json"
     saved = _read(plan_path) if plan_path.is_file() else {}
     tasks = saved["tasks"] if {k: saved.get(k) for k in identity} == identity else plan(rows)

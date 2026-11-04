@@ -59,7 +59,8 @@ def ensure_maps(exe: Path, install: Path, log: Log) -> Path:
     stamp_path = meta / "install_stamp.json"
     stamp = vfs_stamp(game)
     if stamp_path.is_file() and (meta / "build.json").is_file() \
-            and json.loads(stamp_path.read_text(encoding="utf-8")) == stamp:
+            and json.loads(stamp_path.read_text(encoding="utf-8")) == stamp \
+            and json.loads((meta / "build.json").read_text(encoding="utf-8")).get("types") == list(mapbuild.TYPES):
         return meta
     log("從遊戲安裝建立資產對照表（第一次或遊戲更新後；分批進行，可中斷續跑）…")
     stamp_path.unlink(missing_ok=True)
@@ -137,10 +138,13 @@ class EndfieldSource:
 
     def export(self, model: Model, settings, output: Path, formats: list[str], log: Log) -> list[Path]:
         from ..endfield import pipeline as PL
+        from ..endfield import poses as P
         from ..endfield import store
-        from .sources import blender_for
+        from .sources import blender_for, shared_writes
         blender = blender_for(settings, formats, BLENDER)
-        with own_store():
+        with own_store(), shared_writes("endfield", log):
+            # what the store shares between models — a prefab converted, a character's clips decoded — is written by
+            # one job at a time; the rest of the export runs beside the others
             if not store.has("chara", model.ident):
                 pipeline = self._pipeline(settings, log)
                 job = next((j for j in PL.select(pipeline.assets, ["chara"]) if j.ident == model.ident), None)
@@ -153,9 +157,19 @@ class EndfieldSource:
                     raise ExtractorError(f"{model.ident} 轉換失敗：{result.failed[key]}")
                 if key in result.empty:
                     raise ExtractorError(f"{model.ident} 沒有網格")
+            if settings.poses:
+                P.ensure(str((store.read_extra("chara", model.ident) or {}).get("model") or ""),
+                         lambda: self._pipeline(settings, log), log)
+        with own_store():
             return write_files(model.ident, blender, output, formats, log,
-                               shaders=lambda names: self._fetch_shaders(settings, names, log),
-                               poses=(lambda: self._pipeline(settings, log)) if settings.poses else None)
+                               shaders=lambda names: self._locked_shaders(settings, names, log),
+                               poses=(lambda: self._pipeline(settings, log)) if settings.poses else None,
+                               export_shaders=settings.export_shaders, parallel=True)
+
+    def _locked_shaders(self, settings, names: list[str], log: Log) -> None:
+        from .sources import shared_writes
+        with shared_writes("endfield", log):
+            self._fetch_shaders(settings, names, log)
 
     def _fetch_shaders(self, settings, names: list[str], log: Log) -> None:
         """The shaders *names* taken from the installation into the store's cache (once)."""
@@ -165,8 +179,77 @@ class EndfieldSource:
         shader_code.fetch(self._pipeline(settings, log), names, log)
 
 
+#: the most processes one export's poses are worked out in; fewer on a computer of fewer cores (half of them)
+POSE_WORKERS = 6
+
+
+def frames_in_workers(ident: str, ids: list[str], bones: list[str], log: Log) -> dict:
+    """The frames of the stored clips *ids* on *bones* of the stored *ident*, worked out by worker processes of this
+    program side by side (``--pose-frames``, :func:`run_pose_frames`): ``{clip id: (frames, bones, 4, 4)}``.  A clip a
+    worker did not give back is left out (the caller works it out itself); with too few clips or cores, ``{}``.
+
+    One clip after another, jsspsi's 25 took a minute; the clips are independent of each other."""
+    import json
+    import shutil
+    import subprocess
+    import tempfile
+    import numpy as np
+    from . import jobs
+    count = min(len(ids), max(1, (os.cpu_count() or 2) // 2), POSE_WORKERS)
+    if count < 2:
+        return {}
+    scratch = Path(tempfile.mkdtemp(prefix="polylode-poses-"))
+    try:
+        started = []
+        for k in range(count):
+            chunk = ids[k::count]
+            folder = scratch / str(k)
+            folder.mkdir()
+            request = folder / "request.json"
+            request.write_text(json.dumps({"ident": ident, "ids": chunk, "bones": bones}), encoding="utf-8")
+            command = jobs._start("--pose-frames", str(request))
+            started.append((subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)), chunk, folder))
+        log(f"以 {count} 個行程同時計算 {len(ids)} 個姿勢")
+        found = {}
+        for process, chunk, folder in started:
+            said, _ = process.communicate()
+            if process.returncode != 0:
+                tail = said.decode("utf-8", "replace").strip().splitlines()[-1:] if said else []
+                log(f"  一組姿勢平行計算失敗，改在本行程計算：{tail[0] if tail else process.returncode}")
+                continue
+            for number, clip in enumerate(chunk):
+                path = folder / f"{number}.npy"
+                if path.is_file():
+                    found[clip] = np.load(path)
+        return found
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def run_pose_frames(request: str) -> int:
+    """``--pose-frames <request.json>``: a worker of :func:`frames_in_workers` — the frames of the clips it names, each
+    saved beside the request as ``<k>.npy``."""
+    import json
+    import numpy as np
+    from ..endfield import actor, clips
+    from ..endfield import poses as P
+    from ..endfield import store
+    task = json.loads(Path(request).read_text(encoding="utf-8"))
+    if not task.get("ids"):
+        return 0                                    # nothing asked: what --selftest starts, to see a worker run
+    with own_store():
+        item = store.read_item("chara", task["ident"])
+        extra = store.read_extra("chara", task["ident"]) or {}
+        skeleton = actor.build_skeleton(item.nodes, task["ident"])
+        for number, ident in enumerate(task["ids"]):
+            frames = P.frames(clips.read(ident), skeleton, task["bones"], extra.get("paths") or {})
+            np.save(Path(request).parent / f"{number}.npy", frames)
+    return 0
+
+
 def write_files(ident: str, blender: Path | None, output: Path, formats: list[str], log: Log,
-                shaders=None, poses=None) -> list[Path]:
+                shaders=None, poses=None, export_shaders=False, parallel=False) -> list[Path]:
     """Write the stored *ident* in *formats* and read each back; the files, or why not.
 
     ``.glb`` and FBX are written here (``interchange``), the ``.blend`` by Blender; the images are inside
@@ -193,12 +276,14 @@ def write_files(ident: str, blender: Path | None, output: Path, formats: list[st
             raise ExtractorError(f"{ident} 讀回沒有通過：{'; '.join(row['problems'])}")
         Path(row["fbx"]).unlink()           # Blender's FBX was for its read-back; FBX is written below
         written.append(Path(row["fbx"]).with_suffix(".blend"))
-    if any(kind in formats for kind in ("glb", "fbx")):
+    if export_shaders or any(kind in formats for kind in ("glb", "fbx")):
         progress.step("組合場景")
         _scene, document = FX.scene_document(target, output, None, shaders, log,
-                                             poses if "glb" in formats else None)
+                                             poses if "glb" in formats or export_shaders else None,
+                                             (lambda ids, bones: frames_in_workers(ident, ids, bones, log))
+                                             if parallel else None)
         try:
-            written += write_own(formats, document, output / folder, target.stem, blender, log)
+            written += write_own(formats, document, output / folder, target.stem, blender, log, export_shaders=export_shaders)
         finally:
             (output / folder / f"{target.stem}.npz").unlink(missing_ok=True)
     shutil.rmtree(output / folder / RS.TEXTURE_DIR, ignore_errors=True)

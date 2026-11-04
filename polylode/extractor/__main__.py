@@ -19,7 +19,8 @@ def main(argv: list[str] | None = None) -> int:
     from .blender_files import load_source_modules
     load_source_modules()
     if not argv or argv[0] not in ("--run-job", "--scan", "--selftest", "--discover-wuwa-keys", "--download-wuwa-keys",
-                                       "--share", "--share-github", "--tidy", "--tidy-github", "--view-host"):
+                                       "--share", "--share-github", "--tidy", "--tidy-github", "--view-host",
+                                       "--pose-frames"):
         from .migrate import from_islandlife
         from_islandlife(lambda _line: None)      # the window's first start: the old folder's data, once
     if len(argv) == 2 and argv[0] == "--run-job":
@@ -43,6 +44,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) in (1, 2) and argv[0] == "--tidy-github":
         from .github import run_tidy
         return run_tidy(*argv[1:])
+    if len(argv) == 2 and argv[0] == "--pose-frames":
+        from .endfield_source import run_pose_frames
+        return run_pose_frames(argv[1])
     if argv == ["--view-host"]:
         from .view_host import run as run_view_host
         return run_view_host()
@@ -67,7 +71,7 @@ def selftest(path: str) -> int:
 
     from .blender_files import missing
     report: dict = {"imports": {}, "sources": [], "blender_files_missing": []}
-    for name in ("numpy", "psutil", "PySide6.QtWidgets", "PySide6.QtQuickWidgets", "PySide6.QtQuick3D",
+    for name in ("numpy", "psutil", "PySide6.QtWidgets", "PySide6.QtQuick3D",
                  # UnityPy's texture codecs, imported only when a texture is read; they load data files of
                  # their own (archspec's CPU tables) that a package must carry (§7.1455)
                  "etcpak", "astc_encoder", "texture2ddecoder", "UnityPy", "polylode.gf2.export", "polylode.gf2.batch",
@@ -76,7 +80,10 @@ def selftest(path: str) -> int:
                  "polylode.gf2.bundles", "polylode.gf2.catalog", "polylode.gf2.selection",
                  "polylode.wuthering_waves.assembly", "polylode.wuthering_waves.source_scene",
                  "polylode.wuthering_waves.extract", "polylode.wuthering_waves.keys", "polylode.converted.names", "polylode.converted.scope",
-                 "polylode.interchange.glb", "polylode.interchange.fbx", "polylode.extractor.share", "polylode.extractor.github", "polylode.extractor.view_host",
+                 "polylode.interchange.glb", "polylode.interchange.fbx", "polylode.interchange.expressions",
+                 "polylode.extractor.share", "polylode.extractor.github", "polylode.extractor.view_host",
+                 "polylode.extractor.shader_export", "polylode.extractor.blender_shader",
+                 "polylode.extractor.character_styles", "polylode.extractor.gltf_runtime", "polylode.extractor.morph_playback",
                  "polylode.extractor.app"):
         try:
             __import__(name)
@@ -122,16 +129,31 @@ def selftest(path: str) -> int:
     # missing, which the window then reported as "Unknown error" (§7.1455)
     import tempfile
     with tempfile.TemporaryDirectory() as folder:
-        report["preview_load"] = load_check(triangle_glb(Path(folder) / "triangle.glb"))
+        report["preview_load"] = load_check(triangle_glb(Path(folder) / "triangle.glb"), styles=True)
     if report["preview_load"]["state"] != "ready":
         report["preview_qml_errors"].append(f"a .glb does not load: {report['preview_load']['state']}")
     # a model's poses are the loader's Qt Quick Timeline objects (view_host.Poses): a program without the
     # module draws the model and lists none
     elif report["preview_load"]["poses"] != list(TRIANGLE_POSES):
         report["preview_qml_errors"].append(f"the poses of a .glb are not found: {report['preview_load']['poses']}")
+    elif not report["preview_load"]["styles"]["ok"]:
+        report["preview_qml_errors"].append(f"character shading failed: {report['preview_load']['styles']}")
+    # an export works its poses out in worker processes of this program (--pose-frames): one started as an export would
+    import subprocess
+    from .jobs import _start
+    with tempfile.TemporaryDirectory() as folder:
+        request = Path(folder) / "request.json"
+        request.write_text(json.dumps({"ident": "", "ids": [], "bones": []}), encoding="utf-8")
+        try:
+            done = subprocess.run(_start("--pose-frames", str(request)), capture_output=True, timeout=120,
+                                  creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            report["pose_worker"] = "ok" if done.returncode == 0 else                 f"exit {done.returncode}: {(done.stdout + done.stderr).decode('utf-8', 'replace')[-500:]}"
+        except (OSError, subprocess.TimeoutExpired) as failure:
+            report["pose_worker"] = f"{type(failure).__name__}: {failure}"
     ok = (all(v == "ok" for v in report["imports"].values()) and isinstance(report["sources"], list)
           and not report["blender_files_missing"] and not report["bundled_missing"] and report["program_exists"]
-          and not report["preview_qml_errors"] and report["fmod"] == "ok" and not report["web_missing"])
+          and not report["preview_qml_errors"] and report["fmod"] == "ok" and not report["web_missing"]
+          and report["pose_worker"] == "ok")
     report["ok"] = ok
     Path(path).write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     return 0 if ok else 1

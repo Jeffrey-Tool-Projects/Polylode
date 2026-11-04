@@ -8,6 +8,45 @@ from polylode.endfield.rigscene import LEAST_SCALE
 from polylode.wuthering_waves import poses as W
 
 
+def test_expression_curves_follow_source_time_and_all_matching_material_parts():
+    record = {"name": "smile", "rate": 60, "rate_scale": 2,
+              "curves": {"names": ["smile", "blink"], "rate": 15, "values": [[0, 1], [.2, .2]]}}
+    parts = [{"shapes": ["blink", "smile", "other"]}, {"shapes": ["smile"]}, {"shapes": []}]
+    weights = W.shape_weights(record, parts, 3)
+    np.testing.assert_allclose(weights[0], [[.2, 0, 0], [.2, .5, 0], [.2, 1, 0]])
+    np.testing.assert_allclose(weights[1][:, 0], [0, .5, 1])
+    assert 2 not in weights
+
+
+def test_undecoded_expression_curves_are_not_silently_dropped():
+    import pytest
+    with pytest.raises(ValueError, match="not decoded"):
+        W.shape_weights({"name": "face", "curves": {"names": ["smile"], "values": None}}, [], 2)
+
+
+def test_decoded_reader_playback_rate_does_not_accelerate_the_expression_samples(tmp_path):
+    record = {"name": "face", "rate": 60, "rate_scale": 2, "frames": 3, "bones": ["root"],
+              "curves": {"names": ["smile"], "rate": 30, "values": [[0, .5, 1]]}}
+    (tmp_path / "0.json").write_text(json.dumps(record))
+    np.zeros((3, 1, 10), dtype="<f4").tofile(tmp_path / "0.bin")
+    decoded, frames = W.read(tmp_path, 0)
+    np.testing.assert_allclose(W.shape_weights(decoded, [{"shapes": ["smile"]}], len(frames))[0][:, 0], [0, .5, 1])
+
+
+def test_reader_without_expression_capability_requests_an_update(tmp_path, monkeypatch):
+    import pytest
+    from polylode.extractor import wuwa_source as source
+    from polylode.extractor.sources import ExtractorError
+    package = "Client/Content/Aki/Character/Role/FemaleXL/Xin/R2T1XinMd10011/Model/R2T1XinMd10011.uasset"
+    index = tmp_path / "index.txt"
+    index.write_text(W.ui_folder(package) + "Ui_Loop.uasset\n", encoding="utf-8")
+    monkeypatch.setattr(source, "archive_index", lambda settings, log: index)
+    monkeypatch.setattr(source, "_reader", lambda settings, mode, folder, listing, log:
+                        (folder / "0.json").write_text(json.dumps({"name": "idle", "frames": 2})))
+    with pytest.raises(ExtractorError, match="表情"):
+        source._poses_of(None, package, tmp_path, tmp_path / "poses", lambda message: None)
+
+
 def test_every_wuwa_pose_on_the_models_own_skeleton_is_taken_held_ones_first():
     package = "Client/Content/Aki/Character/Role/FemaleXL/Xin/R2T1XinMd10011/Model/R2T1XinMd10011.uasset"
     assert W.ui_folder(package) == "Client/Content/Aki/Character/Role/FemaleXL/Xin/CommonAnim/UiAnim/"
@@ -131,3 +170,28 @@ def test_a_bone_a_clip_scales_to_nothing_is_drawn_that_small_and_keeps_the_clips
     big[0, 1, 7:10] = 2.0
     grown = W.frames(record, big, bones, native)
     assert np.allclose(np.linalg.svd(grown[0, 1, :3, :3].astype(np.float64), compute_uv=False), 2.0, atol=1e-5)
+
+
+def test_a_runtime_folder_without_dotnet_10_is_said_plainly_not_as_a_bare_winerror(tmp_path, monkeypatch):
+    """The .NET field named the game's folder: the reader failed as FileNotFoundError [WinError 2] in a traceback."""
+    import pytest
+    from polylode.extractor import wuwa_source as WS
+    from polylode.extractor.sources import ExtractorError
+    from polylode.wuthering_waves import extract
+    game = tmp_path / "Wuthering Waves"
+    game.mkdir()
+    monkeypatch.setattr(WS, "find_dotnet", lambda: None)
+    with pytest.raises(ExtractorError, match="不是 .NET 10 執行環境.*安裝 .NET 10 Runtime"):
+        WS.runtime_for(tmp_path / "wuwa.dll", game)
+    runtime = tmp_path / "dotnet"
+    (runtime / "shared" / "Microsoft.NETCore.App" / "10.0.1").mkdir(parents=True)
+    (runtime / "dotnet.exe").write_bytes(b"MZ")
+    monkeypatch.setattr(WS, "find_dotnet", lambda: runtime)
+    with pytest.raises(ExtractorError, match="欄位清空就會用它"):              # the one found, offered
+        WS.runtime_for(tmp_path / "wuwa.dll", game)
+    WS.runtime_for(tmp_path / "wuwa.dll", runtime)                               # a runtime: nothing said
+    WS.runtime_for(tmp_path / "wuwa.exe", game)                                  # an apphost runs on its own
+    # a program that is not there at all: the reader's own error, not a traceback
+    monkeypatch.setattr(extract, "derived_root", lambda: tmp_path, raising=False)
+    with pytest.raises(extract.ReaderError, match="無法啟動讀取器"):
+        extract.run(tmp_path / "missing.exe", runtime, tmp_path, tmp_path / "k.json", tmp_path / "out", "metadata")

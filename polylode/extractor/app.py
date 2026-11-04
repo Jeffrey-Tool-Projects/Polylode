@@ -10,7 +10,7 @@ from PySide6.QtGui import QIcon, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QCheckBox, QComboBox, QFileDialog, QFormLayout, QFrame, QHBoxLayout, QHeaderView, QInputDialog,
     QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QPlainTextEdit, QProgressBar,
-    QPushButton, QScrollArea, QSplitter, QStackedWidget, QTableView, QVBoxLayout, QWidget,
+    QPushButton, QScrollArea, QSpinBox, QSplitter, QStackedWidget, QTableView, QVBoxLayout, QWidget,
 )
 
 from . import i18n, jobs, locate
@@ -27,6 +27,8 @@ ICON = Path(__file__).with_name("icon.png")
 COMMON = (PathSpec("blender", "Blender 執行檔", "file", "blender.exe（4.x 或 5.x）；.blend 需要，.glb／FBX 有它時多做讀回核對"),
           PathSpec("pages_site", "GitHub Pages 網站資料夾", "dir",
                    "可留空：分享時登入 GitHub，上傳到你帳號的倉庫；指定本機 clone 則改用 Git 推送到那裡"))
+#: the most models the export queue converts at once ("同時匯出")
+PARALLEL_MOST = 4
 FORMATS = (("glb", "glTF（.glb，貼圖內嵌）"), ("fbx", "FBX（貼圖內嵌）"),
            ("blend", "Blender（.blend，貼圖打包在檔內，需 Blender）"))
 
@@ -191,6 +193,17 @@ class SettingsPage(QWidget):
         self.poses.setChecked(settings.poses)
         self.poses.toggled.connect(lambda _on: self._save())
         form.addRow(_label("姿勢"), self.poses)
+        self.export_shaders = QCheckBox("一併輸出 Blender 角色著色")
+        self.export_shaders.setChecked(settings.export_shaders)
+        self.export_shaders.toggled.connect(lambda _on: self._save())
+        form.addRow(_label("著色器"), self.export_shaders)
+        self.parallel = QSpinBox()
+        self.parallel.setRange(1, PARALLEL_MOST)
+        self.parallel.setValue(max(1, min(PARALLEL_MOST, int(settings.parallel_exports or 1))))
+        self.parallel.setSuffix(" 個模型")
+        self.parallel.setToolTip("匯出佇列同時轉換幾個模型；每個都是自己的行程，記憶體與 CPU 用量跟著加倍")
+        self.parallel.valueChanged.connect(lambda _n: self._save())
+        form.addRow(_label("同時匯出"), self.parallel)
         layout.addLayout(form)
         layout.addStretch(1)
 
@@ -236,6 +249,10 @@ class SettingsPage(QWidget):
             self.settings.formats = [key for key, box in self.format_boxes.items() if box.isChecked()]
         if hasattr(self, "poses"):
             self.settings.poses = self.poses.isChecked()
+        if hasattr(self, "export_shaders"):
+            self.settings.export_shaders = self.export_shaders.isChecked()
+        if hasattr(self, "parallel"):
+            self.settings.parallel_exports = self.parallel.value()
         if hasattr(self, "activity"):
             self.settings.tools["discord_activity"] = self.activity.text().strip()
         S.save(self.settings)
@@ -277,10 +294,14 @@ class SourcePage(QWidget):
         self.search = QLineEdit()
         self.search.setPlaceholderText("搜尋角色、衣裝或編號…")
         tools.addWidget(self.search, 1)
-        for text, state in (("全選", Qt.Checked), ("全不選", Qt.Unchecked)):
-            button = QPushButton(text)
-            button.clicked.connect(lambda _c, s=state: self._tick_visible(s))
-            tools.addWidget(button)
+        # one box for all the rows listed (those the search leaves): ticked when every one is, part-ticked when some
+        # are; a click ticks them all, or, when every one already is, none
+        self.tick_all = QCheckBox("全選")
+        self.tick_all.setTristate(True)
+        self.tick_all.setToolTip("勾選或取消勾選列出的所有模型（有搜尋時只算搜尋到的）")
+        self.tick_all.clicked.connect(lambda _on: self._tick_all_clicked())
+        self.tick_all.setEnabled(False)
+        tools.addWidget(self.tick_all)
         self.preview_button = QPushButton("預覽")
         self.preview_button.setToolTip("轉出選取那一列的 .glb 並在右邊顯示（雙擊一列也可以）")
         self.preview_button.clicked.connect(self.preview)
@@ -301,6 +322,10 @@ class SourcePage(QWidget):
         self.proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
         self.proxy.setFilterKeyColumn(-1)
         self.search.textChanged.connect(self.proxy.setFilterFixedString)
+        self._ticking = False
+        self.table_model.itemChanged.connect(lambda _item: self._sync_tick_all())
+        for signal in (self.proxy.rowsInserted, self.proxy.rowsRemoved, self.proxy.modelReset, self.proxy.layoutChanged):
+            signal.connect(lambda *_a: self._sync_tick_all())
         self.table = QTableView()
         self.table.setModel(self.proxy)
         self.table.setSortingEnabled(True)
@@ -669,10 +694,36 @@ class SourcePage(QWidget):
         self.preview_button.setEnabled(True)
         self.again_button.setEnabled(True)
 
+    def _listed(self) -> list:
+        """The first-column items of the rows listed now (the search's)."""
+        return [self.table_model.itemFromIndex(self.proxy.mapToSource(self.proxy.index(row, 0)))
+                for row in range(self.proxy.rowCount())]
+
     def _tick_visible(self, state) -> None:
-        for row in range(self.proxy.rowCount()):
-            item = self.table_model.itemFromIndex(self.proxy.mapToSource(self.proxy.index(row, 0)))
-            item.setCheckState(state)
+        self._ticking = True                     # one update of the box at the end, not one a row
+        try:
+            for item in self._listed():
+                item.setCheckState(state)
+        finally:
+            self._ticking = False
+        self._sync_tick_all()
+
+    def _tick_all_clicked(self) -> None:
+        listed = self._listed()
+        every = bool(listed) and all(item.checkState() == Qt.Checked for item in listed)
+        self._tick_visible(Qt.Unchecked if every else Qt.Checked)
+
+    def _sync_tick_all(self) -> None:
+        """The box shows whether every row listed is ticked, some are, or none."""
+        if self._ticking:
+            return
+        listed = self._listed()
+        ticked = sum(item.checkState() == Qt.Checked for item in listed)
+        state = Qt.Checked if listed and ticked == len(listed) else Qt.PartiallyChecked if ticked else Qt.Unchecked
+        self.tick_all.blockSignals(True)
+        self.tick_all.setCheckState(state)
+        self.tick_all.blockSignals(False)
+        self.tick_all.setEnabled(bool(listed))
 
     def export(self) -> None:
         if self.process is not None:
@@ -701,9 +752,9 @@ class Window(QMainWindow):
         self.settings = S.load()
         self.sources = registry()
         self.pending: list[QListWidgetItem] = []
-        self.process: QProcess | None = None
+        #: the export jobs running: their process → (queue row, its unfinished output)
+        self.running: dict = {}
         self.queued = self.finished = 0
-        self.current: QListWidgetItem | None = None
 
         side = QFrame()
         side.setObjectName("side")
@@ -802,51 +853,70 @@ class Window(QMainWindow):
         self.progress.setValue(self.finished)
         self._next()
 
+    @property
+    def process(self) -> QProcess | None:
+        """An export job running (the first of them), or None: what the pages ask before starting a scan."""
+        return next(iter(self.running), None)
+
     def _next(self) -> None:
-        if self.process is not None:
-            return
-        if not self.pending:
+        """Start queued jobs until as many run as "同時匯出" allows."""
+        most = max(1, min(PARALLEL_MOST, int(self.settings.parallel_exports or 1)))
+        while self.pending and len(self.running) < most:
+            self._start_job(self.pending.pop(0))
+        if not self.running and not self.pending:
             self.job_bar.stop()
-            return
-        self.current = self.pending.pop(0)
-        model: Model = self.current.data(Qt.UserRole)
-        self.current.setText(f"▶ {model.character}　{model.outfit}　({model.ident})")
+
+    def _start_job(self, item: QListWidgetItem) -> None:
+        model: Model = item.data(Qt.UserRole)
+        item.setText(f"▶ {model.character}　{model.outfit}　({model.ident})")
         output = Path(self.settings.output) / model.source / model.ident
         job = jobs.write_job(Path(tempfile.gettempdir()) / f"extractor_job_{model.source}_{model.ident}.json",
                              model, self.settings, output, self.settings.formats)
-        self.process = QProcess(self)
-        self.lines = Lines()
-        self.process.setProcessChannelMode(QProcess.MergedChannels)
-        self.process.readyReadStandardOutput.connect(self._job_output)
-        self.process.finished.connect(self._job_done)
-        self.process.errorOccurred.connect(lambda _error: failed_start(self.process) and self._job_done(-1, None))
+        process = QProcess(self)
+        self.running[process] = (item, Lines())
+        process.setProcessChannelMode(QProcess.MergedChannels)
+        process.readyReadStandardOutput.connect(lambda: self._job_output(process))
+        process.finished.connect(lambda code, status: self._job_done(process, code, status))
+        process.errorOccurred.connect(lambda _error: failed_start(process) and self._job_done(process, -1, None))
         program, *arguments = jobs.command(job)
         self.log(f"開始匯出 {model.ident} → {output}")
-        self.job_bar.start("開始匯出")
-        self.process.start(program, arguments)
+        if len(self.running) == 1:
+            self.job_bar.start("開始匯出")
+        process.start(program, arguments)
 
-    def _job_output(self) -> None:
-        self._job_lines(self.lines.feed(self.process.readAllStandardOutput()))
+    def _job_output(self, process: QProcess) -> None:
+        if process in self.running:
+            self._job_lines(process, self.running[process][1].feed(process.readAllStandardOutput()))
 
-    def _job_lines(self, lines: list[str]) -> None:
+    def _job_lines(self, process: QProcess, lines: list[str]) -> None:
+        item, _lines = self.running[process]
+        # with several jobs running, each line says whose it is; the step bar follows the first of them
+        tag = f"[{item.data(Qt.UserRole).ident}] " if len(self.running) > 1 else ""
+        followed = process is self.process
         for line in lines:
-            if self.job_bar.take(line):
+            if followed and self.job_bar.take(line):
+                continue
+            if line.startswith("PROGRESS"):
                 continue
             kind, _, text = line.partition(" ")
-            self.log({"OUTPUT": f"  寫出 {text}", "ERROR": f"  錯誤：{text}"}.get(kind, f"  {text if kind == 'LOG' else line}"))
+            shown = {"OUTPUT": f"寫出 {text}", "ERROR": f"錯誤：{text}"}.get(kind, text if kind == "LOG" else line)
+            self.log(f"  {tag}{shown}")
 
-    def _job_done(self, code: int, status) -> None:
-        if self.process is None:
+    def _job_done(self, process: QProcess, code: int, status) -> None:
+        if process not in self.running:
             return
-        self._job_lines(self.lines.rest())
+        self._job_lines(process, self.running[process][1].rest())
+        item, _lines = self.running.pop(process)
         if code == -1:
-            self.log(f"  無法啟動匯出：{self.process.errorString()}")
+            self.log(f"  無法啟動匯出：{process.errorString()}")
         ok = code == 0 and status != QProcess.ExitStatus.CrashExit
-        model: Model = self.current.data(Qt.UserRole)
-        self.current.setText(f"{'✓' if ok else '✗'} {model.character}　{model.outfit}　({model.ident})")
+        model: Model = item.data(Qt.UserRole)
+        item.setText(f"{'✓' if ok else '✗'} {model.character}　{model.outfit}　({model.ident})")
         self.finished += 1
         self.progress.setValue(self.finished)
-        self.process = None
+        process.deleteLater()
+        if self.running:
+            self.job_bar.start("匯出")              # the bar follows the next job still running
         self._next()
 
     def closeEvent(self, event) -> None:

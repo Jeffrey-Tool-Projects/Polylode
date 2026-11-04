@@ -59,6 +59,16 @@ def read(folder: Path, k: int, decoder=None) -> tuple[dict, np.ndarray]:
     skeleton bone it drives, every other bone holds the skeleton's ref pose; the record gets the buffer's own sample
     count and rate and which bones are keyed."""
     record = json.loads((folder / f"{k}.json").read_text(encoding="utf-8"))
+    curve_buffer = folder / f"{k}.curves.acl"
+    if curve_buffer.is_file():
+        from ..endfield import acl
+        if decoder is None:
+            raise ValueError(f"{record['name']}: compressed expression curves need the ACL decoder")
+        buffer = curve_buffer.read_bytes()
+        tracks, _samples, rate = acl.header(buffer)
+        if tracks != len(record["curves"]["names"]):
+            raise ValueError(f"{record['name']}: expression curve names do not match the compressed tracks")
+        record["curves"].update(values=decoder.decode(buffer, acl.SCALAR)[:, :, 0].T.tolist(), rate=rate)
     raw = folder / f"{k}.acl"
     if raw.is_file():
         from ..endfield import acl
@@ -110,10 +120,20 @@ def _native_local(transform: np.ndarray) -> np.ndarray:
     return out
 
 
+def _native_locals(transforms: np.ndarray) -> np.ndarray:
+    """:func:`_native_local` of every frame at once: ``(frames, 10)`` as ``(frames, 4, 4)``."""
+    transforms = np.asarray(transforms, dtype=np.float64)
+    out = np.broadcast_to(np.eye(4), (len(transforms), 4, 4)).copy()
+    out[:, :3, :3] = C @ Rotation.from_quat(transforms[:, :4]).as_matrix() @ (
+        transforms[:, 7:10][:, :, None] * np.eye(3)) @ C.T
+    out[:, :3, 3] = transforms[:, 4:7] @ C.T * .01
+    return out
+
+
 def _shown(transform: np.ndarray) -> np.ndarray:
     """A track's quaternion, position and scale, the scale no smaller than ``rigscene.least`` allows: Xin's weapon,
     scaled to nothing, is drawn ``rigscene.LEAST_SCALE`` long and turned as the clip turns it."""
-    return np.concatenate([transform[:7], least(transform[7:10])])
+    return np.concatenate([transform[..., :7], least(transform[..., 7:10])], axis=-1)
 
 
 def _rigid(world: np.ndarray) -> np.ndarray:
@@ -135,13 +155,13 @@ def frames(record: dict, values: np.ndarray, bones: list[dict], native_rest: np.
     driven = {i: by_name[bone["name"]] for i, bone in enumerate(bones)
               if bone["name"] in by_name and keyed[by_name[bone["name"]]]}
     rest_frames = [_rigid(w) for w in native_rest]                          # bone_rest, what the skin is bound to
-    out = np.empty((len(values), len(bones), 4, 4), dtype=np.float32)
-    for frame in range(len(values)):
-        world = []
-        for i, bone in enumerate(bones):
-            local = _native_local(_shown(values[frame, driven[i]])) if i in driven else rest_local[i]
-            world.append(world[bone["parent"]] @ local if bone["parent"] >= 0 else local)
-        out[frame] = np.stack([carried(w, native_rest[i], rest_frames[i]) for i, w in enumerate(world)])
+    count = len(values)
+    out = np.empty((count, len(bones), 4, 4), dtype=np.float32)
+    world = []
+    for i, bone in enumerate(bones):                # every frame of a bone at once
+        local = _native_locals(_shown(values[:, driven[i]])) if i in driven else rest_local[i]
+        world.append(world[bone["parent"]] @ local if bone["parent"] >= 0 else local)
+        out[:, i] = carried(np.broadcast_to(world[i], (count, 4, 4)), native_rest[i], rest_frames[i])
     return out
 
 
@@ -152,14 +172,49 @@ def add(case: Path, records: list[tuple[dict, np.ndarray]], package: str, log=pr
     document = json.loads(document_path.read_text(encoding="utf-8"))
     arrays_path = Path(case) / document["arrays"]
     arrays = dict(np.load(arrays_path))
+    from ..interchange.expressions import add_shapes
     document["animations"] = []
     for k, (record, values) in enumerate(chosen(records, package)):
         log(f"寫入姿勢 {record['name']}（{len(values)} 格）")
         arrays[f"anim{k}"] = frames(record, values, document["bones"], arrays["bone_native_rest"])
+        for part, weights in shape_weights(record, document["parts"], len(values)).items():
+            arrays[f"p{part}_anim{k}_weights"] = weights
+        curves = dict(record.get("curves") or {})
+        names = {name for part in document["parts"] for name in part["shapes"]}
+        curves["unbound"] = [name for name in curves.get("names", []) if name not in names]
+        if curves["unbound"]:
+            log(f"  {record['name']}：{len(curves['unbound'])} 個其他控制保留於表情資料檔，未套用到模型")
         document["animations"].append({"name": record["name"], "clip": record["package"],
-                                       "rate": float(record["rate"]), "frames": len(values)})
+                                       "rate": float(record["rate"]), "frames": len(values), "source_curves": curves})
+    count = add_shapes(document, arrays)
+    if count:
+        log(f"寫入表情控制 {count} 個")
     if not document["animations"]:
         return 0
     np.savez_compressed(arrays_path, **arrays)
     document_path.write_text(json.dumps(document, indent=2, ensure_ascii=False), encoding="utf-8")
     return len(document["animations"])
+
+
+def shape_weights(record: dict, parts: list[dict], count: int) -> dict[int, np.ndarray]:
+    """Named Unreal float curves sampled on the bone timeline, before playback RateScale."""
+    curves = record.get("curves") or {}
+    names = curves.get("names") or []
+    values = curves.get("values")
+    if names and values is None:
+        raise ValueError(f"{record['name']}: expression curves were not decoded ({curves.get('codec')})")
+    if not names:
+        return {}
+    values = np.asarray(values, dtype=np.float64)
+    if values.ndim != 2 or len(values) != len(names) or not values.shape[1] or not np.isfinite(values).all():
+        raise ValueError(f"{record['name']}: invalid expression curve samples")
+    rate = float(curves["rate"])
+    source_rate = float(record["rate"]) / float(record.get("rate_scale") or 1.0)
+    source_times = np.arange(values.shape[1]) / rate if rate > 0 else np.zeros(values.shape[1])
+    times = np.arange(count) / source_rate
+    by_name = {name: np.interp(times, source_times, row) for name, row in zip(names, values)}
+    out = {}
+    for index, part in enumerate(parts):
+        if any(name in by_name for name in part["shapes"]):
+            out[index] = np.stack([by_name.get(name, np.zeros(count)) for name in part["shapes"]], axis=1).astype(np.float32)
+    return out

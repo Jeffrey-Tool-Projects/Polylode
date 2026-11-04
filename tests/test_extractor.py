@@ -290,7 +290,7 @@ def test_outfits_of_one_endfield_character_are_written_apart(tmp_path, monkeypat
     monkeypatch.setattr(store, "read_extra", lambda kind, ident: {"model": "assets/art/actor/girl/endminf/models/x.prefab"})
     monkeypatch.setattr(FX, "scene_document", lambda target, output, *_: folders.append((target.folder, target.stem)) or (None, None))
     from polylode.extractor import sources
-    monkeypatch.setattr(sources, "write_own", lambda *a: [])
+    monkeypatch.setattr(sources, "write_own", lambda *a, **kw: [])
     for ident in ("chr_0003_endminf_postmodel", "chr_0003_endminfink_postmodel"):
         E.write_files(ident, None, tmp_path, ["glb"], print)
     assert folders[0][1] != folders[1][1] and folders[0][0] != folders[1][0]
@@ -483,7 +483,8 @@ def test_the_view_process_applies_what_the_window_sends(tmp_path, monkeypatch):
     H.apply(root, None, json.dumps({"op": "look", "yaw": 180, "pitch": 0}))
     for junk in ("not a command", "[1]", "{}"):
         H.apply(root, None, junk)
-    assert root.set == {"source": QUrl.fromLocalFile(str(glb))} and root.looked == [(180.0, 0.0)]
+    assert root.set["source"] == QUrl.fromLocalFile(str(glb)) and root.looked == [(180.0, 0.0)]
+    assert root.set["nativeMaterials"] == [[{}]]
     # the process itself: it gives its window and ends with its input
     host = QProcess()
     program, *arguments = jobs.view_host_command()
@@ -720,6 +721,52 @@ def test_the_viewer_deletes_a_listed_model_and_what_was_exported_with_it(tmp_pat
     window.close()
 
 
+def test_the_viewer_deletes_every_model_selected_at_once(tmp_path, monkeypatch):
+    """Ctrl/Shift-click several listed models: one question names them all, each goes with its own files."""
+    import shutil
+    from pathlib import Path
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from polylode.extractor import app as A
+    from polylode.extractor import viewer as V
+    from polylode.extractor.preview import triangle_glb
+    output = tmp_path / "out"
+    made = {}
+    for name in ("a", "b", "c"):
+        folder = output / "gf2" / name
+        folder.mkdir(parents=True)
+        made[name] = triangle_glb(folder / f"{name}.glb")
+        (folder / f"{name}.json").write_bytes(b"x")
+    thrown, asked = [], []
+    monkeypatch.setattr(V, "trash", lambda path: thrown.append(Path(path).name) or (
+        shutil.rmtree(path) if Path(path).is_dir() else Path(path).unlink()) or True)
+    monkeypatch.setattr(QMessageBox, "question", lambda _w, _t, text: asked.append(text) or QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(QMessageBox, "information", lambda *a: asked.append("told"))
+    monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    S.save(S.Settings(output=str(output)))
+    QApplication.instance() or QApplication([])
+    window = A.Window()
+    page = window.viewer_page
+    page.refresh()
+    _until(lambda: page.files.count() == 3 and page.files.item(0).data(A.Qt.UserRole))
+    for row in range(page.files.count()):
+        item = page.files.item(row)
+        item.setSelected(not item.text().endswith("b.glb"))
+    page.delete_selected()
+    assert len(asked) == 1 and "2 個模型" in asked[0] and "a.glb" in asked[0] and "c.glb" in asked[0]
+    assert "b.glb" not in asked[0]
+    assert sorted(thrown) == ["a", "a.glb", "a.json", "c", "c.glb", "c.json"]   # each emptied folder too
+    assert made["b"].is_file() and not made["a"].exists() and not made["c"].exists()
+    # nothing of the output folder selected: told, nothing thrown
+    thrown.clear()
+    asked.clear()
+    page.files.clearSelection()
+    page.files.setCurrentItem(None)
+    page.delete_selected()
+    assert asked == ["told"] and not thrown
+    window.close()
+
+
 def test_the_first_start_moves_the_extractors_data_from_islandlife_once(tmp_path):
     """The tool was IslandLife's: its settings, maps and stores move over instead of being made again."""
     from polylode.extractor.migrate import from_islandlife
@@ -741,3 +788,105 @@ def test_every_setting_is_read_back_as_saved(tmp_path):
                        formats=["glb", "fbx"], poses=False)
     S.save(saved, tmp_path / "settings.json")
     assert asdict(S.load(tmp_path / "settings.json")) == asdict(saved)
+
+
+def test_one_box_ticks_every_listed_model_or_none_and_shows_how_many_are(tmp_path, monkeypatch):
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    from polylode.extractor import app as A
+    monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    S.save(S.Settings())
+    QApplication.instance() or QApplication([])
+    window = A.Window()
+    page = next(window.pages.widget(i) for i in range(window.pages.count())
+                if getattr(getattr(window.pages.widget(i), "source", None), "id", "") == "gf2")
+    box = page.tick_all
+    assert not box.isEnabled()                                          # nothing listed yet
+    for k, name in enumerate(("Clukay", "Cheyanne", "Lenna")):
+        item = A.QStandardItem(name)
+        item.setCheckable(True)
+        item.setData(k, A.Qt.UserRole)
+        page.table_model.appendRow([item, A.QStandardItem(""), A.QStandardItem(f"c_{name}")])
+    assert box.isEnabled() and box.checkState() == A.Qt.Unchecked
+    page.table_model.item(0, 0).setCheckState(A.Qt.Checked)
+    assert box.checkState() == A.Qt.PartiallyChecked                    # some ticked
+    box.click()
+    ticked = [page.table_model.item(r, 0).checkState() for r in range(3)]
+    assert ticked == [A.Qt.Checked] * 3 and box.checkState() == A.Qt.Checked
+    box.click()                                                          # all ticked: a click clears them
+    assert [page.table_model.item(r, 0).checkState() for r in range(3)] == [A.Qt.Unchecked] * 3
+    assert box.checkState() == A.Qt.Unchecked
+    # with a search, only the rows it leaves
+    page.search.setText("Ch")
+    assert page.proxy.rowCount() == 1 and box.checkState() == A.Qt.Unchecked
+    box.click()
+    assert [page.table_model.item(r, 0).checkState() for r in range(3)] == [A.Qt.Unchecked, A.Qt.Checked, A.Qt.Unchecked]
+    assert box.checkState() == A.Qt.Checked
+    page.search.setText("")
+    assert box.checkState() == A.Qt.PartiallyChecked
+    window.close()
+
+
+def test_the_export_queue_runs_as_many_models_at_once_as_the_setting_allows(tmp_path, monkeypatch):
+    from pathlib import Path
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import QEventLoop, QTimer
+    from PySide6.QtWidgets import QApplication
+    from polylode.extractor import app as A
+    monkeypatch.setattr(S, "SETTINGS", tmp_path / "settings.json")
+    out = tmp_path / "out"
+    out.mkdir()
+    S.save(S.Settings(output=str(out), formats=["glb"], parallel_exports=2))
+    marks = tmp_path / "marks"
+    marks.mkdir()
+
+    def command(job):
+        ident = json.loads(Path(job).read_text(encoding="utf-8"))["model"]["ident"]
+        script = (f"import pathlib, time; m = pathlib.Path(r'{marks}'); (m / '{ident}.start').write_text(str(time.time()));"
+                  f" time.sleep(1.5); (m / '{ident}.end').write_text(str(time.time())); print('LOG done {ident}')")
+        return [sys.executable, "-c", script]
+    monkeypatch.setattr(A.jobs, "command", command)
+    QApplication.instance() or QApplication([])
+    window = A.Window()
+    window.queue([Model("gf2", f"c_{name}", name, "") for name in ("A", "B", "C")])
+    assert len(window.running) == 2 and len(window.pending) == 1 and window.process is not None
+    loop, timer = QEventLoop(), QTimer()
+    timer.timeout.connect(lambda: (not window.running and not window.pending) and loop.quit())
+    timer.start(50)
+    QTimer.singleShot(60000, loop.quit)
+    loop.exec()
+    timer.stop()
+    assert window.process is None and window.finished == 3
+    spans = {name: (float((marks / f"c_{name}.start").read_text()), float((marks / f"c_{name}.end").read_text()))
+             for name in "ABC"}
+    assert spans["A"][0] < spans["B"][1] and spans["B"][0] < spans["A"][1]       # A and B ran side by side
+    assert spans["C"][0] >= min(spans["A"][1], spans["B"][1]) - 0.05             # C waited for one of them
+    texts = [window.queue_list.item(i).text() for i in range(3)]
+    assert all(text.startswith("✓") for text in texts)
+    window.close()
+
+
+def test_shared_writes_are_one_process_at_a_time(tmp_path, monkeypatch):
+    """Exports side by side (and a preview beside an export) write what a game's models share one at a time."""
+    from pathlib import Path
+    import subprocess
+    import time
+    from polylode.extractor import sources
+    monkeypatch.setattr("polylode.core.paths.derived_root", lambda: tmp_path)
+    told = []
+    holder = subprocess.Popen([sys.executable, "-c",
+                               "import sys, time; sys.path.insert(0, r'" + str(Path(__file__).resolve().parents[1]) + "');"
+                               "import polylode.core.paths as P; P.derived_root = lambda: __import__('pathlib').Path(r'"
+                               + str(tmp_path) + "');"
+                               "from polylode.extractor.sources import shared_writes\n"
+                               "with shared_writes('gf2'):\n    print('held', flush=True); time.sleep(1.5)"],
+                              stdout=subprocess.PIPE, text=True)
+    assert holder.stdout.readline().strip() == "held"
+    start = time.monotonic()
+    with sources.shared_writes("gf2", told.append):
+        waited = time.monotonic() - start
+    holder.wait(30)
+    assert waited > 0.5 and told == ["等待另一個匯出或預覽寫完共用的轉換資料…"]
+    with sources.shared_writes("gf2", told.append), sources.shared_writes("wuwa", told.append):
+        pass                                                   # another game's lock is another lock
+    assert len(told) == 1

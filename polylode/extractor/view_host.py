@@ -107,15 +107,21 @@ class Poses:
         self.nodes: list = []
         self.rest = None
         self.frame = None
+        self.morphs = None
 
     def clear(self) -> None:
         # the loader drops the timelines with the model: none is touched once another file is asked for
+        if self.morphs is not None:
+            self.morphs.close()
         self.found, self.nodes, self.rest, self.frame = [], [], None, None
+        self.morphs = None
 
     def read(self, root) -> list[str]:
         """The loaded model's poses found under *root*'s loader (``objectName`` "loader"), the first one playing
         and the rest stopped (the loader starts every animation, only the first timeline enabled); their names."""
         from PySide6.QtCore import QObject
+        if self.morphs is not None:
+            self.morphs.close()
         self.found = []
         loader = root.findChild(QObject, "loader")
         stack = list(reversed(loader.children())) if loader is not None else []
@@ -129,6 +135,13 @@ class Poses:
                     self.found.append((animation.objectName() or f"#{len(self.found) + 1}", node, animation))
             elif kind not in KEYFRAMES:
                 stack.extend(reversed(node.children()))
+        self.morphs = None
+        if self.found and root.property("source") is not None:
+            from .morph_playback import Playback
+            try:
+                self.morphs = Playback(root, self.found)
+            except (OSError, ValueError, KeyError, TypeError, IndexError):
+                pass
         self.nodes = skeleton(timeline for _name, timeline, _animation in self.found)
         self.root = root
         if self.found:
@@ -176,10 +189,14 @@ class Poses:
                 animation.stop()
                 timeline.setProperty("enabled", False)
         _name, timeline, animation = self.found[index]
+        if self.morphs is not None:
+            self.morphs.reset()
         timeline.setProperty("enabled", True)
         timeline.setProperty("currentFrame", timeline.property("startFrame"))
         animation.setProperty("loops", -1)
         animation.restart()
+        if self.morphs is not None:
+            self.morphs.apply(index)
         self._frame()
         return True
 
@@ -193,6 +210,11 @@ def apply(root, view, text: str, poses: Poses | None = None) -> None:
         return
     op = command.get("op") if isinstance(command, dict) else None
     if op == "set":
+        if command.get("name") == "source":
+            from pathlib import Path
+            from .character_styles import descriptors
+            source = decode(command.get("value"))
+            root.setProperty("nativeMaterials", descriptors(Path(source.toLocalFile())) if source.toLocalFile() else [])
         if command.get("name") == "source" and poses is not None:
             poses.clear()
         root.setProperty(command["name"], decode(command.get("value")))
