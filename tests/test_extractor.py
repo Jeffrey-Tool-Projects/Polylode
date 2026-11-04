@@ -401,7 +401,7 @@ def test_a_gf2_scan_lists_only_roots_with_their_own_skinned_mesh(monkeypatch):
     assert results["A/1"]["status"] == "not_model" and "skinned" in results["A/1"]["reason"]
     assert results["A/3"]["status"] == "not_model" and "skeleton" in results["A/3"]["reason"]
     assert results["A/4"]["status"] == "not_model" and "no mesh" in results["A/4"]["reason"]
-    assert sorted(opened) == ["A", "B"]                                 # one opening per bundle file
+    assert opened == ["A"]          # one opening per bundle file; B, all of its roots known already, not at all
 
 
 def test_the_viewer_lists_the_outputs_shows_a_file_and_says_what_it_holds(tmp_path, monkeypatch):
@@ -890,3 +890,15 @@ def test_shared_writes_are_one_process_at_a_time(tmp_path, monkeypatch):
     with sources.shared_writes("gf2", told.append), sources.shared_writes("wuwa", told.append):
         pass                                                   # another game's lock is another lock
     assert len(told) == 1
+
+
+def test_work_split_over_worker_processes_comes_back_in_order_and_a_failed_one_says_so():
+    from polylode.core.parallel import slices, worker_count
+    from polylode.extractor import jobs
+    items = list(range(11))
+    runs = slices(items, 4)
+    assert [x for run in runs for x in run] == items and len(runs) == 4 and max(map(len, runs)) - min(map(len, runs)) <= 1
+    assert slices([1, 2], 6) == [[1], [2]] and 1 <= worker_count(3) <= 3 and worker_count(0) == 1
+    told = []
+    assert jobs.in_workers("echo", [{"value": 1}, {"value": [2, "二"]}], told.append) == [1, [2, "二"]] and not told
+    assert jobs.in_workers("no-such-kind", [{"value": 1}], told.append) == [None] and len(told) == 1

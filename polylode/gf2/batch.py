@@ -38,22 +38,10 @@ def save_results(install: Path, results: dict) -> None:
                                              "results": list(results.values())}, indent=1)
 
 
-def skinned_roots(catalog, entries: list[dict], declared, results: dict, log=print) -> list[dict]:
-    """*entries* (roots) that have their own skinned mesh of a declared family and the whole skeleton a playable
-    character's conversion requires (``playable.has_human_rig``) — asked before anything is converted, so a scan
-    lists characters and not dorm scenes, pets, weapons or props.
-
-    A root without one is kept in *results* as ``not_model`` (as a conversion would have); a root
-    already known as not a model is left out; a root that cannot be read stays listed, for its
-    export to say why.  Each bundle file is opened once.
-    """
-    from collections import defaultdict
-    groups = defaultdict(list)
-    for entry in entries:
-        groups[entry["cab"]].append(entry)
+def checked_groups(catalog, groups: list, declared, results: dict) -> list[dict]:
+    """:func:`skinned_roots` over *groups* ``[(cab, entries), …]``: the entries kept, *results* given the rest."""
     kept = []
-    for done, (cab, members) in enumerate(sorted(groups.items()), 1):
-        progress.report(done, len(groups), '檢查哪些根節點是角色模型')
+    for cab, members in groups:
         env = catalog.environment()
         try:
             file = env.find_file(cab)
@@ -80,9 +68,52 @@ def skinned_roots(catalog, entries: list[dict], declared, results: dict, log=pri
                 RuntimeError, AttributeError):
             kept.extend(members)
         finally:
-            del env
-        if done % 100 == 0 or done == len(groups):
-            log(f"檢查蒙皮網格：{done} / {len(groups)} 個檔案，{len(kept)} 個是模型")
+            del env                                 # a bundle's objects freed before the next is opened
+    return kept
+
+
+#: from how many bundles to check a scan's roots go to workers: a bundle takes about 70 ms, a worker loads the
+#: catalog first (about 3 s), so fewer are checked sooner here (60 bundles: 4.2 s here, 7.1 s in six workers)
+PARALLEL_FROM = 150
+
+
+def skinned_roots(catalog, entries: list[dict], declared, results: dict, log=print, parallel=None) -> list[dict]:
+    """*entries* (roots) that have their own skinned mesh of a declared family and the whole skeleton a playable
+    character's conversion requires (``playable.has_human_rig``) — asked before anything is converted, so a scan
+    lists characters and not dorm scenes, pets, weapons or props.
+
+    A root without one is kept in *results* as ``not_model`` (as a conversion would have); a root
+    already known as not a model is left out; a root that cannot be read stays listed, for its
+    export to say why.  Each bundle file is opened once.
+    """
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for entry in entries:
+        groups[entry["cab"]].append(entry)
+    todo = []
+    for cab, members in sorted(groups.items()):
+        left = [entry for entry in members
+                if results.get(f'{entry["cab"]}/{entry["id"]}', {}).get("status") not in ("not_model", "excluded_scope")]
+        if left:
+            todo.append((cab, left))
+    if parallel is not None and len(todo) >= PARALLEL_FROM:
+        # [(kept, results given) or None per run of groups, in order]: a run a worker did not give is checked here
+        from ..core.parallel import slices, worker_count
+        runs = slices(todo, worker_count(len(todo)))
+        kept = []
+        for run, answer in zip(runs, parallel(runs)):
+            if answer is None:
+                kept += checked_groups(catalog, run, declared, results)
+            else:
+                kept += answer[0]
+                results.update(answer[1])
+        return kept
+    kept = []
+    for done, group in enumerate(todo, 1):
+        progress.report(done, len(todo), '檢查哪些根節點是角色模型')
+        kept += checked_groups(catalog, [group], declared, results)
+        if done % 100 == 0 or done == len(todo):
+            log(f"檢查蒙皮網格：{done} / {len(todo)} 個檔案，{len(kept)} 個是模型")
     return kept
 
 

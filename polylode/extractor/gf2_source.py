@@ -45,6 +45,56 @@ def own_scope():
             os.environ["ISLANDLIFE_GF2_DIR"] = saved
 
 
+def _index_in_workers(install: Path, cache: Path, relatives: list[str], log: Log) -> list:
+    """The bundle index's rows of *relatives*, read by worker processes side by side (:func:`index_rows`); None for
+    a file whose worker failed (``bundles.scan`` reads it itself)."""
+    from ..core.parallel import slices, worker_count
+    from .jobs import in_workers
+    runs = slices(relatives, worker_count(len(relatives)))
+    log(f"以 {len(runs)} 個行程同時讀 {len(relatives)} 個 bundle")
+    rows = []
+    for run, answer in zip(runs, in_workers("gf2-index", [{"install": str(install), "cache": str(cache), "paths": run}
+                                                          for run in runs], log)):
+        rows += answer if answer is not None else [None] * len(run)
+    return rows
+
+
+def index_rows(task: dict) -> list:
+    """``--worker gf2-index``: the bundle index's rows of the files the task names (``bundles.index_row``)."""
+    from ..gf2.bundles import configure_unity, index_row
+    install = Path(task["install"])
+    configure_unity(install)
+    rows = []
+    for relative in task["paths"]:
+        path = install / relative
+        stat = path.stat()
+        rows.append(index_row(path, relative, [stat.st_size, stat.st_mtime_ns], Path(task["cache"])))
+    return rows
+
+
+def _roots_in_workers(install: Path, runs: list, log: Log) -> list:
+    """``batch.skinned_roots``'s runs of bundles checked by worker processes side by side (:func:`root_checks`)."""
+    from .jobs import in_workers
+    log(f"以 {len(runs)} 個行程同時檢查 {sum(len(run) for run in runs)} 個 bundle 的根節點")
+    return in_workers("gf2-roots", [{"install": str(install), "groups": run} for run in runs], log)
+
+
+def root_checks(task: dict) -> list:
+    """``--worker gf2-roots``: ``batch.checked_groups`` over the task's groups — ``[entries kept, results given]``."""
+    from ..gf2 import playable, store
+    from ..gf2.batch import checked_groups
+    from ..gf2.bundles import configure_unity
+    from ..gf2.catalog import Catalog
+    install = Path(task["install"])
+    with own_scope():
+        configure_unity(install)
+        catalog = Catalog(install, store.root() / "bundle_index.jsonl")
+        results: dict = {}
+        kept = checked_groups(catalog, [(cab, members) for cab, members in task["groups"]], playable.roster(install),
+                              results)
+    return [kept, results]
+
+
 def _outfit(name: str, character: str) -> str:
     """The version a root name carries after the character's name: ``SR01``, ``Dorm``, ``SSR0101``…"""
     match = re.match(r"^c_" + re.escape(character) + r"((?:SSR|SR|Dorm)\d*)?_?(.*)$", name, re.IGNORECASE)
@@ -75,7 +125,8 @@ class GF2Source:
             log("建立 bundle 索引（第一次會花很久；之後只讀有變動的檔案）…")
             progress.step("建立 bundle 索引")
             scan_directories(install, root / "cab_index.jsonl")
-            scan(install, root / "bundle_index.jsonl", 0)
+            scan(install, root / "bundle_index.jsonl", 0,
+                 parallel=lambda relatives: _index_in_workers(install, root, relatives, log))
             recorded.write_text(stamp, encoding="utf-8")
         elif not recorded.is_file() or recorded.read_text(encoding="utf-8") != stamp:
             raise ExtractorError("GF2 的安裝在掃描之後有變動（或還沒掃描過），請先重新掃描")
@@ -106,7 +157,8 @@ class GF2Source:
             roots = roots_only(catalog, declared_entries(catalog, declared), store.root() / "model_inventory.json")
             results = load_results()
             log(f"{len(roots)} 個根節點；檢查哪些有自己的蒙皮網格…")
-            entries = skinned_roots(catalog, roots, declared, results, log)
+            entries = skinned_roots(catalog, roots, declared, results, log,
+                                    parallel=lambda runs: _roots_in_workers(install, runs, log))
             save_results(install, results)
             cache.write_text(json.dumps({"stamp": stamp, "screen": SCREEN, "entries": entries}), encoding="utf-8")
         known = load_results()

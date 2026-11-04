@@ -20,7 +20,7 @@ def main(argv: list[str] | None = None) -> int:
     load_source_modules()
     if not argv or argv[0] not in ("--run-job", "--scan", "--selftest", "--discover-wuwa-keys", "--download-wuwa-keys",
                                        "--share", "--share-github", "--tidy", "--tidy-github", "--view-host",
-                                       "--pose-frames"):
+                                       "--pose-frames", "--worker"):
         from .migrate import from_islandlife
         from_islandlife(lambda _line: None)      # the window's first start: the old folder's data, once
     if len(argv) == 2 and argv[0] == "--run-job":
@@ -44,6 +44,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(argv) in (1, 2) and argv[0] == "--tidy-github":
         from .github import run_tidy
         return run_tidy(*argv[1:])
+    if len(argv) == 3 and argv[0] == "--worker":
+        from .jobs import run_worker
+        return run_worker(argv[1], argv[2])
     if len(argv) == 2 and argv[0] == "--pose-frames":
         from .endfield_source import run_pose_frames
         return run_pose_frames(argv[1])
@@ -150,10 +153,13 @@ def selftest(path: str) -> int:
             report["pose_worker"] = "ok" if done.returncode == 0 else                 f"exit {done.returncode}: {(done.stdout + done.stderr).decode('utf-8', 'replace')[-500:]}"
         except (OSError, subprocess.TimeoutExpired) as failure:
             report["pose_worker"] = f"{type(failure).__name__}: {failure}"
+    # a scan's work goes to worker processes of this program too (--worker): one given a value must give it back
+    from .jobs import in_workers
+    report["worker"] = "ok" if in_workers("echo", [{"value": 7}], lambda _line: None) == [7] else "no answer"
     ok = (all(v == "ok" for v in report["imports"].values()) and isinstance(report["sources"], list)
           and not report["blender_files_missing"] and not report["bundled_missing"] and report["program_exists"]
           and not report["preview_qml_errors"] and report["fmod"] == "ok" and not report["web_missing"]
-          and report["pose_worker"] == "ok")
+          and report["pose_worker"] == "ok" and report["worker"] == "ok")
     report["ok"] = ok
     Path(path).write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     return 0 if ok else 1

@@ -85,6 +85,18 @@ def configure_unity(install: Path) -> dict[str, str]:
     raise ValueError(f'{install}: no authored Unity engine version in local bundle headers')
 
 
+def _unmasked(data: bytes, mask: bytes, start: int) -> bytes:
+    """*data*, read from *start* in its bundle member, with the header mask taken off the bytes before 0x8000 (the
+    member's masked head): numpy over the whole run, where a byte at a time was a third of a warm scan."""
+    if not any(mask) or start >= 0x8000:
+        return bytes(data)
+    values = np.frombuffer(data, dtype=np.uint8).copy()
+    masked = min(len(values), 0x8000 - start)
+    key = np.frombuffer(mask, dtype=np.uint8)
+    values[:masked] ^= key[(start + np.arange(masked)) % 16]
+    return values.tobytes()
+
+
 def directories(path: Path):
     """Read only UnityFS directory metadata, without decompressing asset blocks."""
     from UnityPy.helpers.CompressionHelper import DECOMPRESSION_MAP
@@ -100,7 +112,7 @@ def directories(path: Path):
                 raise ValueError(f'{path.name}@{offset}: unsupported or truncated header')
             mask = bytes(16) if encrypted.startswith(b'UnityFS\0') else bytes(
                 a ^ b for a, b in zip(encrypted[:16], HEADER))
-            clear = bytes(v ^ mask[i % 16] for i, v in enumerate(encrypted))
+            clear = _unmasked(encrypted, mask, 0)
             reader = EndianBinaryReader(clear)
             if reader.read_string_to_null() != 'UnityFS':
                 raise ValueError('unsupported bundle signature')
@@ -119,9 +131,7 @@ def directories(path: Path):
             if start < reader.Position or start + compressed > size:
                 raise ValueError('invalid directory range')
             stream.seek(offset + start)
-            raw = stream.read(compressed)
-            raw = bytes(v ^ mask[(start + i) % 16] if start + i < 0x8000 else v
-                        for i, v in enumerate(raw))
+            raw = _unmasked(stream.read(compressed), mask, start)
             data = DECOMPRESSION_MAP[flags & 63](raw, uncompressed)
             if len(data) != uncompressed:
                 raise ValueError('directory decompression size mismatch')
@@ -143,24 +153,88 @@ def directories(path: Path):
 
 
 def scan_directories(install: Path, output: Path):
-    """Build dependency locations only; this does not enumerate other models."""
+    """Build dependency locations only; this does not enumerate other models.  A bundle whose size and time are the
+    ones its row was read from keeps its row: every scan read all 8,059 directories again, most of a warm scan."""
     output.parent.mkdir(parents=True, exist_ok=True)
-    paths = bundle_paths(install)
-    with output.open('w', encoding='utf8') as log:
-        for number, path in enumerate(paths, 1):
-            progress.report(number, len(paths), '讀 bundle 目錄')
-            row = {'path': path.relative_to(install).as_posix(), 'members': []}
+    previous = {}
+    if output.exists():
+        for line in output.read_text(encoding='utf8').splitlines():
             try:
-                row['members'] = [{'offset': offset, 'cabs': [{'name': n} for n in names]}
-                                  for offset, names in directories(path)]
-            except (ValueError, KeyError, OSError, EOFError, NotImplementedError) as exc:
-                row['error'] = f'{type(exc).__name__}: {exc}'
+                row = json.loads(line)
+            except ValueError:
+                continue
+            previous[row.get('path')] = row
+    paths = bundle_paths(install)
+    rows = []
+    for number, path in enumerate(paths, 1):
+        progress.report(number, len(paths), '讀 bundle 目錄')
+        relative = path.relative_to(install).as_posix()
+        stat = path.stat()
+        stamp = [stat.st_size, stat.st_mtime_ns]
+        known = previous.get(relative)
+        if known is not None and known.get('stamp') == stamp:
+            rows.append(known)
+            continue
+        row = {'path': relative, 'stamp': stamp, 'members': []}
+        try:
+            row['members'] = [{'offset': offset, 'cabs': [{'name': n} for n in names]}
+                              for offset, names in directories(path)]
+        except (ValueError, KeyError, OSError, EOFError, NotImplementedError) as exc:
+            row['error'] = f'{type(exc).__name__}: {exc}'
+        rows.append(row)
+    partial = output.with_suffix(output.suffix + '.part')
+    with partial.open('w', encoding='utf8') as log:
+        for row in rows:
             log.write(json.dumps(row) + '\n')
+    partial.replace(output)
     return output
 
 
-def scan(install: Path, output: Path, limit: int = 0):
-    """A resumable CAB/dependency/container index, one bundle member at a time."""
+#: from how many bundles to read a scan's work goes to workers: a bundle takes about 50 ms, a worker about 4 s to
+#: start, so fewer are read sooner here (200 bundles: 10.6 s here, 6.0 s in six workers)
+PARALLEL_FROM = 100
+
+
+def index_row(path: Path, relative: str, stamp: list, cache: Path) -> dict:
+    """One bundle file's row of the index (:func:`scan`): its members' CABs, their externals and object counts, and
+    the containers they name; ``error`` for a file that cannot be read."""
+    row = {'path': relative, 'stamp': stamp, 'members': []}
+    try:
+        for offset, data in members(path):
+            env = UnityPy.Environment(path=str(cache))
+            env.load_file(data)
+            member = {'offset': offset, 'cabs': [], 'containers': []}
+            for cab, file in env.cabs.items():
+                if not hasattr(file, 'objects'):
+                    continue
+                counts = {}
+                for obj in file.objects.values():
+                    counts[obj.type.name] = counts.get(obj.type.name, 0) + 1
+                entry = {'name': cab, 'externals': [e.path for e in file.externals],
+                         'types': counts}
+                member['cabs'].append(entry)
+            containers = [entry for file in env.assets for entry in file.container.items()]
+            for container, ptr in containers:
+                if not ptr or ptr.m_FileID:
+                    continue
+                obj = ptr.deref()
+                entry = {'container': container, 'cab': obj.assets_file.name,
+                         'id': obj.path_id, 'type': obj.type.name}
+                if obj.type.name in ('GameObject', 'Mesh', 'Animator', 'Avatar'):
+                    entry['name'] = obj.read().m_Name if obj.type.name != 'Animator' else ''
+                member['containers'].append(entry)
+            row['members'].append(member)
+            del env, data
+    except (ValueError, TypeError, KeyError, IndexError, OSError, EOFError,
+            NotImplementedError, RuntimeError, AttributeError, UnityVersionFallbackError) as exc:
+        row['error'] = f'{type(exc).__name__}: {exc}'
+    return row
+
+
+def scan(install: Path, output: Path, limit: int = 0, parallel=None):
+    """A resumable CAB/dependency/container index, one bundle member at a time.  With *parallel* (``[relative path,
+    …] → rows in that order``) the files to read, when there are :data:`PARALLEL_FROM` or more, are read side by side
+    (``extractor.gf2_source.index_rows``): a game update or the first scan reads thousands."""
     output.parent.mkdir(parents=True, exist_ok=True)
     version = configure_unity(install)
     print(f'UNITY {version["version"]} from {version["source"]}', flush=True)
@@ -172,47 +246,29 @@ def scan(install: Path, output: Path, limit: int = 0):
     paths = bundle_paths(install)
     if limit:
         paths = paths[:limit]
+    todo = []
+    for path in paths:
+        relative = path.relative_to(install).as_posix()
+        stamp = [path.stat().st_size, path.stat().st_mtime_ns]
+        if previous.get(relative, {}).get('stamp') == stamp and not previous[relative].get('error'):
+            continue
+        todo.append((path, relative, stamp))
     with output.open('a', encoding='utf8') as log:
-        for number, path in enumerate(paths, 1):
-            progress.report(number, len(paths), '建立 bundle 索引')
-            relative = path.relative_to(install).as_posix()
-            stamp = [path.stat().st_size, path.stat().st_mtime_ns]
-            if previous.get(relative, {}).get('stamp') == stamp and not previous[relative].get('error'):
-                continue
-            row = {'path': relative, 'stamp': stamp, 'members': []}
-            try:
-                for offset, data in members(path):
-                    env = UnityPy.Environment(path=str(output.parent))
-                    env.load_file(data)
-                    member = {'offset': offset, 'cabs': [], 'containers': []}
-                    for cab, file in env.cabs.items():
-                        if not hasattr(file, 'objects'):
-                            continue
-                        counts = {}
-                        for obj in file.objects.values():
-                            counts[obj.type.name] = counts.get(obj.type.name, 0) + 1
-                        entry = {'name': cab, 'externals': [e.path for e in file.externals],
-                                 'types': counts}
-                        member['cabs'].append(entry)
-                    containers = [entry for file in env.assets for entry in file.container.items()]
-                    for container, ptr in containers:
-                        if not ptr or ptr.m_FileID:
-                            continue
-                        obj = ptr.deref()
-                        entry = {'container': container, 'cab': obj.assets_file.name,
-                                 'id': obj.path_id, 'type': obj.type.name}
-                        if obj.type.name in ('GameObject', 'Mesh', 'Animator', 'Avatar'):
-                            entry['name'] = obj.read().m_Name if obj.type.name != 'Animator' else ''
-                        member['containers'].append(entry)
-                    row['members'].append(member)
-                    del env, data
-                del member
-            except (ValueError, TypeError, KeyError, IndexError, OSError, EOFError,
-                    NotImplementedError, RuntimeError, AttributeError, UnityVersionFallbackError) as exc:
-                row['error'] = f'{type(exc).__name__}: {exc}'
+        if parallel is not None and len(todo) >= PARALLEL_FROM:
+            given = parallel([relative for _path, relative, _stamp in todo])
+            for number, ((path, relative, stamp), row) in enumerate(zip(todo, given), 1):
+                progress.report(number, len(todo), '建立 bundle 索引')
+                row = row if row is not None and row.get('stamp') == stamp else index_row(path, relative, stamp,
+                                                                                         output.parent)
+                log.write(json.dumps(row, ensure_ascii=False) + '\n')
+            log.flush()
+            return output
+        for number, (path, relative, stamp) in enumerate(todo, 1):
+            progress.report(number, len(todo), '建立 bundle 索引')
+            row = index_row(path, relative, stamp, output.parent)
             log.write(json.dumps(row, ensure_ascii=False) + '\n')
             log.flush()
             if number % 100 == 0 or row.get('error'):
-                print(f'{number}/{len(paths)} {path.name} {row.get("error", "indexed")}', flush=True)
+                print(f'{number}/{len(todo)} {path.name} {row.get("error", "indexed")}', flush=True)
             gc.collect()
     return output

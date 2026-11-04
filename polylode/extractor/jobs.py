@@ -87,6 +87,60 @@ def tidy_github_command(activity: str = "") -> list[str]:
     return _start("--tidy-github", *([activity] if activity else []))
 
 
+#: what a ``--worker <kind>`` process runs: ``module:function`` taking the request's task and giving its JSON result
+WORKERS = {"gf2-index": "polylode.extractor.gf2_source:index_rows",
+           "gf2-roots": "polylode.extractor.gf2_source:root_checks",
+           "echo": "polylode.extractor.jobs:echo"}
+
+
+def echo(task: dict):
+    """``--worker echo``: the task's value back — what ``--selftest`` starts, to see a worker run."""
+    return task.get("value")
+from ..core.parallel import WORKERS_MOST, slices, worker_count  # noqa: E402,F401 - the workers' split
+
+
+def in_workers(kind: str, tasks: list[dict], log=print) -> list:
+    """Each of *tasks* worked out by a worker process of this program (``--worker <kind>``, :data:`WORKERS`), side by
+    side: their results in the tasks' order, None for one whose worker failed (its caller works it out itself)."""
+    import shutil
+    import subprocess
+    import tempfile
+    scratch = Path(tempfile.mkdtemp(prefix=f"polylode-{kind}-"))
+    try:
+        started = []
+        for number, task in enumerate(tasks):
+            request, result = scratch / f"{number}.json", scratch / f"{number}.result.json"
+            request.write_text(json.dumps({**task, "result": str(result)}, ensure_ascii=False), encoding="utf-8")
+            started.append((subprocess.Popen(_start("--worker", kind, str(request)), stdout=subprocess.PIPE,
+                                             stderr=subprocess.STDOUT,
+                                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)), result))
+        out = []
+        for process, result in started:
+            said, _ = process.communicate()
+            if process.returncode == 0 and result.is_file():
+                out.append(json.loads(result.read_text(encoding="utf-8")))
+                continue
+            tail = said.decode("utf-8", "replace").strip().splitlines()[-1:] if said else []
+            log(f"  一個工作行程失敗，改在本行程處理：{tail[0] if tail else process.returncode}")
+            out.append(None)
+        return out
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def run_worker(kind: str, request: str) -> int:
+    """``--worker <kind> <request.json>``: the task's result written where the request says (:func:`in_workers`)."""
+    import importlib
+    if kind not in WORKERS:
+        print(f"no worker {kind}", flush=True)
+        return 2
+    module, _, name = WORKERS[kind].partition(":")
+    task = json.loads(Path(request).read_text(encoding="utf-8"))
+    result = getattr(importlib.import_module(module), name)(task)
+    Path(task["result"]).write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    return 0
+
+
 def view_host_command() -> list[str]:
     """The 3D view in a process of its own (``view_host.run``), its window shown in the program's."""
     return _start("--view-host")
@@ -122,9 +176,12 @@ def run_scan(source_id: str, settings_file: Path) -> int:
     if source is None:
         _emit("ERROR", f"沒有這個來源：{source_id}")
         return 1
+    from .sources import shared_writes
+    log = lambda line: _emit("LOG", line)                   # noqa: E731 - the job's one way to say a line
     try:
-        with progress.reporting(ProgressLines()):
-            models = source.scan(settings, lambda line: _emit("LOG", line))
+        # a scan writes what the game's exports and previews read and write (its indexes, its store): one at a time
+        with progress.reporting(ProgressLines()), shared_writes(source_id, log):
+            models = source.scan(settings, log)
     except ExtractorError as refusal:
         _emit("ERROR", str(refusal))
         return 1
