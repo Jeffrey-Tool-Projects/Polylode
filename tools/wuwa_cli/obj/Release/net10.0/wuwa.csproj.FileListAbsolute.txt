@@ -1,0 +1,17 @@
+D:\Codes\Polylode\tools\WuwaReader\wuwa.exe
+D:\Codes\Polylode\tools\WuwaReader\wuwa.deps.json
+D:\Codes\Polylode\tools\WuwaReader\wuwa.runtimeconfig.json
+D:\Codes\Polylode\tools\WuwaReader\wuwa.dll
+D:\Codes\Polylode\tools\WuwaReader\wuwa.pdb
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\wuwa.csproj.AssemblyReference.cache
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\wuwa.GeneratedMSBuildEditorConfig.editorconfig
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\wuwa.AssemblyInfoInputs.cache
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\wuwa.AssemblyInfo.cs
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\wuwa.csproj.CoreCompileInputs.cache
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\wuwa.sourcelink.json
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\wuwa.csproj.Up2Date
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\wuwa.dll
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\refint\wuwa.dll
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\wuwa.pdb
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\wuwa.genruntimeconfig.cache
+D:\Codes\Polylode\tools\wuwa_cli\obj\Release\net10.0\ref\wuwa.dll
