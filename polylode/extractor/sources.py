@@ -1,6 +1,7 @@
 """What every source answers: which paths it needs, which models an install has, how one is exported."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Protocol
@@ -156,11 +157,13 @@ def blender_for(settings, formats: list[str], spec: PathSpec) -> Path | None:
 
 
 def write_own(formats: list[str], document: Path, folder: Path, stem: str, blender: Path | None,
-              log: Log, *, export_shaders: bool = False) -> list[Path]:
+              log: Log, *, export_shaders: bool = False, sidecar: dict | None = None) -> list[Path]:
     """The requested ``.glb``／FBX of the interchange scene *document*, written as ``folder/stem.<kind>`` and
     read back; a failed read-back stops the job, and a file Blender did not read says so.
 
-    FBX is always read back by the project's own node reader (``endfield/fbxfile``) as well.
+    FBX is always read back by the project's own node reader (``endfield/fbxfile``) as well, and gets its
+    ``stem.islandlife.json`` (``interchange.sidecar``): what the file cannot hold.  *sidecar* is the source's
+    ``identity`` and ``humanoid`` statement (where its human-bone table comes from, or why there is none).
     """
     from ..core import progress
     from ..interchange import fbx, glb
@@ -171,7 +174,7 @@ def write_own(formats: list[str], document: Path, folder: Path, stem: str, blend
         module = glb if kind == "glb" else fbx
         path = Path(folder) / f"{stem}.{kind}"
         try:
-            _report, problems = module.write_checked(document, path, blender)
+            report, problems = module.write_checked(document, path, blender)
         except (glb.GlbError, fbx.FbxWriteError) as refusal:
             raise ExtractorError(f"{stem}.{kind}：{refusal}") from None
         if problems:
@@ -179,6 +182,8 @@ def write_own(formats: list[str], document: Path, folder: Path, stem: str, blend
         checked = "Blender 讀回通過" if blender else "沒有指定 Blender，未經 Blender 讀回"
         log(f"{stem}.{kind}：" + (f"檔內骨頭與綁定矩陣核對通過，{checked}" if kind == "fbx" else checked))
         written.append(path)
+        if kind == "fbx":
+            written.append(write_fbx_sidecar(document, path, report, sidecar, log))
     if "glb" in kinds:
         from ..interchange.expressions import write_sidecar
         sidecar = write_sidecar(document, Path(folder) / f"{stem}.expressions.json")
@@ -209,6 +214,30 @@ def write_own(formats: list[str], document: Path, folder: Path, stem: str, blend
         except (OSError, ValueError) as refusal:
             raise ExtractorError(f"{stem} 角色著色匯出失敗：{refusal}") from None
     return written
+
+
+def write_fbx_sidecar(document: Path, model: Path, report: dict, statement: dict | None, log: Log) -> Path:
+    """*model*'s ``.islandlife.json`` (``interchange.sidecar``), the maps it names copied into ``textures/``."""
+    from ..interchange import sidecar
+    statement = statement or {}
+    identity = statement.get("identity") or {"reason": "the export's source gave no identity"}
+    try:
+        path = sidecar.write(document, model, report, identity=identity,
+                             humanoid_statement=statement.get("humanoid") or {})
+    except (sidecar.SidecarError, OSError) as refusal:
+        raise ExtractorError(f"{Path(model).name} 的旁檔：{refusal}") from None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    roles = {}
+    for part in data["parts"]:
+        for slot in part["slots"]:
+            if slot["triangles"]:
+                roles[slot["role"]] = roles.get(slot["role"], 0) + 1
+    copied = {row["file"] for material in data["materials"].values() for row in material["maps"].values()
+              if row.get("file")}
+    log(f"{path.name}：人形骨表 {data['humanoid']['status']}（{len(data['humanoid']['bones'])} 根），"
+        f"材質 {len(data['materials'])} 個，另存貼圖 {len(copied)} 張，部件角色 "
+        + "、".join(f"{role} {count}" for role, count in sorted(roles.items())))
+    return path
 
 
 def registry() -> dict[str, Source]:

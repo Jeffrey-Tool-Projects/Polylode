@@ -36,6 +36,11 @@ The English window, taken from a real scan and preview with `tools/screenshots.p
 - **Three formats, no Blender needed for two.** `.glb` and FBX are written by Polylode itself (skeleton, skinned
   meshes, shape keys, embedded textures, transparency); `.blend` needs Blender. With Blender set, every file is
   read back in it as a check.
+- **A sidecar for every FBX.** Beside `<name>.fbx` goes `<name>.islandlife.json` (versioned schema): the game's
+  human-bone table and where it comes from (or why there is none), each material's native values and every map the
+  FBX does not embed (copied once into `textures/`, with its SHA-256 and colour space), each mesh slot's role and why
+  a hidden part is hidden, the expressions (shape keys, and Endfield's face controls as bone poses), and the model's
+  ids, install version and source-file hashes. A value the game does not give is written as missing, never guessed.
 - **Materials as the games draw them.** Cut-outs, transparency, eye-shadow overlays and eye highlight layers are
   written from the rules read out of each game's shaders. Where glTF/FBX cannot blend a layer, its effect is baked
   into the texture beneath it; the `.blend` keeps real layers. Wuthering Waves' cut-out coverage comes from running the game's own compiled shader, and its parallax fur is built as layers of strands. Endfield's effect materials (wings, glows) are run through the game's own compiled shader and baked, and emission maps are written as emission; a material that cannot be drawn is made invisible and logged, never drawn grey.

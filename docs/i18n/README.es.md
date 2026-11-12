@@ -34,6 +34,12 @@ La ventana en inglés, tomada de un escaneo y una vista previa reales con `tools
   juego, la de encima o una dentro de sus datos.
 - **Tres formatos, dos sin Blender.** `.glb` y FBX los escribe Polylode (esqueleto, mallas con skin, shape keys, texturas incrustadas,
   transparencia); `.blend` necesita Blender. Con Blender configurado, cada archivo se vuelve a leer en él como comprobación.
+- **Un archivo compañero para cada FBX.** Junto a `<nombre>.fbx` va `<nombre>.islandlife.json` (esquema versionado): la
+  tabla de huesos humanoides del juego y de dónde sale (o por qué no la hay), los valores nativos de cada material y
+  cada textura que el FBX no incrusta (copiada una vez a `textures/`, con su SHA-256 y espacio de color), el papel de
+  cada ranura de material y por qué una pieza oculta está oculta, las expresiones (shape keys, y los controles faciales
+  de Endfield como poses de huesos) y los identificadores, la versión instalada y los hashes de los archivos de origen.
+  Lo que el juego no indica se escribe como ausente, nunca se adivina.
 - **Materiales como los dibujan los juegos.** Recortes, transparencia, capas de sombra de ojos y de brillo ocular se escriben con las reglas leídas de los
   shaders de cada juego. Donde glTF/FBX no pueden mezclar una capa, su efecto se hornea en la textura de debajo; el `.blend` conserva las capas reales. En Wuthering Waves, la cobertura de los recortes sale de ejecutar el shader compilado del propio juego, y el pelaje con paralaje se construye como capas de mechones. Los materiales de efecto de Endfield (alas, brillos) se ejecutan con el shader compilado del juego y se hornean, y los mapas de emisión se escriben como emisión; un material que no se puede dibujar se hace invisible y se registra, nunca se pinta gris.
 - **Vista previa antes de exportar.** Selecciona una fila y pulsa Vista previa (o doble clic): el modelo se convierte a `.glb` en una caché y se

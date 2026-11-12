@@ -34,6 +34,12 @@ La fenêtre en anglais, prise pendant une vraie analyse et un vrai aperçu avec 
   jeu, celui du dessus ou un dossier dans ses données.
 - **Trois formats, dont deux sans Blender.** `.glb` et FBX sont écrits par Polylode lui-même (squelette, maillages skinnés, shape keys, textures
   intégrées, transparence) ; `.blend` nécessite Blender. Si Blender est défini, chaque fichier y est relu pour vérification.
+- **Un fichier compagnon pour chaque FBX.** À côté de `<nom>.fbx` se trouve `<nom>.islandlife.json` (schéma versionné) :
+  la table des os humanoïdes du jeu et sa provenance (ou pourquoi il n'y en a pas), les valeurs natives de chaque
+  matériau et chaque texture que le FBX n'intègre pas (copiée une fois dans `textures/`, avec son SHA-256 et son espace
+  colorimétrique), le rôle de chaque emplacement de matériau et pourquoi une pièce masquée l'est, les expressions
+  (shape keys, et les contrôles faciaux d'Endfield en poses d'os), ainsi que les identifiants, la version installée et
+  les empreintes des fichiers sources. Ce que le jeu ne dit pas est noté comme manquant, jamais deviné.
 - **Matériaux tels que les jeux les dessinent.** Découpes, transparence, calques de fard à paupières et de reflets des yeux sont écrits selon les règles
   lues dans les shaders de chaque jeu. Là où glTF/FBX ne peuvent pas mélanger un calque, son effet est cuit dans la texture en dessous ; le `.blend`
   garde de vrais calques. Pour Wuthering Waves, la couverture des découpes vient de l'exécution du shader compilé du jeu, et la fourrure en parallaxe est construite en couches de mèches. Les matériaux d'effet d'Endfield (ailes, lueurs) passent par le shader compilé du jeu et sont cuits, et les cartes d'émission sont écrites comme émission ; un matériau impossible à dessiner est rendu invisible et consigné, jamais dessiné en gris.

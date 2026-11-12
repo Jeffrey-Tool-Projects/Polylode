@@ -18,6 +18,7 @@ the game's.
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from contextlib import contextmanager
@@ -161,12 +162,19 @@ class EndfieldSource:
                 P.ensure(str((store.read_extra("chara", model.ident) or {}).get("model") or ""),
                          lambda: self._pipeline(settings, log), log)
         with own_store():
+            statement = None
+            if "fbx" in formats:
+                from .identity import endfield_statement
+                progress.step("記錄來源與人形骨表")
+                statement = endfield_statement(model, require(settings, INSTALL), self._pipeline(settings, log),
+                                               store.read_extra("chara", model.ident) or {},
+                                               store.root() / "chara" / f"{model.ident}.npz")
             return write_files(model.ident, blender, output, formats, log,
                                shaders=lambda names: self._locked_shaders(settings, names, log),
                                poses=(lambda: self._pipeline(settings, log))
                                if settings.poses or settings.expressions else None,
                                pose_clips=settings.poses, expressions=settings.expressions,
-                               export_shaders=settings.export_shaders, parallel=True)
+                               export_shaders=settings.export_shaders, parallel=True, statement=statement)
 
     def _locked_shaders(self, settings, names: list[str], log: Log) -> None:
         from .sources import shared_writes
@@ -252,11 +260,13 @@ def run_pose_frames(request: str) -> int:
 
 def write_files(ident: str, blender: Path | None, output: Path, formats: list[str], log: Log,
                 shaders=None, poses=None, export_shaders=False, parallel=False, pose_clips=True,
-                expressions=True) -> list[Path]:
+                expressions=True, statement=None) -> list[Path]:
     """Write the stored *ident* in *formats* and read each back; the files, or why not.
 
     ``.glb`` and FBX are written here (``interchange``), the ``.blend`` by Blender; the images are inside
     every file, and ``<name>.json`` beside them keeps the bone paths and each material's native values.
+    An FBX gets its ``<name>.islandlife.json`` (``interchange.sidecar``; *statement* is its identity and
+    human-bone source) with the face controls and presets worked out for it even when no ``.glb`` is asked for.
     """
     from ..endfield import fbx_export as FX
     from ..endfield import model as M
@@ -281,14 +291,28 @@ def write_files(ident: str, blender: Path | None, output: Path, formats: list[st
         written.append(Path(row["fbx"]).with_suffix(".blend"))
     if export_shaders or any(kind in formats for kind in ("glb", "fbx")):
         progress.step("組合場景")
+        animated = "glb" in formats or export_shaders
+        # the FBX holds no animation: for its sidecar only the expressions are worked out, never the pose clips
+        faces = expressions and "fbx" in formats
         _scene, document = FX.scene_document(target, output, None, shaders, log,
-                                             poses if "glb" in formats or export_shaders else None,
+                                             poses if animated or faces else None,
                                              (lambda ids, bones: frames_in_workers(ident, ids, bones, log))
-                                             if parallel else None, clips=pose_clips, expressions=expressions)
+                                             if parallel else None, clips=pose_clips and animated,
+                                             expressions=expressions)
         try:
-            written += write_own(formats, document, output / folder, target.stem, blender, log, export_shaders=export_shaders)
+            written += write_own(formats, document, output / folder, target.stem, blender, log,
+                                 export_shaders=export_shaders, sidecar=statement)
         finally:
             (output / folder / f"{target.stem}.npz").unlink(missing_ok=True)
-    shutil.rmtree(output / folder / RS.TEXTURE_DIR, ignore_errors=True)
+        # the scene's own copies of the maps (inside every file); the sidecar's are in the same folder, named by
+        # their hash, and stay
+        scratch = {}
+        if document is not None and Path(document).is_file():
+            scratch = json.loads(Path(document).read_text(encoding="utf-8")).get("textures") or {}
+        for relative in scratch:
+            (output / folder / relative).unlink(missing_ok=True)
+    textures = output / folder / RS.TEXTURE_DIR
+    if textures.is_dir() and not any(textures.iterdir()):
+        textures.rmdir()
     shutil.rmtree(output / folder / "baked", ignore_errors=True)        # vfx_bake's maps: inside every file
     return written

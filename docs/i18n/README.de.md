@@ -34,6 +34,12 @@ Das englische Fenster, aufgenommen bei einem echten Scan und einer echten Vorsch
   Spiels sein, der darüber oder einer in seinen Daten.
 - **Drei Formate, zwei ohne Blender.** `.glb` und FBX schreibt Polylode selbst (Skelett, geskinnte Meshes, Shape Keys, eingebettete Texturen,
   Transparenz); `.blend` braucht Blender. Ist Blender gesetzt, wird jede Datei zur Kontrolle darin zurückgelesen.
+- **Eine Begleitdatei zu jeder FBX.** Neben `<Name>.fbx` liegt `<Name>.islandlife.json` (versioniertes Schema): die
+  Human-Bone-Tabelle des Spiels und ihre Herkunft (oder warum es keine gibt), die nativen Werte jedes Materials und jede
+  Textur, die die FBX nicht einbettet (einmal nach `textures/` kopiert, mit SHA-256 und Farbraum), die Rolle jedes
+  Material-Slots und warum ein verborgenes Teil verborgen ist, die Ausdrücke (Shape Keys und Endfields Gesichtssteuerung
+  als Knochenposen) sowie IDs, Installationsversion und Hashes der Quelldateien. Was das Spiel nicht angibt, steht als
+  fehlend da und wird nie geraten.
 - **Materialien, wie die Spiele sie zeichnen.** Ausschnitte, Transparenz, Lidschatten-Ebenen und Augenglanz-Ebenen werden nach den Regeln geschrieben,
   die aus den Shadern jedes Spiels gelesen wurden. Wo glTF/FBX eine Ebene nicht mischen können, wird ihre Wirkung in die Textur darunter gebacken;
   die `.blend` behält echte Ebenen. Bei Wuthering Waves stammt die Ausschnitt-Abdeckung aus dem ausgeführten, kompilierten Shader des Spiels, und das Parallax-Fell wird als Haarschichten gebaut. Endfields Effektmaterialien (Flügel, Leuchten) laufen durch den kompilierten Shader des Spiels und werden gebacken, Emissionskarten als Emission geschrieben; ein nicht darstellbares Material wird unsichtbar gemacht und protokolliert, nie grau gezeichnet.

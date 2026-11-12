@@ -330,8 +330,45 @@ class WuwaSource:
                 progress.report(number, 2, "以 Blender 建 .blend 並讀回")
                 blender_run(blender, mode, case, model.ident)
             written.append(Path(shutil.copy2(case / f"{model.ident}.blend", output / f"{model.ident}.blend")))
+        statement = None
+        if "fbx" in formats:
+            from .identity import wuwa_statement
+            progress.step("記錄來源與人形骨表")
+            document = json.loads((case / "source_document.json").read_text(encoding="utf-8"))
+            statement = wuwa_statement(model, require(settings, INSTALL), sources, document,
+                                       self._skeleton(settings, row["parts"][0]["package"], sources, log))
         return written + write_own(formats, case / "source_document.json", output, model.ident, blender, log,
-                                   export_shaders=settings.export_shaders)
+                                   export_shaders=settings.export_shaders, sidecar=statement)
+
+    def _skeleton(self, settings, package: str, sources: Path, log: Log) -> dict:
+        """What the main mesh's ``USkeleton`` holds about human bones (``identity.wuwa_skeleton``), read once per
+        install: the mesh package and its skeleton package through the reader's ``json`` mode."""
+        from .identity import wuwa_skeleton
+        from .sources import shared_writes
+        ident = package.rsplit("/", 1)[-1]
+        cache = sources / ident / "skeleton_check.json"
+        stamp = (sources.parent / "config" / "install.json").read_text(encoding="utf-8")
+        if cache.is_file():
+            saved = json.loads(cache.read_text(encoding="utf-8"))
+            if saved.get("stamp") == stamp:
+                return saved["skeleton"]
+        log("讀取骨架資產（有沒有人形骨表）…")
+        with shared_writes("wuwa", log):
+            scratch = sources / ident / "skeleton_json"
+
+            def package_json(name: str):
+                shutil.rmtree(scratch, ignore_errors=True)
+                _reader(settings, "json", scratch, name + ".uasset", log)
+                return json.loads((scratch / "package.json").read_text(encoding="utf-8"))
+
+            mesh = package_json(package)
+            found = wuwa_skeleton(mesh, None)
+            path = (found.get("skeleton") or "").rsplit(".", 1)[0]
+            result = wuwa_skeleton(mesh, package_json(path)) if path else found
+            shutil.rmtree(scratch, ignore_errors=True)
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps({"stamp": stamp, "skeleton": result}, ensure_ascii=False), encoding="utf-8")
+        return result
 
 
 def _poses_of(settings, package: str, case: Path, folder: Path, log: Log) -> int:

@@ -21,6 +21,7 @@ def document_profile(document: dict, profile: dict) -> dict:
     for part in result['parts']:
         part.setdefault('source_hidden', part['hidden'])
         part['hidden'] = mask[part['name']]
+        part['hidden_by'] = ['display_profile'] if part['hidden'] else []
     result['display_profile'] = copy.deepcopy(profile)
     return result
 

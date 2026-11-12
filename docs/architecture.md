@@ -18,6 +18,8 @@
 
 `polylode/endfield/shader_code.py` 與 `vfx_bake.py`：終末地沒有底色圖的材質（特效 shader）在寫出交換文件後，用遊戲編譯好的 pass 變體（頂點＋像素階段，鳴潮的直譯器）烘成貼圖；主體 shader 的發光照讀出的式子烘成發光圖；烘不了的標成不可見並寫下原因（`docs/tools.md`）。
 `polylode/interchange`（§7.1447／§7.1448）：不靠 Blender 的交換檔寫出器，讀所有轉換器交給 Blender 的同一份場景（文件＋陣列）：`glb` 與 `fbx`。
+每個 FBX 旁邊另有 `sidecar` 寫的 `<名>.islandlife.json`（IslandLife 讀 FBX 時要的、FBX 裝不下的資料；跨倉庫的介面，有 schema 版本）：
+`sources.write_own` 寫完 FBX 就寫它，來源的身分與人形骨表出處由各來源交給它（`extractor/identity.py`），材質的角色著色參數與預覽共用 `character_styles.native_style`。
 鳴潮的讀表與組合從未進版控的 dev 腳本搬進 `polylode/wuthering_waves/`：`scope`（角色表 → 女性可玩角色的網格）、
 `assembly`（模型表 → 角色選單的顯示模型）、`extract`（跑 `tools/wuwa_cli` 讀取器）、`source_scene`（傾印 → 交換格式，Blender 端是 `tools/wuwa_source_blender.py`）；`converted.names.wuthering_name`
 可以指定讀哪一份抽取。讀取器的 C# 原始碼、上游 CUE4Parse 版本與本機修補在 `tools/wuwa_cli/`。

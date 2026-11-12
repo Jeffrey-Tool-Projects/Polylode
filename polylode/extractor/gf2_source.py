@@ -222,8 +222,14 @@ class GF2Source:
             # (gf2.eye_bake, owner 2026-11-02); the .blend above keeps them as layers
             from ..gf2.eye_bake import bake
             progress.step("把眼睛疊層烘進貼圖")
+            statement = None
+            if "fbx" in formats:
+                from ..gf2 import store
+                from .identity import gf2_statement
+                statement = gf2_statement(model, install, row["ident"], store.read_extra(row["ident"]) or {},
+                                          store.root() / "chara" / f"{row['ident']}.npz", catalog.unity_version)
             written += write_own(formats, bake(document, log), output, row["ident"], blender, log,
-                                 export_shaders=settings.export_shaders)
+                                 export_shaders=settings.export_shaders, sidecar=statement)
         return written
 
 

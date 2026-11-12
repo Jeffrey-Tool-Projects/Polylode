@@ -1025,6 +1025,12 @@
   "ja": "シーンを組み立て中",
   "ko": "장면 조립 중"
  },
+ "記錄來源與人形骨表": {
+  "en": "Recording the sources and the human bones",
+  "zh-CN": "记录来源与人形骨表",
+  "ja": "出典と人型ボーン表を記録中",
+  "ko": "출처와 휴머노이드 본 표 기록 중"
+ },
  "把眼睛疊層烘進貼圖": {
   "en": "Baking the eye layers into the texture",
   "zh-CN": "把眼睛叠层烘进贴图",

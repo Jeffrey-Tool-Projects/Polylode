@@ -64,6 +64,37 @@
 - FBX（§7.1448）：`polylode.interchange.fbx.write` 從同一份交換場景寫 FBX 7.4 二進位，`write_checked` 一律用 `endfield/fbxfile.bone_errors`
   量檔內骨頭與綁定矩陣（0.01 mm／0.01°），有 Blender 時再以 `check` 模式匯入量（`glb.readback_problems`）。只有 `.blend` 需要 Blender（`sources.NEEDS_BLENDER`）。
   第三方讀取器的檢查用 three.js 的 FBXLoader（npm `three`，Node 裡把貼圖載入換成空殼），裝在自己的資料夾，不進專案。
+- FBX 的旁檔（IslandLife §7.1481 要的，`interchange/sidecar.py`）：`sources.write_own` 寫完 FBX 就在旁邊寫 `<名>.islandlife.json`
+  （`schema` `polylode.islandlife-sidecar`、`version` 1；欄位移動或改義就跳版本），FBX 是唯一格式時也寫。讀的是 FBX 用的同一份交換場景，
+  寫不出的值寫 `null` 加原因，不猜：
+  - `model`：FBX 檔名、SHA-256、骨架名、空間（Y 朝上、公尺，與 FBX 相同）。
+  - `identity`（各來源在 `extractor/identity.py`）：遊戲、Polylode ident、角色與衣裝標籤、模型 id、安裝版本、來源檔雜湊、轉換倉庫的 `.npz` 雜湊。
+    終末地：預製物 container、模型資產、Avatar；版本是 Steam `appmanifest_*.acf` 的 `buildid`；來源檔是預製物、Avatar 與貼圖所在 bundle 在 VFS 區塊裡
+    的那一段（從它的位移到 CAB 對照表同一區塊的下一個 bundle）的 SHA-256——區塊一個最大 1.6 GB，只寫名字不整個雜湊。GF2：bundle 條目、
+    角色表列、`GameConfig.cfg` 的 `CacheResVersion`／`CodeResVersion`、Unity 版本、轉換讀過的每個 bundle（`gf2.convert` 的 `source_files`）。
+    鳴潮：角色選單的顯示模型 id、各部件的套件、`launcherDownloadConfig.json` 的版本、封存檔戳記、讀取器取出的每個套件檔（`source_provenance.json`）。
+    性別與年齡不在這裡，由 IslandLife 從它審過的名單抄入。
+  - `humanoid`：`HumanBodyBones` 名 → 檔內骨名，`status`（`complete`／`partial`／`missing`，以 Unity 的 15 根必要骨為準）、`basis` 與 `source`。
+    終末地 `unity_avatar`（`m_HumanBoneIndex` 經 `m_TOS` 對到預製物，`endfield.components.humanoid`；Avatar 沒有手，手指寫缺）。
+    鳴潮 `biped_naming_with_parent_chain`（`source_scene.humanoid`：3ds Max Biped 固定的骨名，逐段核對父子）；同時讀主網格的 `USkeleton`
+    （讀取器的 `json` 模式，結果快取在部件資料夾的 `skeleton_check.json`）並記下它有沒有 `RigConfig`／`AnimRetargetSources`——
+    椿（R2T1ChunMd10011）兩者都沒有，cook 過的骨架不帶人形表。GF2 寫 `missing`：角色預製物的 Avatar 是 Generic（`m_HumanDescription` 沒有骨、
+    `m_HumanBoneIndex` 全是 −1），預製物上除了 Animator 沒有別的元件；2026-11-13 掃過安裝裡有 Avatar 的 554 個 bundle，唯一的 Humanoid Avatar
+    是 `DefaultMaleAvatar`（骨名就是人形名，不是角色骨架）。
+  - `materials`：每個部件用到的材質：`native`（遊戲材質的原值：shader、keyword、float、顏色；鳴潮的材質實例）、`style`
+    （`character_styles.native_style`，預覽的角色著色用的同一組參數，ramp／surface／LUT 寫屬性名）、`fbx`（FBX 寫進哪個槽：`fbx.write` 回報的
+    `report["materials"]`）、`maps`：FBX 內嵌的寫 `in_fbx` 與槽名，其餘複製一份到 `textures/<sha256>.<副檔名>`，記 SHA-256、`srgb`／`linear`、
+    縮放與位移；沒有三角形用到的材質只記雜湊不複製。
+  - `parts`：每個網格、`hidden_by`（`source` 來源就關著；GF2 另有 `lod`、`dormitory`、`alternate`、`display_profile`，記在 `gf2.export.scene_document`）、
+    每個材質槽的三角形數與角色。角色只看遊戲資料：終末地看 shader（`_Skin` 有 `_SDFLIGHTMAP` 是臉、沒有是身體皮膚；`_Hair`、`_Eye`、
+    `_OverlayShadow`、`_VFX`、`HGRP/Effect/…`；`HGRP/CharacterNPR` 是衣物）；鳴潮看材質的 `ShadingModel` 與靜態開關（`MSM_ToonHair` 頭髮、
+    `MSM_ToonFace` 有 `UseEyeSDF` 是眼睛、沒有是臉、`MSM_ToonOutline` 外框、`MSM_ToonCommon` 有 `UseSkinMask` 是 `skin_and_clothing`、聲痕參數是特效）；
+    GF2 只有眼睛的 shader 分得出（`eye`、`eyeblend_*` 是 `eye_overlay`），`uber`／`ubertrans` 畫皮膚、衣服、頭髮、臉、武器都一樣，寫 `unknown`。
+  - `expressions`：形狀鍵的表情就是 FBX 的 BlendShape（`shape_keys` 列名字與部件）。終末地的臉部控制、情緒與姿態預設是骨頭驅動的
+    （它的模型沒有形狀鍵），寫成 `bone_poses`：每個表情動到的骨頭在 FBX 空間的局部變換（3×4，同 FBX 的 `Lcl`）、材質值（表情圖索引）與控制項；
+    不烘成形狀鍵，因為形狀鍵是靜止網格上的固定位移，頭一動或兩個表情疊加就和骨頭重複移動。只匯出 FBX 時，終末地也照 `expressions` 設定算這些（不算姿勢）。
+  - 終末地的輸出資料夾原本整個刪掉 `textures/`（交換場景的暫存圖），現在只刪場景列的那些檔，旁檔的貼圖留下。旁檔用緊湊 JSON：
+    EndminF 303 個表情佔大半，縮排時 8.5 MB、緊湊 3.6 MB。
 - Autodesk FBX SDK 讀回（§7.1449）：`<裝了 fbx wheel 的 Python 3.11> tools/fbx_sdk_check.py <檔.fbx> <場景.json>`。SDK 是 Autodesk 的，
   從它的 FBX SDK 頁下載 `fbx2020311_fbxpythonsdk_win.exe`，用 7-Zip 解出 `fbx-2020.3.11-cp311-none-win_amd64.whl` 裝進自己的 venv（加 numpy），
   不進版控也不進發行物。印一行 JSON：`imported`／`status`、軸與單位、骨頭全域靜止偏差與父骨、`parts_bad`（控制點、多邊形、蒙皮、權重頂點、

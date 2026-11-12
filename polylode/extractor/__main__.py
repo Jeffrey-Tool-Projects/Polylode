@@ -84,6 +84,7 @@ def selftest(path: str) -> int:
                  "polylode.wuthering_waves.assembly", "polylode.wuthering_waves.source_scene",
                  "polylode.wuthering_waves.extract", "polylode.wuthering_waves.keys", "polylode.converted.names", "polylode.converted.scope",
                  "polylode.interchange.glb", "polylode.interchange.fbx", "polylode.interchange.expressions",
+                 "polylode.interchange.sidecar", "polylode.extractor.identity",
                  "polylode.extractor.share", "polylode.extractor.github", "polylode.extractor.view_host",
                  "polylode.extractor.shader_export", "polylode.extractor.blender_shader",
                  "polylode.extractor.character_styles", "polylode.extractor.gltf_runtime", "polylode.extractor.morph_playback",

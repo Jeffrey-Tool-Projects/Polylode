@@ -164,6 +164,11 @@ def scene_document(ident, declared=None):
         spare = parts.hidden(document_data['parts'], picked) if picked else {}
         for part in document_data['parts']:
             part.setdefault('source_hidden', part['hidden'])
+            # why, for a reader of the FBX's sidecar (interchange.sidecar): each rule that hides it
+            part['hidden_by'] = [reason for reason, by in (('source', part['source_hidden']),
+                                                           ('lod', hidden[part['name']] and not part['source_hidden']),
+                                                           ('dormitory', combat[part['name']]),
+                                                           ('alternate', spare.get(part['name'], False))) if by]
             part['hidden'] = hidden[part['name']] or combat[part['name']] or spare.get(part['name'], False)
         if picked:
             document_data['parts_choice'] = picked
