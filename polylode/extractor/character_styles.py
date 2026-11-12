@@ -76,43 +76,59 @@ def read_materials(path: Path, texture_dir: Path | None = None) -> tuple[dict, b
         pbr = material.get("pbrMetallicRoughness", {})
         base_texture = pbr.get("baseColorTexture", {})
         transform = base_texture.get("extensions", {}).get("KHR_texture_transform", {})
-        values = native.get("floats", {})
         maps = native.get("maps", {})
-        shader = native.get("shader", "")
-        family = ("endfield" if shader.startswith("HGRP/") else "gf2" if shader.startswith("gf_shader/")
-                  else "wuwa" if native.get("native_material") else "")
-        ramp = maps.get("_DiffRampMap" if family == "endfield" else "_RampMap")
-        if (family == "endfield" and "_DIFF_RAMP_ON" not in native.get("keywords", [])) \
-                or (family == "gf2" and values.get("_UseRampMap", 0) <= 0):
-            ramp = None
-        scalars = native.get("native_material", {}).get("Scalars", {})
-        surface = maps.get("_MetallicGlossMap" if family == "endfield" else "_RMOTex")
-        if family == "endfield" and "_METALLICSPECGLOSSMAP" not in native.get("keywords", []):
-            surface = None
+        style = native_style(native, pbr)
         materials.append({"id": index, "name": material.get("name", str(index)),
                           "baseColor": pbr.get("baseColorFactor", [1, 1, 1, 1]),
                           "alphaMode": material.get("alphaMode", "OPAQUE"),
                           "alphaCutoff": material.get("alphaCutoff", .5),
                           "doubleSided": material.get("doubleSided", False),
                           "preserveOriginal": ("KHR_materials_unlit" in material.get("extensions", {})
-                                               or shader.endswith("_VFX") or "/vfx/" in shader.lower()),
-                          "family": family, "ramp": texture(ramp),
-                          "rampSrgb": bool(ramp and ramp.get("srgb")),
-                          "surfaceSrgb": bool(surface and surface.get("srgb")),
-                          "shadowLutSrgb": bool(maps.get("_ShadowLutTex", {}).get("srgb")),
+                                               or style.pop("preserveOriginal")),
+                          "family": style.pop("family"), "ramp": texture(maps.get(style.pop("rampMap"))),
                           "baseTexture": texture({"texture": base_texture["index"]}) if "index" in base_texture else "",
                           "baseUv": [*transform.get("scale", [1, 1]), *transform.get("offset", [0, 0])],
                           "baseRotation": transform.get("rotation", 0),
-                          "shadowLut": texture(maps.get("_ShadowLutTex")) if "_SHADOW_LUT_TEX" in native.get("keywords", []) else "",
-                          **{key: scalars.get(prop, default) for key, (prop, default) in WUWA_PARAMETERS.items()},
-                          "surface": texture(surface),
-                          "emission": values.get("_EmissiveIntensity", 0.),
-                          "shadowBrightness": values.get("_ShadowColorBrightness", .5),
-                          "shadowSaturation": values.get("_ShadowColorSaturation", 1.),
-                          "smoothness": values.get("_Smoothness", .5) if family == "endfield" else 1 - pbr.get("roughnessFactor", .5),
-                          "metallic": values.get("_Metallic", 0.) if family == "endfield" else pbr.get("metallicFactor", 0.),
-                          "specularLevel": values.get("_Specular", 0.)})
+                          "shadowLut": texture(maps.get(style.pop("shadowLutMap"))),
+                          "surface": texture(maps.get(style.pop("surfaceMap"))),
+                          **style})
     return document, blob, materials
+
+
+def native_style(native: dict, pbr: dict | None = None) -> dict:
+    """The character-shading parameters of one material's native values (a document's material record, as the
+    ``.glb`` keeps it in ``extras``): its family, which of its maps are the ramp, surface and shadow LUT
+    (``rampMap``／``surfaceMap``／``shadowLutMap``: the map's property name, or ``None``), and the scalars
+    ``character.frag`` reads.  *pbr* is the glTF material's ``pbrMetallicRoughness``; left out, the factors the
+    ``.glb`` writer gives every material (roughness 0.5, metal 0).  The FBX sidecar (``interchange.sidecar``)
+    writes the same values."""
+    pbr = pbr or {}
+    values = native.get("floats", {})
+    maps = native.get("maps", {})
+    keywords = native.get("keywords", [])
+    shader = native.get("shader", "")
+    family = ("endfield" if shader.startswith("HGRP/") else "gf2" if shader.startswith("gf_shader/")
+              else "wuwa" if native.get("native_material") else "")
+    ramp = "_DiffRampMap" if family == "endfield" else "_RampMap"
+    if (family == "endfield" and "_DIFF_RAMP_ON" not in keywords) \
+            or (family == "gf2" and values.get("_UseRampMap", 0) <= 0) or ramp not in maps:
+        ramp = None
+    scalars = native.get("native_material", {}).get("Scalars", {})
+    surface = "_MetallicGlossMap" if family == "endfield" else "_RMOTex"
+    if (family == "endfield" and "_METALLICSPECGLOSSMAP" not in keywords) or surface not in maps:
+        surface = None
+    return {"family": family, "preserveOriginal": shader.endswith("_VFX") or "/vfx/" in shader.lower(),
+            "rampMap": ramp, "rampSrgb": bool(ramp and maps[ramp].get("srgb")),
+            "surfaceMap": surface, "surfaceSrgb": bool(surface and maps[surface].get("srgb")),
+            "shadowLutMap": "_ShadowLutTex" if "_SHADOW_LUT_TEX" in keywords and "_ShadowLutTex" in maps else None,
+            "shadowLutSrgb": bool(maps.get("_ShadowLutTex", {}).get("srgb")),
+            **{key: scalars.get(prop, default) for key, (prop, default) in WUWA_PARAMETERS.items()},
+            "emission": values.get("_EmissiveIntensity", 0.),
+            "shadowBrightness": values.get("_ShadowColorBrightness", .5),
+            "shadowSaturation": values.get("_ShadowColorSaturation", 1.),
+            "smoothness": values.get("_Smoothness", .5) if family == "endfield" else 1 - pbr.get("roughnessFactor", .5),
+            "metallic": values.get("_Metallic", 0.) if family == "endfield" else pbr.get("metallicFactor", 0.),
+            "specularLevel": values.get("_Specular", 0.)}
 
 
 def check_styles(view, output: Path | None = None) -> dict:

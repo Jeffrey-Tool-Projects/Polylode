@@ -217,6 +217,9 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
     images: dict = {}
     videos: dict = {}
     materials: dict[str | None, int] = {}
+    #: per material, the source map each FBX slot is linked to and the opacity written: what the file carries
+    #: (``report["materials"]``; the sidecar, ``interchange.sidecar``, lists every other map beside it)
+    carried: dict[str, dict] = {}
 
     def material(name: str | None) -> int:
         if name in materials:
@@ -236,10 +239,12 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
         _p(props, "DiffuseFactor", "Number", "", "A", 1.0)
         # a colour layer multiplied or added onto what is behind cannot be drawn by FBX: kept, invisible (as in glTF)
         unblendable = record.get("blend") in ("multiply", "add") and not record.get("alpha_from")
+        held = carried.setdefault(name or "none", {"DiffuseColor": None, "TransparentColor": None,
+                                                    "EmissiveColor": None, "Opacity": None, "alpha_from": None})
         if record.get("native_surface_unmapped") or record.get("constant_color") is not None \
                 or record.get("blend") in ("multiply", "alpha", "add"):
-            _p(props, "Opacity", "double", "Number", "",
-               0.0 if record.get("native_surface_unmapped") or unblendable else colour[3])
+            held["Opacity"] = 0.0 if record.get("native_surface_unmapped") or unblendable else float(colour[3])
+            _p(props, "Opacity", "double", "Number", "", held["Opacity"])
         counts["Material"] += 1
         base = record["maps"].get(record.get("base") or "")
         alpha_from = record.get("alpha_from") if record.get("alpha_from") in ("r", "g", "b") else None
@@ -292,13 +297,16 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
 
         if base is not None:
             texture = texture_of(base, alpha_from)
+            held["alpha_from"] = alpha_from
             if any(float(v) for v in colour[:3]):
                 # a black tint is a surface with no colour of its own (an effect drawn as its emission): its map
                 # is only its coverage
                 link(texture, ident, "DiffuseColor")
+                held["DiffuseColor"] = record.get("base")
             if alpha_from or record.get("blend") in ("multiply", "alpha", "add") or record.get("cutoff") is not None:
                 # the coverage is the image's alpha: Unity and Blender read a material as transparent from this
                 link(texture, ident, "TransparentColor")
+                held["TransparentColor"] = record.get("base")
         emission = record.get("emission")
         if emission:
             _p(props, "EmissiveColor", "Color", "", "A", *[float(v) for v in emission.get("color", (1, 1, 1))[:3]])
@@ -306,11 +314,12 @@ def write(document: dict, arrays, folder: Path, target: Path) -> dict:
             entry = record["maps"].get(emission.get("map") or "")
             if entry is not None:
                 link(texture_of(entry, None), ident, "EmissiveColor")
+                held["EmissiveColor"] = emission.get("map")
         materials[name] = ident
         return ident
 
     pose_nodes = [(bone_ids[i], rest[i]) for i in range(len(bones))]
-    report = {"degenerate": {}, "parts": len(document["parts"]), "bones": len(bones)}
+    report = {"degenerate": {}, "parts": len(document["parts"]), "bones": len(bones), "materials": carried}
     turn = TO_Y_UP[:3, :3]
     for index, part in enumerate(document["parts"]):
         p = f"p{index}_"
