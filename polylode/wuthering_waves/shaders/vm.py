@@ -45,6 +45,15 @@ def _literal(text: str) -> np.ndarray:
             words.append(int(value, 16) & 0xFFFFFFFF)
         elif re.fullmatch(r"-?\d+", value):
             words.append(int(value) & 0xFFFFFFFF)
+        elif "#" in value:
+            # the disassembler's MSVC spelling of a non-finite literal: ``-1.#QNAN0``, ``1.#INF00`` (a Mone 10011 ``Down``
+            # pass compares against one, §7.1492)
+            special = value.upper()
+            number = (np.nan if "#QNAN" in special or "#IND" in special or "#SNAN" in special
+                      else np.inf if "#INF" in special else None)
+            if number is None:
+                raise ShaderError(f"unread literal {value!r}")
+            words.append(int(np.float32(-number if value.startswith("-") else number).view(np.uint32)))
         else:
             words.append(int(np.float32(float(value)).view(np.uint32)))
     while len(words) < 4:

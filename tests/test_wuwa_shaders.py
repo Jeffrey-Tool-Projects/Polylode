@@ -184,3 +184,12 @@ def test_scalars_sharing_a_buffer_row_each_keep_their_own_word():
     buffers = VB._buffers(Variant(), record, {}, asm, "ps")
     assert buffers[3][5].tolist() == [0.25, 1.0, 0.0, 0.0] and buffers[3][6].tolist() == [1, 2, 3, 4]
     del SC
+
+
+def test_a_non_finite_literal_in_the_disassemblers_spelling_is_read():
+    # ``-1.#QNAN0`` / ``1.#INF00``: what d3dcompiler prints for a NaN or an infinity (a Mone 10011 pass, §7.1492)
+    words = vm._literal("-1.#QNAN0, 1.#INF00, -1.#INF00, 0.5")
+    values = words.view(np.float32)
+    assert np.isnan(values[0]) and values[1] == np.inf and values[2] == -np.inf and values[3] == 0.5
+    with pytest.raises(vm.ShaderError):
+        vm._literal("1.#WHAT0")

@@ -1,4 +1,4 @@
-"""Where a Wuthering Waves ``skin_and_clothing`` material draws skin, as the game's own compiled shader decides it.
+"""Where a Wuthering Waves ``MSM_ToonCommon`` material draws skin, as the game's own compiled shader decides it.
 
 One material draws a character's skin and clothes (``MSM_ToonCommon`` with the static switch ``UseSkinMask``).
 Its base pass multiplies the base colour by ``lerp(1, SkinColor, f)``; the texels where the skin factor *f* is 1
@@ -31,7 +31,7 @@ from .shaders import archive as A
 from .shaders import dxbc, inline, preshader, vm
 
 #: bump when what :func:`analyse` returns changes: the case cache key carries it
-VERSION = 2
+VERSION = 3
 #: the sweep: an even grid and every 8-bit value (:data:`_ROUND`), and the floats either side of the literals the
 #: game's band compares against, so ``> 0.9`` and ``≥ 0.9`` are told apart
 _ROUND = np.unique(np.concatenate([np.linspace(0.0, 1.0, 1001), np.arange(256) / 255.0,
@@ -295,6 +295,17 @@ def base_passes(store: A.Archive, map_index: int) -> list[tuple[int, dxbc.Shader
     return out
 
 
+def shading_passes(store: A.Archive, map_index: int) -> list[tuple[int, dxbc.Shader]]:
+    """Every pixel shader of the map that reads the Material buffer (a translucent map's colour passes among them)."""
+    out = []
+    for index in store.shaders(map_index):
+        if store.frequency(index) == A.PIXEL:
+            shader = dxbc.read(store.code(index))
+            if "Material" in shader.buffers:
+                out.append((index, shader))
+    return out
+
+
 def parameters(record: dict, uniforms: inline.Uniforms | None) -> dict:
     """The switches and scalars that steer the band: each value and where it comes from."""
     native = record.get("native_material") or {}
@@ -302,9 +313,11 @@ def parameters(record: dict, uniforms: inline.Uniforms | None) -> dict:
     defaults = dict(uniforms.scalars) if uniforms is not None else {}
     out = {}
     for name in SWITCHES:
-        out[name] = {"value": bool(switches.get(name, False)),
-                     "from": "the instance's static switch" if name in switches else
-                     "not set on the instance (static switches it does not set are off)"}
+        # a switch the instance does not set is its parent's, compiled into the shader map; the band read off that
+        # map is what it does (IslandLife §7.1492: Kanteleila 10011's Up sets no UseSkinMask and reads the band)
+        out[name] = ({"value": bool(switches[name]), "from": "the instance's static switch"} if name in switches else
+                     {"value": None, "from": "not set on the instance: its parent's value, compiled into the shader "
+                                             "map (the band read off it is what it does)"})
     for name in PARAMETERS:
         if name in scalars:
             out[name] = {"value": float(scalars[name]), "from": "the instance's scalar"}
@@ -327,14 +340,26 @@ def analyse(record: dict, store: A.Archive, uexp: bytes, size, collections: list
         raise BandError("the instance's shader map is not in the SM5 archive")
     map_index = store.map_index(digests[0])
     if "SkinColor" not in dict(uniforms.vectors):
-        raise BandError("SkinColor is not a parameter of the instance's shader map")
+        # no code of the map can lerp toward a colour it has no parameter for: it draws no skin (a translucent
+        # ``Glass`` of Zhezhi 10011: six pixel shaders, none a seven-target base pass, no SkinColor; §7.1492)
+        return {"status": "no_skin_color", "source": None, "skin_color_read": False,
+                "reason": "SkinColor is not a parameter of the instance's shader map",
+                "parameters": parameters(record, uniforms), "evidence": {"shader_map_sha1": digests[0].hex()}}
     slots = _slots(record, uniforms, size, "SkinColor")
     if not slots:
         raise BandError("no slot of the Material buffer follows SkinColor")
     material_values = _frozen_values(record, uniforms, size)
     typemask_index = next((i for i, (name, _ref) in enumerate(uniforms.textures) if name == "TypeMask"), None)
     variants, failures = [], []
-    for index, shader in base_passes(store, map_index):
+    passes = base_passes(store, map_index)
+    # a translucent material has no GBuffer pass: its colour is shaded in passes of fewer targets, among the
+    # map's other Material-reading pixel shaders (depth, velocity …); the band is what every one of them that
+    # tints toward SkinColor does, and a map none of whose passes does draws no skin (§7.1492: Linnaea 10011's
+    # ``Alpha``, Mone 10011's ``Down``)
+    translucent = not passes
+    if translucent:
+        passes = shading_passes(store, map_index)
+    for index, shader in passes:
         material = shader.buffers["Material"]
         sizes = _sizes(shader.asm)
         buffers = {register: np.zeros((sizes.get(register, 1), 4)) for register in sizes}
@@ -360,11 +385,24 @@ def analyse(record: dict, store: A.Archive, uexp: bytes, size, collections: list
     if not variants:
         reasons = sorted({reason for _i, reason in failures}) or ["the shader map has no base-pass pixel shader"]
         raise BandError("; ".join(reasons))
+    if translucent:
+        tinting = [(i, r) for i, r in variants if r.get("skin_color_read") is not False]
+        if not tinting and not failures:
+            return {"status": "no_skin_color", "source": None, "skin_color_read": False,
+                    "reason": "no pass of the translucent shader map tints toward SkinColor",
+                    "parameters": parameters(record, uniforms),
+                    "evidence": {"shader_map_sha1": digests[0].hex(), "translucent_passes": [i for i, _r in variants],
+                                 "skin_color_slots": sorted(slots)}}
+        if not tinting:
+            raise BandError("; ".join(sorted({reason for _i, reason in failures})))
+        variants = tinting
     keyed = {}
     for index, result in variants:
         key = repr({k: v for k, v in result.items() if k != "lerp_instruction"})
         keyed.setdefault(key, []).append(index)
-    evidence = {"shader_map_sha1": digests[0].hex(), "base_pass_pixel_shaders": [i for i, _r in variants],
+    evidence = {"shader_map_sha1": digests[0].hex(),
+                ("translucent_tinting_pixel_shaders" if translucent else "base_pass_pixel_shaders"):
+                    [i for i, _r in variants],
                 "skin_color_slots": sorted(slots),
                 "unread_pixel_shaders": [{"shader": i, "reason": r} for i, r in failures]}
     if len(keyed) != 1:
@@ -376,8 +414,20 @@ def analyse(record: dict, store: A.Archive, uexp: bytes, size, collections: list
     return {"status": status, **result, "parameters": parameters(record, uniforms), "evidence": evidence}
 
 
+def is_target(record: dict, slot_role) -> bool:
+    """Whether the band is read for *record*: an ``MSM_ToonCommon`` material that is not the tacet mark.
+
+    Not only the ``skin_and_clothing`` ones (the instance sets ``UseSkinMask``): a static switch the instance does
+    not set is its parent's, compiled into its shader map, so what one without it draws is read off that map too
+    (``interchange.sidecar.slot_role`` takes its role from the result; IslandLife §7.1492)."""
+    native = record.get("native_material") or {}
+    model = ((native.get("Properties") or {}).get("BasePropertyOverrides") or {}).get("ShadingModel")
+    return model == "MSM_ToonCommon" and slot_role(record)[0] != "effect"
+
+
 def annotate_case(case, files, log=print) -> None:
-    """Every ``skin_and_clothing`` material of the scene in *case* given its ``skin_band`` (:func:`analyse`), or
+    """Every ``MSM_ToonCommon`` material of the scene in *case* (:func:`is_target`) given its ``skin_band``
+    (:func:`analyse`), or
     ``{"status": None, "reason": …}`` when the game's shader cannot be read for it; *files* is the shader bake's
     (``shader_bake.bake_case``).  Results are kept by the material's JSON hash in ``files.cache``'s sibling
     ``skin_band``.  The scene document is rewritten."""
@@ -392,7 +442,7 @@ def annotate_case(case, files, log=print) -> None:
     path = case / "source_document.json"
     document = json.loads(path.read_text(encoding="utf-8"))
     targets = [name for name, record in document["materials"].items()
-               if not record.get("unused") and slot_role(record)[0] == "skin_and_clothing"]
+               if not record.get("unused") and is_target(record, slot_role)]
     if not targets:
         return
     folder = Path(files.cache).parent / "skin_band"

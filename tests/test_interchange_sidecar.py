@@ -110,6 +110,18 @@ def test_slot_roles_come_from_each_games_shader_data():
     assert role(wuwa("MSM_ToonFace")) == "face" and role(wuwa("MSM_ToonFace", UseEyeSDF=True)) == "eye"
     assert role(wuwa("MSM_ToonCommon", UseSkinMask=True)) == "skin_and_clothing"
     assert role(wuwa("MSM_ToonCommon")) == "unknown"
+    # an instance that sets no UseSkinMask: its shader map's base pass says what it draws (IslandLife §7.1492)
+    banded = lambda **band: {**wuwa("MSM_ToonCommon"), "skin_band": band}                          # noqa: E731
+    assert role(banded(status="read", source="TypeMask", channel="R")) == "skin_and_clothing"
+    assert role(banded(status="no_skin_color", reason="SkinColor is not a parameter")) == "clothing"
+    assert role(banded(status="constant", constant_factor=0.0)) == "clothing"
+    assert role(banded(status="constant", constant_factor=1.0)) == "body_skin"
+    assert role(banded(status="constant", constant_factor=0.5)) == "unknown"
+    assert role(banded(status=None, reason="unread")) == "unknown"
+    assert role(banded(status="variants_differ")) == "unknown"
+    assert role({**wuwa("MSM_ToonCommon", UseSkinMask=True), "skin_band": {"status": "constant",
+                                                                           "constant_factor": 0.0}}) == "skin_and_clothing"
+    assert role({**wuwa("MSM_ToonHair"), "skin_band": {"status": "read"}}) == "hair"
     assert role({}) == "unknown"
 
 
@@ -225,3 +237,17 @@ def test_a_skin_and_clothing_material_carries_its_band_or_why_it_has_none_and_pa
     del document["materials"]["skin"]["native_material"]
     _path, data = _written(tmp_path, document, arrays)
     assert data["parts"][0]["vertex_colors"] is False and "skin_band" not in data["materials"]["skin"]
+
+
+def test_a_toon_common_material_without_the_skin_switch_takes_its_role_and_band_from_its_shader_map(tmp_path):
+    # Zhezhi 10011's Glass: no SkinColor in its shader map, so clothing, with the reading as its evidence (§7.1492)
+    (tmp_path / "out").mkdir()
+    document, arrays = _scene(tmp_path)
+    toon = {"Switches": {}, "Properties": {"BasePropertyOverrides": {"ShadingModel": "MSM_ToonCommon"}}}
+    band = {"status": "no_skin_color", "source": None, "reason": "SkinColor is not a parameter of the shader map"}
+    document["materials"]["skin"].update(native_material=toon, skin_band=band)
+    document["materials"]["cloth"].update(native_material=toon)
+    _path, data = _written(tmp_path, document, arrays)
+    assert data["materials"]["skin"]["role"] == "clothing" and data["materials"]["skin"]["skin_band"] == band
+    assert "SkinColor" in data["materials"]["skin"]["role_basis"]
+    assert data["materials"]["cloth"]["role"] == "unknown" and "skin_band" not in data["materials"]["cloth"]

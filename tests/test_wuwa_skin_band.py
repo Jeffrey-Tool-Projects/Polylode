@@ -78,7 +78,66 @@ def test_the_switches_and_scalars_say_where_their_values_come_from():
     record = {"native_material": {"Switches": {"UseSkinMask": True}, "Scalars": {"UseSkinMask_DYN": 1.0}}}
     uniforms = Uniforms([], [], [("DefaultSkinFactor", 0.0)], [], [])
     found = skin_band.parameters(record, uniforms)
-    assert found["UseSkinMask"]["value"] is True and found["UseTypeMask"]["value"] is False
+    # a switch the instance does not set is its parent's (compiled in), not off (IslandLife §7.1492)
+    assert found["UseSkinMask"]["value"] is True and found["UseTypeMask"]["value"] is None
+    assert "parent" in found["UseTypeMask"]["from"]
     assert found["UseSkinMask_DYN"] == {"value": 1.0, "from": "the instance's scalar"}
     assert found["DefaultSkinFactor"]["value"] == 0.0 and "default" in found["DefaultSkinFactor"]["from"]
     assert found["UseFaceAni_SkinMask"]["value"] is None
+
+
+def test_every_toon_common_material_but_the_tacet_mark_has_its_band_read():
+    from polylode.interchange.sidecar import slot_role
+    toon = lambda **extra: {"native_material": {"Switches": {}, "Properties": {                       # noqa: E731
+        "BasePropertyOverrides": {"ShadingModel": "MSM_ToonCommon"}}}, **extra}
+    assert skin_band.is_target(toon(), slot_role)                   # sets no UseSkinMask: read all the same
+    assert skin_band.is_target(toon(skin_band={"status": "no_skin_color"}), slot_role)   # a case read before
+    assert not skin_band.is_target(toon(profile="tacet_mark_texture"), slot_role)
+    hair = {"native_material": {"Properties": {"BasePropertyOverrides": {"ShadingModel": "MSM_ToonHair"}}}}
+    assert not skin_band.is_target(hair, slot_role) and not skin_band.is_target({}, slot_role)
+
+
+def test_a_shader_map_without_skin_colour_draws_no_skin():
+    from polylode.wuthering_waves.shaders.inline import Uniforms
+
+    class Store:
+        def map_index(self, digest):
+            return 0 if digest == b"m" * 20 else None
+
+    uniforms = Uniforms([], [], [], [("BaseColor", (1, 1, 1, 1))], [])
+    original = skin_band.inline.read
+    skin_band.inline.read = lambda uexp: [uniforms]
+    try:
+        found = skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])
+    finally:
+        skin_band.inline.read = original
+    assert found["status"] == "no_skin_color" and found["skin_color_read"] is False
+    assert "SkinColor" in found["reason"] and found["evidence"]["shader_map_sha1"] == ("6d" * 20)
+
+
+def test_a_translucent_map_is_read_off_the_passes_that_tint_toward_skin_colour(monkeypatch):
+    # no seven-target pass: the map's Material-reading pixel shaders, those reading SkinColor (§7.1492)
+    from polylode.wuthering_waves import shader_bake
+    from polylode.wuthering_waves.shaders.inline import Uniforms
+
+    class Store:
+        def map_index(self, digest):
+            return 0 if digest == b"m" * 20 else None
+
+    uniforms = Uniforms([], [], [], [("SkinColor", (1, 1, 1, 1))], [])
+    declared = "dcl_constantbuffer CB4[16], immediateIndexed\n"
+    tinting, depth = shader(declared + LERP), shader(declared + "mov o0.xyzw, l(0, 0, 0, 0)\nret\n")
+    monkeypatch.setattr(skin_band.inline, "read", lambda uexp: [uniforms])
+    monkeypatch.setattr(skin_band, "_slots", lambda *a: set(SKIN))
+    monkeypatch.setattr(shader_bake, "_frozen_values", lambda *a: np.zeros((16, 4)))
+    monkeypatch.setattr(skin_band, "base_passes", lambda store, index: [])
+    monkeypatch.setattr(skin_band, "shading_passes", lambda store, index: [(1, tinting), (2, depth)])
+    found = skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])
+    assert found["status"] == "constant" and found["constant_factor"] == 0.0
+    assert found["evidence"]["translucent_tinting_pixel_shaders"] == [1]
+    monkeypatch.setattr(skin_band, "shading_passes", lambda store, index: [(2, depth)])
+    found = skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])
+    assert found["status"] == "no_skin_color" and found["evidence"]["translucent_passes"] == [2]
+    # an opaque map's base passes are its seven-target ones, as before: a pass without the lerp is not dropped
+    monkeypatch.setattr(skin_band, "base_passes", lambda store, index: [(1, tinting), (2, depth)])
+    assert skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])["status"] == "variants_differ"

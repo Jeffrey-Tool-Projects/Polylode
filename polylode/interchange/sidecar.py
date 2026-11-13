@@ -32,8 +32,10 @@ same interchange scene the FBX was written from:
                 space — see :func:`expressions` for why they are not baked into
                 shape keys.
 
-Wuthering Waves' ``skin_and_clothing`` materials also carry ``skin_band``: where the
-game's own compiled shader draws skin (``wuthering_waves.skin_band``); GF2's
+Wuthering Waves' ``MSM_ToonCommon`` materials also carry ``skin_band``: where the
+game's own compiled shader draws skin (``wuthering_waves.skin_band``); a material whose
+instance sets no ``UseSkinMask`` takes its role from it (``skin_and_clothing`` when the
+base pass reads a band, ``clothing`` when its shader map draws no skin); GF2's
 materials a weapon prefab draws with carry ``weapon`` (``gf2.scene_facts``).  An eye
 whose highlight the FBX holds only baked carries ``eye`` (IslandLife §7.1491): the
 game, what was baked into the map the FBX carries and how (seen head-on, lights 1),
@@ -150,6 +152,26 @@ def slot_role(record: dict) -> tuple[str, str]:
             return "effect", "the tacet mark's parameters XingHenControl and XHPower (profile tacet_mark_texture)"
         if model == "MSM_ToonCommon" and switches.get("UseSkinMask"):
             return "skin_and_clothing", "shading model MSM_ToonCommon with the static switch UseSkinMask"
+        if model == "MSM_ToonCommon":
+            # a static switch the instance does not set is its parent's, compiled into the instance's shader map:
+            # the base pass read off that map (``wuthering_waves.skin_band``) says what the surface is
+            # (IslandLife §7.1492: Kanteleila 10011's Up, Down and Cloth set no UseSkinMask, and their base pass
+            # reads the TypeMask band as the switched-on ones do)
+            band = record.get("skin_band") or {}
+            status, factor = band.get("status"), band.get("constant_factor")
+            if status == "read":
+                return "skin_and_clothing", ("shading model MSM_ToonCommon whose compiled base pass reads a skin band "
+                                             f"({band.get('source')} {band.get('channel')}; the instance sets no "
+                                             "UseSkinMask)")
+            if status == "no_skin_color":
+                return "clothing", ("shading model MSM_ToonCommon whose compiled shader map draws no skin ("
+                                    f"{band.get('reason') or 'its base pass never reads SkinColor'})")
+            if status == "constant" and factor == 0.0:
+                return "clothing", ("shading model MSM_ToonCommon whose compiled base pass's skin factor is the "
+                                    "constant 0 (draws no skin)")
+            if status == "constant" and factor == 1.0:
+                return "body_skin", ("shading model MSM_ToonCommon whose compiled base pass's skin factor is the "
+                                     "constant 1")
         return "unknown", f"shading model {model} draws no one kind of surface"
     return "unknown", "the material has no native shader record"
 
@@ -206,7 +228,10 @@ def _material(name: str, record: dict, folder: Path, out_folder: Path, carried: 
     style = native_style(record)
     role, basis = slot_role(record)
     extra = {}
-    if role == "skin_and_clothing":
+    shading = (((record.get("native_material") or {}).get("Properties") or {}).get("BasePropertyOverrides")
+               or {}).get("ShadingModel")
+    if role == "skin_and_clothing" or (shading == "MSM_ToonCommon" and record.get("skin_band")):
+        # the band is also the evidence of a clothing / body_skin role read off the shader map (:func:`slot_role`)
         extra["skin_band"] = record.get("skin_band") or {
             "status": None, "reason": "the export did not read the game's shader for this material's skin band"}
     if record.get("weapon"):
