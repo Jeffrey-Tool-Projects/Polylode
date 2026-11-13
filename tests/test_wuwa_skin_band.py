@@ -54,6 +54,14 @@ def test_a_factor_following_no_input_is_the_materials_constant():
     assert found == {"source": None, "constant_factor": 0.25, "lerp_instruction": 2}
 
 
+
+def test_a_factor_read_straight_from_the_material_buffer_is_its_constant():
+    # Shouanren 10011's Up02: ``mad r5.xyz, cb4[85].zzzz, r5.xyzx, l(1, 1, 1, 0)`` (§7.1502)
+    body = ("add r1.xyz, cb4[7].xyzx, l(-1.000000, -1.000000, -1.000000, 0.000000)\n"
+            "mad r2.xyz, cb4[9].zzzz, r1.xyzx, l(1.000000, 1.000000, 1.000000, 0.000000)\nmov o0.xyz, r2.xyzx\nret\n")
+    assert read(body, {9: (0, 0, 1.0, 0)}) == {"source": None, "constant_factor": 1.0, "lerp_instruction": 1}
+
+
 def test_a_pass_that_never_reads_skin_color_draws_no_skin():
     assert read("mov o0.xyz, l(1.0, 1.0, 1.0, 0)\nret\n") == {"source": None, "skin_color_read": False}
 

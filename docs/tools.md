@@ -252,7 +252,7 @@ Sanhua 10011 `Body` 的 FBX 頂點色與交換場景逐值相同（R 全是 255�
 
 `_lerp` 找係數時，係數可以和差值在同一個暫存器（PlayerFemale 10011 `Up`：`add r9.yzw, SkinColor, −1` 之後 `mad r9.yzw, r9.xxxx, r9.yyzw, l(0, 1, 1, 1)`）：
 差值是那個暫存器裡分量落在 `add` 寫的那幾個分量的運算元，係數是另一個。原本只比暫存器號，把差值當成係數，讀成常數；這是 §7.1492
-「各變體不同」的來源之一（PlayerFemale 10011 `Up` 12 個變體中 4 個）。快取版本 4 → 5。
+「各變體不同」的來源之一（PlayerFemale 10011 `Up` 12 個變體中 4 個）。係數也可以直接是 Material buffer 的純量（Shouanren 10011 `Up02`、Fuludelisi 10011 `Cloth`／`Alpha`、Younuo 10011 `Alpha`：`mad r, cb4[85].zzzz, d, 1`，材質的常數係數）——§7.1492 的「lerp 寫法讀不懂」就是這一種，原本只認暫存器。快取版本 4 → 6。
 
 PlayerFemale 10011 `Up` 讀成的表：輸入 `TypeMask` A 與 `RegionIDTex` R；`TypeMask` A < 128 時 R 的低四位元是 4 為皮膚（4、20、36…244），
 ≥ 128 時 R 為 4 或 64–79（高四位元是 4；高四位元是 0 時取低四位元）。和反組譯逐條對過：`ftoi(R·255.5)`、`and 15`／`ishr 4`，A ≥ 0.5 而高四位元

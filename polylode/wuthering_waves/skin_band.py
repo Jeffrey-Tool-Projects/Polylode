@@ -31,7 +31,7 @@ from .shaders import archive as A
 from .shaders import dxbc, inline, preshader, vm
 
 #: bump when what :func:`analyse` returns changes: the case cache key carries it
-VERSION = 5
+VERSION = 6
 #: the sweep: an even grid and every 8-bit value (:data:`_ROUND`), and the floats either side of the literals the
 #: game's band compares against, so ``> 0.9`` and ``≥ 0.9`` are told apart
 _ROUND = np.unique(np.concatenate([np.linspace(0.0, 1.0, 1001), np.arange(256) / 255.0,
@@ -49,6 +49,8 @@ OTHER = "other maps"
 #: how a variant whose factor follows a map other than the band, and cannot be read as a table, is refused
 #: (:func:`_variant`)
 FOLLOWS_OTHER = "the skin factor follows another of the material's maps"
+#: what a lerp's factor can be read from: a register, a constant buffer's scalar, a shader input
+FACTOR_KINDS = ("r", "cb", "v")
 #: a map's texel as the base pass samples it from the exported 8-bit map: one of an 8-bit channel's 256 values
 TEXELS = np.arange(256, dtype=np.float32) / 255.0
 #: the most inputs a table is read over (every 8-bit value of each against every one of the other's)
@@ -86,7 +88,8 @@ class _Probe(vm.Machine):
     def _execute(self, ins, active):
         if ins is self.at:
             self.lanes = None
-            self.value = self.f(self.operand)[:, 0].copy()
+            # a factor read from a constant buffer or a literal is one row: the same on every lane
+            self.value = np.broadcast_to(self.f(self.operand)[:, 0], (self.n,)).copy()
             self.reached = active.copy()
             raise _Captured
         super()._execute(ins, active)
@@ -131,7 +134,10 @@ def _lerp(program: list[vm.Instruction], material: int, slots: set[int]) -> tupl
         a, b = ins.operands[1:3]
         mask = ins.operands[0].mask
         for difference, factor in ((a, b), (b, a)):
-            if (reads_difference(difference, mask, register, written) and factor.kind == "r"
+            # the factor is a register, or a scalar of a constant buffer read straight into the lerp (Shouanren
+            # 10011's Up02: ``mad r5.xyz, cb4[85].zzzz, r5.xyzx, l(1, 1, 1, 0)``, the material's constant factor,
+            # IslandLife §7.1502)
+            if (reads_difference(difference, mask, register, written) and factor.kind in FACTOR_KINDS
                     and not reads_difference(factor, mask, register, written)):
                 return factor
         return None
