@@ -37,7 +37,7 @@ La ventana en inglés, tomada de un escaneo y una vista previa reales con `tools
 - **Un archivo compañero para cada FBX.** Junto a `<nombre>.fbx` va `<nombre>.islandlife.json` (esquema versionado): la
   tabla de huesos humanoides del juego y de dónde sale (o por qué no la hay), los valores nativos de cada material y
   cada textura que el FBX no incrusta (copiada una vez a `textures/`, con su SHA-256 y espacio de color), el papel de
-  cada ranura de material y por qué una pieza oculta está oculta, las expresiones (shape keys, y los controles faciales
+  cada ranura de material y por qué una pieza oculta está oculta (con las pistas de la línea de tiempo de la escena en los prefabs de cinemáticas de GF2), dónde dibuja piel un material de Wuthering Waves que dibuja piel y ropa a la vez (leído del propio shader compilado del juego: el canal de máscara o el color de vértice y el umbral), qué renderers de GF2 son armas (los materiales de la tabla de armas), las expresiones (shape keys, y los controles faciales
   de Endfield como poses de huesos) y los identificadores, la versión instalada y los hashes de los archivos de origen.
   Lo que el juego no indica se escribe como ausente, nunca se adivina.
 - **Materiales como los dibujan los juegos.** Recortes, transparencia, capas de sombra de ojos y de brillo ocular se escriben con las reglas leídas de los
