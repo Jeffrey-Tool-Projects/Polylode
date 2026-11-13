@@ -6,6 +6,9 @@
   - Xuanling 10011 `Down`：實例自己設了 25 個靜態開關、套件 436 KB，`shaders.inline.read` 卻找不到凍結的資源（同模型的 `Up`、`Cloth` 讀得到）。
   - Calbrena 10011 `MI_Eye_OL`：實例沒有自己的靜態開關，畫的是上層材質 `M_Empty` 的 shader map；要讀上層材質（不是實例）的 shader map，
     並確認中間沒有別的實例改參數。
+- **鳴潮毛髮視差材質的皮膚查表沒有 UV**（IslandLife §7.1502）：Daniya 10011 `Cloth`（含毛絲複本）與 Mone 20011 的 `Up`／`Down`／`Cloth`
+  （含疊層、毛絲複本）讀成查表，但 `RegionIDTex`、`TypeMask` 在 shader 算出的座標上取樣，`uv_set` 是 null，讀者沒辦法把表放到網格上，
+  IslandLife 照實拒絕。要讀出那個座標怎麼從網格 UV 與毛髮的高度場算（`fur_shells` 讀過同一個視差），寫進 `inputs`。
 - **FBX 的貼圖平移方向**（§7.1449）：自寫的 FBX 已經用 Autodesk FBX SDK 2020.3.11 讀回過，終末地 jsspsi／ardelia、GF2 Groza、
   鳴潮 Rebecca 逐項相符，但還沒有在 Unity 或 Maya 的畫面上打開過。
   - 底色圖的縮放與偏移照 Unity 的 tiling／offset，寫進 `Texture` 的 `Scaling`／`Translation`。
