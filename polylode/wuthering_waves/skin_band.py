@@ -31,7 +31,7 @@ from .shaders import archive as A
 from .shaders import dxbc, inline, preshader, vm
 
 #: bump when what :func:`analyse` returns changes: the case cache key carries it
-VERSION = 3
+VERSION = 4
 #: the sweep: an even grid and every 8-bit value (:data:`_ROUND`), and the floats either side of the literals the
 #: game's band compares against, so ``> 0.9`` and ``≥ 0.9`` are told apart
 _ROUND = np.unique(np.concatenate([np.linspace(0.0, 1.0, 1001), np.arange(256) / 255.0,
@@ -44,6 +44,10 @@ SWITCHES = ("UseSkinMask", "UseTypeMask")
 #: the two constants every map other than the swept one is given; a factor that changes between them is
 #: not the band alone
 FILLS = (0.25, 0.75)
+#: the sweep of every map other than TypeMask together (:func:`_run`)
+OTHER = "other maps"
+#: how a variant whose factor follows a map other than the band is refused (:func:`_variant`)
+FOLLOWS_OTHER = "the skin factor follows another of the material's maps"
 #: the values each read of the immediate constant buffer is given in turn
 ICB = (0.0, 0.777778)
 CHANNELS = "RGBA"
@@ -177,11 +181,21 @@ def _run(shader: dxbc.Shader, program, at: int, factor: vm.Operand, buffers: dic
     n_grid = len(grid)
     sweeps = [(source, channel, background) for source in ("TypeMask", "COLOR0") for channel in range(4)
               for background in (0.0, 1.0) if source == "COLOR0" or typemask is not None]
+    # every other map at once, each channel along the grid, with the band's own inputs held at 0 and at 1: a factor
+    # that moves here follows a map that is not the band (an ID map decoded to integers and compared with
+    # SkinMin / SkinMax, IslandLife §7.1492), which the two constant fills cannot show
+    sweeps += [(OTHER, channel, background) for channel in range(4) for background in (0.0, 1.0)]
     n = n_grid * len(sweeps)
     lanes_mask = np.zeros((n, 4), np.float32)
     lanes_colour = np.zeros((n, 4), np.float32)
+    lanes_other = np.full((n, 4), fill, np.float32)
     for k, (source, channel, background) in enumerate(sweeps):
         rows = slice(k * n_grid, (k + 1) * n_grid)
+        if source == OTHER:
+            lanes_mask[rows] = background
+            lanes_colour[rows] = background
+            lanes_other[rows, channel] = grid
+            continue
         held, swept = (lanes_colour, lanes_mask) if source == "TypeMask" else (lanes_mask, lanes_colour)
         held[rows] = background
         swept[rows] = background
@@ -195,7 +209,7 @@ def _run(shader: dxbc.Shader, program, at: int, factor: vm.Operand, buffers: dic
             inputs[register] = lanes_colour
     textures = {}
     for register in shader.textures:
-        textures[register] = np.full((1, 1, 4), fill, np.float32)
+        textures[register] = lanes_other
     if typemask is not None:
         textures[typemask] = lanes_mask
     machine = _Probe(program, n, inputs, buffers, textures, at, factor)
@@ -240,6 +254,12 @@ def _variant(shader: dxbc.Shader, buffers: dict, material: int, slots: set[int],
         raise BandError("some lanes do not reach the SkinColor lerp (it is under a branch)")
     if any(not np.array_equal(first[key], other[key]) for other, _r in others for key in first):
         raise BandError("the skin factor changes with the other maps or the dither table, not only with a band")
+    other = sorted({CHANNELS[channel] for (source, channel, _b), values in first.items()
+                    if source == OTHER and _step(_GRID, values)["follows"]})
+    if other:
+        raise BandError(FOLLOWS_OTHER + " (channels "
+                        + "".join(other) + "), not only TypeMask or the vertex colour")
+    first = {key: values for key, values in first.items() if key[0] != OTHER}
     followed = {}
     for (source, channel, background), factor_values in first.items():
         step = _step(_GRID, factor_values)
@@ -385,6 +405,12 @@ def analyse(record: dict, store: A.Archive, uexp: bytes, size, collections: list
     if not variants:
         reasons = sorted({reason for _i, reason in failures}) or ["the shader map has no base-pass pixel shader"]
         raise BandError("; ".join(reasons))
+    # a variant whose factor was read through and follows another map is not unread: it draws its skin by that
+    # map, so what the other variants read is not the material's band (Lucy 10011's Up: some variants constant 0,
+    # the others an ID map, §7.1492)
+    elsewhere = sorted({reason for _i, reason in failures if reason.startswith(FOLLOWS_OTHER)})
+    if elsewhere:
+        raise BandError("; ".join(elsewhere))
     if translucent:
         tinting = [(i, r) for i, r in variants if r.get("skin_color_read") is not False]
         if not tinting and not failures:

@@ -141,3 +141,38 @@ def test_a_translucent_map_is_read_off_the_passes_that_tint_toward_skin_colour(m
     # an opaque map's base passes are its seven-target ones, as before: a pass without the lerp is not dropped
     monkeypatch.setattr(skin_band, "base_passes", lambda store, index: [(1, tinting), (2, depth)])
     assert skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])["status"] == "variants_differ"
+
+
+def test_a_factor_that_follows_only_another_map_is_refused_not_read_as_a_constant():
+    # an ID decoded from another map and compared with a range (PlayerFemale / Lucy 10011's SkinMin, SkinMax;
+    # IslandLife §7.1492): at the two constant fills it is the same (0.25 → ID 63, 0.75 → ID 191, neither 4),
+    # so without sweeping that map it read as the constant 0
+    body = ("sample_indexable(texture2d)(float,float,float,float) r4.xyzw, v1.xyxx, t2.xyzw, s2\n"
+            "mul r4.x, r4.x, l(255.000000)\nftoi r4.x, r4.x\nieq r0.x, r4.x, l(4)\n"
+            "and r0.x, r0.x, l(0x3f800000)\n" + LERP)
+    with pytest.raises(skin_band.BandError, match="another of the material's maps"):
+        read(body)
+
+
+def test_a_map_one_of_whose_variants_follows_another_map_is_refused_whatever_the_others_read(monkeypatch):
+    # Lucy 10011's Up (§7.1492): some base-pass variants read the constant 0, the others an ID map
+    from polylode.wuthering_waves import shader_bake
+    from polylode.wuthering_waves.shaders.inline import Uniforms
+
+    class Store:
+        def map_index(self, digest):
+            return 0 if digest == b"m" * 20 else None
+
+    declared = "dcl_constantbuffer CB4[16], immediateIndexed\n"
+    constant = shader(declared + "mov r0.x, l(0)\n" + LERP)
+    by_id = shader(declared + "sample_indexable(texture2d)(float,float,float,float) r4.xyzw, v1.xyxx, t2.xyzw, s2\n"
+                   "mul r4.x, r4.x, l(255.000000)\nftoi r4.x, r4.x\nieq r0.x, r4.x, l(4)\n"
+                   "and r0.x, r0.x, l(0x3f800000)\n" + LERP)
+    monkeypatch.setattr(skin_band.inline, "read", lambda uexp: [Uniforms([], [], [], [("SkinColor", (1, 1, 1, 1))], [])])
+    monkeypatch.setattr(skin_band, "_slots", lambda *a: set(SKIN))
+    monkeypatch.setattr(shader_bake, "_frozen_values", lambda *a: np.zeros((16, 4)))
+    monkeypatch.setattr(skin_band, "base_passes", lambda store, index: [(1, constant), (2, by_id)])
+    with pytest.raises(skin_band.BandError, match="another of the material's maps"):
+        skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])
+    monkeypatch.setattr(skin_band, "base_passes", lambda store, index: [(1, constant)])
+    assert skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])["status"] == "constant"

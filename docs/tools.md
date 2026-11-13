@@ -235,12 +235,15 @@ Sanhua 10011 `Body` 的 FBX 頂點色與交換場景逐值相同（R 全是 255�
 `parameters` 裡實例沒設的開關寫 `value: null`（上層的值，看讀到的帶），不再當成關。shader map 根本沒有 `SkinColor` 參數 → `no_skin_color`；
 沒有 7 目標 base pass 的半透明 shader map，改讀它所有讀 Material buffer 的像素 shader 中會往 `SkinColor` lerp 的那些，一個都沒有就是 `no_skin_color`。
 直譯器讀得懂反組譯器的非有限常數寫法（`-1.#QNAN0`、`1.#INF00`）。
+另加一段掃描：`TypeMask` 與頂點色以外的每張貼圖一起、每個通道沿同一個格點（帶的兩個輸入固定 0 與 1）。係數跟著這段走的變體表示皮膚由另一張圖決定
+（ID 圖解碼成整數、和 `SkinMin`／`SkinMax` 比；兩個常數填值 0.25／0.75 解出的 ID 都不是皮膚，原本讀成常數 0），拒絕；一個 shader map 只要有一個
+base pass 變體是這樣，整個材質就讀不出（寫 `null` 與原因），不拿其他變體的常數頂替。快取版本 3 → 4。
 
-2026-11-13 對 60 個案例的 252 個 `MSM_ToonCommon` 材質量：開關有設的 91 個照舊；沒設的 161 個中，13 個讀到帶（12 個 `TypeMask` R、1 個頂點色 R，
-例如 Kanteleila 10011 的 `Up`／`Down`／`Cloth`——她的皮膚全在這三個沒設開關的材質裡）、106 個常數 0、7 個 `no_skin_color`（Zhezhi 10011 `Glass` 等）、
-Yangyang 10011 `Body`（實例把 `UseSkinMask` 關掉）常數 1。仍是 `unknown` 的：25 個 `variants_differ`——係數跟著一張 ID 圖解碼出的整數與
-`SkinMin`／`SkinMax` 比（PlayerFemale 10011 `Up` 的 base pass），這裡只掃 `TypeMask` 與頂點色，ID 圖給常數，各變體得到不同的常數；
-4 個 lerp 寫法讀不懂（Fuludelisi 10011 `Cloth`）；1 個讀材質時索引越界（Xuanling 10011 `Down`）。
+2026-11-13 對 60 個案例的 252 個 `MSM_ToonCommon` 材質量（加掃描之前）：開關有設的 91 個照舊；沒設的 161 個中，13 個讀到帶（12 個 `TypeMask` R、1 個頂點色 R，
+例如 Kanteleila 10011 的 `Up`／`Down`／`Cloth`——她的皮膚全在這三個沒設開關的材質裡）、7 個 `no_skin_color`（Zhezhi 10011 `Glass` 等）、
+Yangyang 10011 `Body`（實例把 `UseSkinMask` 關掉）常數 1、106 個常數 0。常數 0 的 106 個裡有 89 個的 shader map 沒有 `UseSkinMask_DYN`、
+材質有 `SkinMin`／`SkinMax`，25 個 `variants_differ` 也全是這一類：它們的係數跟著 ID 圖走（PlayerFemale、Lucy 10011 的 `Up` 實測），
+加了上面的掃描後讀成 `null`、角色 `unknown`。另 4 個 lerp 寫法讀不懂（Fuludelisi 10011 `Cloth`）；1 個讀材質時索引越界（Xuanling 10011 `Down`）。
 
 ### 視差毛髮做成毛絲層（`wuthering_waves/fur_shells.py`）
 

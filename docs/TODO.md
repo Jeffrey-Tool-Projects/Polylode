@@ -2,10 +2,10 @@
 
 只記還沒做完的事，做完的整段刪掉。§7.x 是 IslandLife 的逐節紀錄（`D:\Codes\IslandLife\docs\updates\`）。
 
-- **鳴潮用 ID 圖選皮膚的材質讀不出皮膚帶**（IslandLife §7.1492）：25 個 `MSM_ToonCommon` 材質（PlayerFemale 10011／20011 的
-  `Up`／`Down`、Linnaea、Mone、Qingxiao、Suisui、Xigelika…）的 lerp 係數跟著一張貼圖解碼出的整數 ID 與 `SkinMin`／`SkinMax` 比，
-  `skin_band` 只掃 `TypeMask` 與頂點色，ID 圖給常數，各 base pass 變體得到不同的常數（0 與 −0.047 等），寫成 `variants_differ`，旁檔角色 `unknown`。
-  - 要加掃那張 ID 圖（哪個通道、怎麼解碼成整數、比哪個範圍都在 base pass 裡），寫出「哪些 ID 是皮膚」。
+- **鳴潮用 ID 圖選皮膚的材質讀不出皮膚帶**（IslandLife §7.1492）：約 110 個 `MSM_ToonCommon` 材質（shader map 沒有 `UseSkinMask_DYN`、
+  材質有 `SkinMin`／`SkinMax`：PlayerFemale 10011／20011、Lucy、Aimisi、Suoming、Luosela、Mone、Linnaea、Qingxiao…）的 lerp 係數跟著一張貼圖
+  解碼出的整數 ID 與 `SkinMin`／`SkinMax` 比；`skin_band` 掃到它跟著別的圖走就寫 `null`，旁檔角色 `unknown`，這些角色在 IslandLife 轉不了。
+  - 要讀出那張 ID 圖（哪張、哪個通道、怎麼解碼成整數、比哪個範圍都在 base pass 裡），寫出「哪些 ID 是皮膚」，旁檔像 `TypeMask` 一樣帶上那張圖。
   - 另有 4 個 lerp 寫法讀不懂（Fuludelisi 10011 `Cloth`／`Alpha`、Shouanren 10011 `Up02`、Younuo 10011 `Alpha`），
     Xuanling 10011 `Down` 讀材質時索引越界。
 - **FBX 的貼圖平移方向**（§7.1449）：自寫的 FBX 已經用 Autodesk FBX SDK 2020.3.11 讀回過，終末地 jsspsi／ardelia、GF2 Groza、
