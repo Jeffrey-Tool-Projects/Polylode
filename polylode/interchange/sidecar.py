@@ -271,7 +271,9 @@ def expressions(document: dict, arrays) -> dict:
         out["controls"] = document["expression_controls"]
     if document.get("expression_presets"):
         out["presets"] = document["expression_presets"]
-    if not poses and not shapes:
+    if document.get("expression_failure"):
+        out["reason"] = f"bone-driven expressions could not be built: {document['expression_failure']}"
+    elif not poses and not shapes:
         out["reason"] = ("no expressions: the model has no shape keys, and no bone-driven expressions were "
                          "worked out for this export")
     return out

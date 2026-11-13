@@ -154,3 +154,30 @@ def test_a_steam_install_names_its_build_and_a_wuwa_skeleton_its_rig(tmp_path):
     skeleton = {"Type": "Skeleton", "AnimRetargetSources": {}, "Properties": {"Sockets": [1, 2]}}
     assert wuwa_skeleton(mesh, skeleton) == {"skeleton": "Game/X_Skeleton.1", "read": True, "rig_config": None,
                                              "anim_retarget_sources": 0, "sockets": 2}
+
+
+def test_expressions_that_cannot_be_built_say_why_and_do_not_stop_the_export(tmp_path):
+    (tmp_path / "out").mkdir()
+    document, arrays = _scene(tmp_path)
+    document["expression_failure"] = "the skeleton has no bone eyeRtupeyeControl_jnt that its morph config moves"
+    _path, data = _written(tmp_path, document, arrays)
+    assert data["expressions"]["reason"].startswith("bone-driven expressions could not be built: ")
+    assert "eyeRtupeyeControl_jnt" in data["expressions"]["reason"]
+
+
+def test_a_morph_config_on_a_bone_the_rig_lacks_is_recorded_not_raised():
+    from polylode.endfield import morph, poses
+
+    class Face:
+        def __init__(self, configs, skeleton):
+            raise morph.MorphError("the skeleton has no bone x_jnt that its morph config moves")
+
+    document, lines = {"animations": []}, []
+    original = (morph.for_actor, morph.emotions, morph.poses, morph.Face)
+    morph.for_actor, morph.emotions, morph.poses, morph.Face = (lambda extra: {"c": {}}), (lambda: {"e": {}}), \
+        (lambda: {"p": {}}), Face
+    try:
+        assert poses.add_expressions(document, {}, None, [], {}, None, lines.append) == 0
+    finally:
+        morph.for_actor, morph.emotions, morph.poses, morph.Face = original
+    assert "x_jnt" in document["expression_failure"] and any("x_jnt" in line for line in lines)

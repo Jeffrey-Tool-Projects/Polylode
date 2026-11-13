@@ -156,7 +156,15 @@ def add_expressions(document, arrays, skeleton, bones, extra, fetch=None, log=pr
     if not configs:
         log("此模型沒有可用的臉部控制資料；保留動作本身的臉部骨骼動畫")
         return 0
-    face = morph.Face(configs, skeleton)
+    try:
+        face = morph.Face(configs, skeleton)
+    except morph.MorphError as exc:
+        # A morph config that moves a bone this rig lacks (an alternate head such as EndminF's unmasked one
+        # shares the configs but not every eye control): the expressions cannot be built, the model still can.
+        # Said in the document so the sidecar records why, never left as a silent empty list.
+        log(f"臉部控制無法套用到這個骨架：{exc}；不寫表情")
+        document["expression_failure"] = str(exc)
+        return 0
     choices = [(f"control/{name}", {name: 1.0}, False) for name, changes in face.controls.items() if changes]
     choices += [(f"control/{name}", {name: 1.0}, False) for name in face.params]
     for kind, table in (("emotion", emotions), ("pose", presets)):
