@@ -2242,5 +2242,11 @@
   "zh-CN": "把选取的 .glb（没选就是显示中的那个；按住 Ctrl 或 Shift 可以选好几个）一起写进你的 GitHub Pages 网站并推送；网址贴到 Discord 会显示成卡片，点开可以转动模型",
   "ja": "選択した .glb（未選択なら表示中のもの。Ctrl か Shift で複数選択）をまとめて GitHub Pages サイトに書き込んでプッシュ。アドレスを Discord に貼るとカードになり、開くとモデルを回せます",
   "ko": "선택한 .glb(선택하지 않으면 표시 중인 것; Ctrl 또는 Shift로 여러 개 선택)를 함께 GitHub Pages 사이트에 쓰고 푸시합니다. 주소를 Discord에 붙이면 카드로 보이고, 열면 모델을 돌릴 수 있습니다"
+ },
+ "讀遊戲 shader 的皮膚帶": {
+  "en": "Reading the skin band from the game's shader",
+  "zh-CN": "读游戏 shader 的皮肤带",
+  "ja": "ゲームのシェーダーから肌の帯を読み取り中",
+  "ko": "게임 셰이더에서 피부 영역을 읽는 중"
  }
 }

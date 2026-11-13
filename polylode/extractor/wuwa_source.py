@@ -315,7 +315,13 @@ class WuwaSource:
         from ..wuthering_waves.shader_bake import bake_case
         from .sources import shared_writes
         with shared_writes("wuwa", log):                 # GameFiles fills the shader cache every model reads
-            bake_case(case, GameFiles(settings, log), log, progress.step)
+            files = GameFiles(settings, log)
+            bake_case(case, files, log, progress.step)
+            # where a skin_and_clothing material draws skin, as the game's shader decides it, for the FBX's sidecar
+            if "fbx" in formats:
+                from ..wuthering_waves.skin_band import annotate_case
+                progress.step("讀遊戲 shader 的皮膚帶")
+                annotate_case(case, files, log)
         # the fur shader's parallax depth as layers of strands (fur_shells), after the coverage it stands on
         from ..wuthering_waves.fur_shells import apply as fur_layers
         progress.step("把毛髮視差做成毛絲層")
