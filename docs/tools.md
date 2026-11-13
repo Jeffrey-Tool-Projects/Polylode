@@ -201,7 +201,7 @@
 5. **執行期欄位**：給的是遊戲預設畫面在 UE 4.26 View／Primitive uniform buffer 的值，每一格都從 shader 的用法認出來（`shader_bake.RUNTIME`／`FRAME`）：
    View [12..15] 視圖矩陣（每點各自朝 −N 看）、[36] ClipToView 第一列 1（90° 視野）、[67]／[70] 相機位置 0（座標以相機為準）、
    [134] 視窗原點、[148] 遊戲時間、[149] mip 偏移、[158] 影格都是 0、[144] `DiffuseOverrideParameter` (0,0,0,1)、[147].w 1；
-   Primitive [0..3] LocalToWorld 單位矩陣、[4].w 行列式符號 1、[27] 自訂資料與 [33] 濕度 0；材質參數集合用資產的預設值。
+   Primitive [0..3] LocalToWorld 單位矩陣、[4].w 行列式符號 1、[27] 自訂資料與 [33] 濕度 0；材質參數集合用資產的預設值；第 i 個 `MaterialCollection<i>` 是實例 shader map 裡依 `StateId` GUID 排的第 i 個集合（`shader_bake.collections_in_map`），不是根材質 `ParameterCollectionInfos` 的順序——椿的眼睛兩者相反，照根材質排會讀到別的參數（§7.1491 改，覆蓋率與皮膚帶的快取版本跟著跳）。
    讀到這以外欄位的 shader 不烘（之前 LocalToWorld 留 0 時，「心」下身的距離算成 NaN、腿整段不見）。
    shader 讀了網格沒有的輸入（頂點 shader 算出的自訂 UV，輸入簽章的 Used 欄）時，先用 2 萬個點各以 0 與 1 試跑，結果變動超過 1% 就不烘。
 6. **快取與失敗**：遊戲檔（約 1.2 GB 的封存檔、材質套件、上層材質與參數集合的 JSON）第一次由讀取器取出，放在
@@ -271,7 +271,7 @@ glTF／FBX 不能走視線，所以把同一個高度場做成幾何：卡片原
   `SV_Target0`（base pass 自己加的場景色，即 Unreal 的 emissive，不受光）寫成發光圖與強度。貼圖照資產自己的 `AddressX`／`AddressY`
   取樣（`GameFiles.address`；`TA_Clamp` 夾在邊緣，直譯器本身是 wrap），`HeightLightMap` 與 `EM` 都是 clamp——用 wrap 讀會把高光鋪滿整顆眼睛。
   沒寫在 `FRAME` 的 View／Primitive／ToonShadowLightData 槽一一給亂數、網格沒有的輸入給 0 與 1、螢幕位置移動，目標有變就拒絕；
-  參數集合給資產的預設值；全部變體（立即常數表兩個值）結果必須相同。兩眼疊在同一塊 UV、高光位置靠頂點色分開時，三角形照 `_layers`
+  參數集合給資產的預設值（照 shader map 的順序）；全部變體（立即常數表兩個值）結果必須相同。兩眼疊在同一塊 UV、高光位置靠頂點色分開時，三角形照 `_layers`
   分到 `<材質>_Overlap<k>`（和覆蓋率同一套搬部件）。椿：12 個 base pass 變體一致，2 507 499 個貼圖像素、4 898 923 個取樣，
   兩張圖（591／41 個三角形），發光最大 1.74；在 4 096 個取樣上，`HeightLightMap` 的 R 同時改底色（最多 0.049）與發光（0.021），
   B 只改發光（0.40），G、A 不影響。結果依規則版本、材質與幾何快取在 `shaders/eye/`，第一次約 3 分鐘。

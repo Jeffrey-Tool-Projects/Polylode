@@ -106,6 +106,31 @@ def _frozen_values(document_material: dict, uniforms: inline.Uniforms, texture_s
     return np.array(slots + list(packed.reshape(-1, 4)), dtype=np.float64)
 
 
+def collections_in_map(uexp: bytes, collections: list[dict]) -> list[dict]:
+    """The parameter collections in the order the instance's shader map numbers them (``MaterialCollection<i>``).
+
+    That order is not the root material's ``ParameterCollectionInfos`` order: the shader map's uniform expression set
+    lists the collections it reads by their ``StateId`` GUIDs, one after the other (four little-endian words each).
+    椿's eye lists ``MPC_GlobalShaderParameters`` then ``EyesParameter`` while the root lists them the other way
+    round, and a buffer filled from the wrong collection reads another parameter's default (IslandLife §7.1491).
+    The run of known GUIDs at the first one found is the order; a collection whose GUID the map does not hold is
+    not read by it."""
+    import struct
+    known = {}
+    for collection in collections:
+        state = collection.get("StateId")
+        if state:
+            known[struct.pack("<4I", *(int(word, 16) for word in state.split("-")))] = collection
+    found = [at for at in (uexp.find(guid) for guid in known) if at >= 0]
+    if not found:
+        return []
+    at, ordered = min(found), []
+    while uexp[at:at + 16] in known:
+        ordered.append(known[uexp[at:at + 16]])
+        at += 16
+    return ordered
+
+
 def _collection(info: dict) -> np.ndarray:
     """A material parameter collection's uniform buffer from its defaults: scalars four to a float4, then
     vectors."""
@@ -308,7 +333,7 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, case: P
     if register is None:
         raise BakeError("shader 沒有讀 Material buffer")
     buffers[register][:min(len(material), len(buffers[register]))] = material[:len(buffers[register])]
-    for number, collection in enumerate(collections):
+    for number, collection in enumerate(collections_in_map(uexp, collections)):
         target = shader.buffers.get(f"MaterialCollection{number}")
         if target is not None:
             values = _collection(collection)
@@ -491,7 +516,7 @@ def _fill(alpha: np.ndarray) -> np.ndarray:
 
 
 #: raised when what a bake gives changes, so a coverage kept from an earlier rule is not used again
-VERSION = 7
+VERSION = 8
 #: a texel's coverage counted as partial (drawn blended, not cut) between these
 PARTIAL = (0.02, 0.98)
 #: the share of a material's covered texels that must be partial for it to be drawn blended; below it the

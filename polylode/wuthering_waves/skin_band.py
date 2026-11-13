@@ -31,7 +31,7 @@ from .shaders import archive as A
 from .shaders import dxbc, inline, preshader, vm
 
 #: bump when what :func:`analyse` returns changes: the case cache key carries it
-VERSION = 1
+VERSION = 2
 #: the sweep: an even grid and every 8-bit value (:data:`_ROUND`), and the floats either side of the literals the
 #: game's band compares against, so ``> 0.9`` and ``≥ 0.9`` are told apart
 _ROUND = np.unique(np.concatenate([np.linspace(0.0, 1.0, 1001), np.arange(256) / 255.0,
@@ -317,7 +317,7 @@ def parameters(record: dict, uniforms: inline.Uniforms | None) -> dict:
 
 def analyse(record: dict, store: A.Archive, uexp: bytes, size, collections: list[dict]) -> dict:
     """The skin band of the material *record* (its instance's ``.uexp`` is *uexp*): see the module."""
-    from .shader_bake import FRAME, _collection, _frozen_values, _sizes
+    from .shader_bake import FRAME, _collection, _frozen_values, _sizes, collections_in_map
     resources = inline.read(uexp)
     if not resources:
         raise BandError("the instance's package has no inline shader map")
@@ -345,7 +345,7 @@ def analyse(record: dict, store: A.Archive, uexp: bytes, size, collections: list
                     if slot < len(buffers[register]):
                         buffers[register][slot] = value
         buffers[material][:min(len(material_values), len(buffers[material]))] = material_values[:len(buffers[material])]
-        for number, collection in enumerate(collections):
+        for number, collection in enumerate(collections_in_map(uexp, collections)):
             target = shader.buffers.get(f"MaterialCollection{number}")
             if target is not None:
                 values = _collection(collection)

@@ -37,7 +37,7 @@ from .shaders import archive as A
 from .shaders import dxbc, inline, preshader, vm
 
 #: bump when what a bake gives changes: the cache key carries it
-VERSION = 1
+VERSION = 2
 #: the base pass's render targets read: the scene colour it adds (not lit) and GBufferC's base colour (lit)
 EMISSION, BASE_COLOR = 0, 3
 #: the frame a bake gives, against Unreal 4.26's View and Primitive buffers as the base pass reads them:
@@ -251,7 +251,7 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, case: P
     """*name*'s two targets over its base map: ``{"layers": [{"base": H × W × 4 linear, "emission": H × W × 3
     linear}, …], "layer": each triangle's map, "statement": …}``.  *address* gives a texture package's
     ``(AddressX, AddressY)`` (``GameFiles.address``)."""
-    from .shader_bake import _frozen_values, _image, _subset, surface_points, unknown_inputs
+    from .shader_bake import _frozen_values, _image, _subset, collections_in_map, surface_points, unknown_inputs
     from .skin_band import base_passes
     resources = inline.read(uexp)
     if not resources:
@@ -282,6 +282,7 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, case: P
             return opened.size
 
     material_values = _frozen_values(record, uniforms, size_of)
+    collections = collections_in_map(uexp, collections)
     base_record = maps[record["base"]]
     base = _image(case / base_record["file"], bool(base_record.get("srgb")))
     size = (base.shape[1], base.shape[0])

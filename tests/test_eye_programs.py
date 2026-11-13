@@ -171,3 +171,17 @@ def test_the_sidecar_carries_the_eye_statement_and_the_glb_embeds_the_maps_it_na
     glb.write(document, arrays, tmp_path, tmp_path / "out" / "model.glb")
     _document, _blob, materials = CS.read_materials(tmp_path / "out" / "model.glb", tmp_path / "cache")
     assert materials[0]["eyeBase"].startswith("file:") and materials[0]["eyeMode"] == 2
+
+
+def test_parameter_collections_take_the_shader_maps_order_not_the_root_materials():
+    """The uniform expression set lists the collections it reads by StateId, one after another: that order numbers
+    MaterialCollection<i> (椿's eye: the global collection first, though the root lists the eye's first)."""
+    import struct
+    from polylode.wuthering_waves.shader_bake import collections_in_map
+    guid = lambda text: struct.pack("<4I", *(int(w, 16) for w in text.split("-")))  # noqa: E731
+    eyes = {"StateId": "1A6B5811-43528A6C-6AFB37B5-DF037E63", "name": "eyes"}
+    world = {"StateId": "C7A8A13A-4BFC1A3B-40B67186-7C79461E", "name": "global"}
+    unused = {"StateId": "8071EBCB-42907E48-F974AF8D-5C69D18F", "name": "sequence"}
+    uexp = b"\x00" * 9 + guid(world["StateId"]) + guid(eyes["StateId"]) + b"\x01" * 7 + guid(world["StateId"])
+    assert [c["name"] for c in collections_in_map(uexp, [eyes, world, unused])] == ["global", "eyes"]
+    assert collections_in_map(b"\x00" * 64, [eyes]) == []
