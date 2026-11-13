@@ -185,9 +185,10 @@ def scene_document(ident, declared=None):
 
 def source_facts(document_data: dict, item, extra: dict, log=lambda message: None) -> None:
     """What the game's data says beyond the prefab's flags, for the FBX's sidecar (``scene_facts``): each material
-    a weapon prefab of ``GunWeaponData`` draws with (``weapon``), and for each part the prefab ships switched off,
-    which node or renderer does it (``source_off``) and the prefab's timeline tracks on its way (``timeline``).
-    Read from the install; when it cannot be, ``facts_failure`` says why."""
+    a weapon prefab of ``GunWeaponData`` draws with (``weapon``); for each part the prefab ships switched off, which
+    node or renderer does it (``source_off``); and for every model the prefab's directors and switched-off nodes
+    and every part's timeline tracks on its way (``timeline``, :func:`scene_facts.apply_timeline`).  Read from the
+    install; when it cannot be, ``facts_failure`` says why."""
     from . import scene_facts
     from .catalog import Catalog
     for part in document_data['parts']:
@@ -203,13 +204,9 @@ def source_facts(document_data: dict, item, extra: dict, log=lambda message: Non
             key = '/'.join(str(v) for v in record.get('source_material') or [])
             if key in table:
                 record['weapon'] = table[key]
-        if any('source_off' in part for part in document_data['parts']):
-            facts = scene_facts.timeline(catalog, extra['entry'])
-            if facts['directors']:
-                document_data['timeline'] = {'directors': facts['directors']}
-                for part in document_data['parts']:
-                    if 'source_off' in part:
-                        part['timeline'] = scene_facts.path_facts(part.get('path', ''), facts)
+        # every model, not only one with a part switched off: a cut scene whose character the prefab ships switched
+        # on (Faye SSR01_Class, Alva SSR01_Upgrade) is told from a combat model only by its director (IslandLife §7.1503)
+        scene_facts.apply_timeline(document_data, scene_facts.timeline(catalog, extra['entry']))
     except (OSError, ValueError, KeyError, IndexError, AttributeError) as failure:
         document_data['facts_failure'] = f'{type(failure).__name__}: {failure}'
 

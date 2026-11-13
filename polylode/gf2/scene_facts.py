@@ -19,6 +19,10 @@ its node or its renderers' nodes inactive — and what turns things on while the
 lists, for each node a part's path runs through, the tracks of every director bound to it, so a reader sees both
 the prefab's own state (what the export shows) and what the scene does with it.  The character track's clips are
 named ``c_{0}_Upgrade_Exclusive``: the game fills in the character when it plays the scene.
+
+Every model's sidecar carries them (:func:`apply_timeline`), an empty ``directors`` saying the prefab has no
+``PlayableDirector``: of the 223 GF2 models the scan lists, 12 have one — the 11 ``_Class``/``_Upgrade``/``_Gacha``
+prefabs and a dormitory idle scene — and no combat (``slg``) prefab does (IslandLife §7.1503).
 """
 from __future__ import annotations
 
@@ -179,6 +183,14 @@ def timeline(catalog, entry: dict) -> dict:
                                                      "duration": round(float(clip["m_Duration"]), 4),
                                                      "name": clip.get("m_DisplayName")}]})
     return out
+
+
+def apply_timeline(document: dict, facts: dict) -> None:
+    """Write *facts* (:func:`timeline`) into a scene *document*: its ``timeline`` (the prefab's directors, ``[]`` when
+    it has none, and its switched-off nodes) and every part's ``timeline`` (:func:`path_facts`)."""
+    document['timeline'] = {'directors': facts['directors'], 'inactive': facts['inactive']}
+    for part in document['parts']:
+        part['timeline'] = path_facts(part.get('path', ''), facts)
 
 
 def path_facts(part_path: str, facts: dict) -> dict:

@@ -24,8 +24,8 @@ same interchange scene the FBX was written from:
                 material slot's role (body skin, face, eye, hair, clothing,
                 overlay, outline, effect, weapon … or ``unknown``) with what
                 decided it; whether the FBX carries its vertex colours; for a
-                part the source switched off, which node or renderer did it and
-                (GF2's cut-scene prefabs) the timeline tracks on its way;
+                part the source switched off, which node or renderer did it, and
+                (GF2, every part) the timeline tracks on its way;
 ``expressions`` the shape keys the FBX's BlendShapes already hold, and the
                 expressions the game drives with bones (Endfield's face
                 controls and presets), as local bone transforms in the FBX's own
@@ -414,7 +414,8 @@ def write(document_path: Path, model: Path, fbx_report: dict, *, identity: dict,
                "parts": parts,
                "vertex_colors": VERTEX_COLORS,
                "expressions": expressions(document, arrays)}
-    if document.get("timeline"):
+    if "timeline" in document:
+        # GF2 writes it for every model (``gf2.scene_facts.apply_timeline``): no director is ``directors: []``
         sidecar["timeline"] = document["timeline"]
     if document.get("facts_failure"):
         sidecar["facts_failure"] = document["facts_failure"]

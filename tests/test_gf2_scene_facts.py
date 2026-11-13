@@ -25,3 +25,17 @@ def test_a_parts_path_gathers_its_switched_off_nodes_and_the_tracks_on_its_way()
     assert scene_facts.path_facts("VFX/Mirage/body_lod0", facts)["activated_by_timeline"] is False
     assert scene_facts.path_facts("Body/body_lod0", facts) == {"inactive_nodes": [], "tracks": [
         dict(animation, node="")], "activated_by_timeline": False}
+
+
+def test_every_model_says_whether_its_prefab_plays_a_timeline_and_every_part_its_way():
+    # a cut scene whose character is shipped switched on has no part the source hides, and still plays a timeline
+    director = {"node": "", "timeline": "c_FayeSSR01_Class", "duration": 9.0, "plays_on_awake": True}
+    document = {"parts": [{"name": "body_lod0", "path": "Body/body_lod0"}, {"name": "face_lod0"}]}
+    scene_facts.apply_timeline(document, {"directors": [director], "inactive": ["Camera"], "nodes": {}})
+    assert document["timeline"] == {"directors": [director], "inactive": ["Camera"]}
+    assert [part["timeline"]["inactive_nodes"] for part in document["parts"]] == [[], []]
+    # a combat prefab has no director: written as an empty list, not left out
+    combat = {"parts": [{"name": "body_lod0", "path": "body_lod0"}]}
+    scene_facts.apply_timeline(combat, {"directors": [], "inactive": [], "nodes": {}})
+    assert combat["timeline"] == {"directors": [], "inactive": []}
+    assert combat["parts"][0]["timeline"] == {"inactive_nodes": [], "tracks": [], "activated_by_timeline": False}

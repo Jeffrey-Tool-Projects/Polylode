@@ -110,9 +110,15 @@
     - GF2 的 `skin_materials`：遊戲資料沒有標本人皮膚——預製物根節點只有 Transform 與 Animator，沒有元件標 Renderer 的種類，
       資料表也沒有；唯一以皮膚命名的浮點 `_IsSkin` 在全部 161 個角色模型的 2 019 個材質裡 315 個是 0、1 704 個沒有（皮膚、臉、衣服都一樣）。
       所以寫 `status` null、原因，並列出這個模型每個材質的 `_IsSkin`。
-    - GF2 過場預製物的 `timeline`（頂層：預製物的 PlayableDirector 與它播的 TimelineAsset）與部件的 `timeline`
-      （`gf2/scene_facts.timeline`／`path_facts`：路徑上關著的節點、各 director 綁在路徑節點上的軌道與片段、`activated_by_timeline`）。
+    - GF2 的 `timeline`（2026-11-14 起**每個** GF2 模型都寫，`gf2/scene_facts.apply_timeline`；之前只在有部件被來源關掉時寫）：
+      頂層是預製物（根節點與子節點）的每個 PlayableDirector 與它播的 TimelineAsset（`directors`，沒有就是 `[]`）、預製物裡關著的節點
+      （`inactive`）；每個部件的 `timeline`（`gf2/scene_facts.path_facts`：路徑上關著的節點、各 director 綁在根與路徑節點上的軌道與片段、
+      `activated_by_timeline`）。掃描的 223 個 GF2 模型裡有 director 的 12 個：11 個 `_Class`／`_Upgrade`／`_Gacha` 過場與一個宿舍待機場景，
+      戰鬥（`slg`）預製物一個都沒有（IslandLife §7.1503 用它排除過場）。部件是否被來源關掉照舊看 `hidden_by` 的 `source` 與 `source_off`。
       讀不到安裝時頂層寫 `facts_failure`。
+    - 材質的 `native.source_material`（材質資產的 bundle 與 path id）：同一個材質資產在不同模型裡是同一個值。IslandLife §7.1503 用它認出
+      合併低模（`slg_shadow_rig`：一個 renderer 畫另一個模型分在臉、頭髮、身體、衣服幾個 renderer 上的同一批材質資產）；預製物本身
+      沒有標它的元件（只有 Transform、Animator、一個 SkinnedMeshRenderer），資料表也沒有引用它。
     - 眼睛的 `eye`（IslandLife §7.1491，見下面「眼睛」）：`game`、`status`（`baked`；`null` 加 `reason` 是遊戲的程式在這裡跑不了）、
       `source_base`（未烘的底色圖：FBX 帶的是烘過的）、`maps`（角色 → 材質的貼圖名：`source_base`、終末地 `matcap`、
       GF2 `specular`／`add`／`multiply`、鳴潮 `emission`）、烘了什麼、怎麼看（正面、燈 1）。終末地另有程式的 keyword、
