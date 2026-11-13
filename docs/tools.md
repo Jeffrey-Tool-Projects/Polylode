@@ -89,7 +89,28 @@
     每個材質槽的三角形數與角色。角色只看遊戲資料：終末地看 shader（`_Skin` 有 `_SDFLIGHTMAP` 是臉、沒有是身體皮膚；`_Hair`、`_Eye`、
     `_OverlayShadow`、`_VFX`、`HGRP/Effect/…`；`HGRP/CharacterNPR` 是衣物）；鳴潮看材質的 `ShadingModel` 與靜態開關（`MSM_ToonHair` 頭髮、
     `MSM_ToonFace` 有 `UseEyeSDF` 是眼睛、沒有是臉、`MSM_ToonOutline` 外框、`MSM_ToonCommon` 有 `UseSkinMask` 是 `skin_and_clothing`、聲痕參數是特效）；
-    GF2 只有眼睛的 shader 分得出（`eye`、`eyeblend_*` 是 `eye_overlay`），`uber`／`ubertrans` 畫皮膚、衣服、頭髮、臉、武器都一樣，寫 `unknown`。
+    GF2 只有眼睛的 shader 分得出（`eye`、`eyeblend_*` 是 `eye_overlay`），`uber`／`ubertrans` 畫皮膚、衣服、頭髮、臉、武器都一樣，寫 `unknown`；
+    例外是武器表認得的材質（下面 `weapon`）。每個部件另有 `vertex_colors`（FBX 有沒有寫它的頂點色；寫法在頂層 `vertex_colors`：
+    `LayerElementColor` `Col`、ByPolygonVertex、線性 0..1，鳴潮是網格的 8 位元色 ÷ 255，正是 shader 讀到的 `COLOR0`）。
+    來源關著的部件多記 `source_off`（`inactive_node` 是最近的關著節點、`renderer_disabled` 是 Renderer 自己關著）。
+  - 2026-11-13 加進 version 1 的欄位（沒有搬動或改義既有欄位，讀第一版的程式讀到的值不變；`weapon` 是新的角色值，
+    不認得它的讀者當成用不上的角色處理，和 `unknown` 一樣）：
+    - 鳴潮 `skin_and_clothing` 材質的 `skin_band`（`wuthering_waves/skin_band.py`，見下面「鳴潮的皮膚帶」）：`status`
+      （`read` 讀到帶、`constant` 係數是常數、`no_skin_color` 這個 shader map 的 base pass 不讀 `SkinColor`、`variants_differ`、`null` 讀不到並寫 `reason`）、
+      `source`（`TypeMask` 或頂點色 `COLOR0`）、`channel`、`comparison`／`threshold`（例：`>` 0.9）、`factor_below`／`factor_above`、`uv_set`、
+      `constant_factor`、`parameters`（`UseSkinMask`、`UseTypeMask`、`UseSkinMask_DYN`、`DefaultSkinFactor`、`UseFaceAni_SkinMask` 的值與出處）、
+      `evidence`（shader map 的 SHA-1、跑過的 base pass 像素 shader、`SkinColor` 在 Material buffer 的槽、沒跑成的變體與原因）。
+    - GF2 的 `weapon`：材質就是 `GunWeaponData`（欄位 1 武器編號、欄位 9 預製物路徑）某個武器預製物的 Renderer 用的那個材質資產
+      （bundle 與 path id 相同，`gf2/scene_facts.weapon_materials`，表在倉庫的 `weapon_materials.json`，依表與 bundle 索引的雜湊重建），
+      槽的角色寫 `weapon`。Groza SR0105 的 `Gun_lod*` 用 `cw_KseniaSR01_WL_uber`（武器 10362），Faye SSR01 的 `pistol_lod*` 用
+      `cw_FayeSR01_WL_uber`（10432）。用衣裝自己材質的武器（Faye 的 `c_FayeSSR01_slg_weapon_uber`）表上沒有，照舊 `unknown`；
+      貼圖不能當證據（武器預製物和其他東西共用遊戲的預設貼圖）。
+    - GF2 的 `skin_materials`：遊戲資料沒有標本人皮膚——預製物根節點只有 Transform 與 Animator，沒有元件標 Renderer 的種類，
+      資料表也沒有；唯一以皮膚命名的浮點 `_IsSkin` 在全部 161 個角色模型的 2 019 個材質裡 315 個是 0、1 704 個沒有（皮膚、臉、衣服都一樣）。
+      所以寫 `status` null、原因，並列出這個模型每個材質的 `_IsSkin`。
+    - GF2 過場預製物的 `timeline`（頂層：預製物的 PlayableDirector 與它播的 TimelineAsset）與部件的 `timeline`
+      （`gf2/scene_facts.timeline`／`path_facts`：路徑上關著的節點、各 director 綁在路徑節點上的軌道與片段、`activated_by_timeline`）。
+      讀不到安裝時頂層寫 `facts_failure`。
   - `expressions`：形狀鍵的表情就是 FBX 的 BlendShape（`shape_keys` 列名字與部件）。終末地的臉部控制、情緒與姿態預設是骨頭驅動的
     （它的模型沒有形狀鍵），寫成 `bone_poses`：每個表情動到的骨頭在 FBX 空間的局部變換（3×4，同 FBX 的 `Lcl`）、材質值（表情圖索引）與控制項；
     不烘成形狀鍵，因為形狀鍵是靜止網格上的固定位移，頭一動或兩個表情疊加就和骨頭重複移動。只匯出 FBX 時，終末地也照 `expressions` 設定算這些（不算姿勢）。
@@ -178,6 +199,28 @@
    shader 讀了網格沒有的輸入（頂點 shader 算出的自訂 UV，輸入簽章的 Used 欄）時，先用 2 萬個點各以 0 與 1 試跑，結果變動超過 1% 就不烘。
 6. **快取與失敗**：遊戲檔（約 1.2 GB 的封存檔、材質套件、上層材質與參數集合的 JSON）第一次由讀取器取出，放在
    `assets_cache/wuthering_waves/shaders`，依安裝狀態區分。烘焙結果依材質與網格快取。執行不了的材質照原本的裁切輸出，並在記錄說明原因。
+
+### 鳴潮的皮膚帶（`wuthering_waves/skin_band.py`）
+
+`MSM_ToonCommon` 開 `UseSkinMask` 的材質一個材質畫皮膚也畫衣服，base pass 把底色乘上 `lerp(1, SkinColor, f)`，`f` 是 1 的 texel 就是皮膚。
+`f` 從哪裡讀、對什麼門檻，編在每個材質實例自己的 shader map 裡，所以不寫成規則，而是在遊戲編譯好的程式上量：
+
+1. 用實例的參數算 Material uniform buffer（`shader_bake._frozen_values`）；`SkinColor` 一動就跟著動的 float4 槽是它的槽。
+2. base pass 的像素 shader（讀 Material buffer、寫 7 個 GBuffer 目標的）裡，`add d, SkinColor, −1` 之後的 `mad r, f, d, 1`
+   ——或編譯器不准融合時（`[precise]`）的 `mul r, f, d` 加 `add r', r, 1`——就是那個 lerp，`f` 的暫存器就此找到。
+3. 用直譯器跑到那一條為止，每一道 lane 只掃一個輸入：`TypeMask` 的每個通道、頂點色 `COLOR0` 的每個通道，各在 [0, 1] 上取約 1 300 個值
+   （平均格點、每個 8 位元值、以及 0.05／0.3／0.5／0.9 和它們上下相鄰的浮點數），另一個輸入固定 0 與 1；其他貼圖給常數，跑兩次（0.25、0.75），
+   立即常數表（抖動表）的每次讀取也各給兩個值，結果不同就拒絕。`f` 跟著哪個輸入走，那就是帶的來源；跳變的位置就是門檻
+   （格點有 0.9 與它上下的浮點數，所以分得出 `> 0.9` 與 `≥ 0.9`），跳變兩邊的值就是遊戲用的係數。不跟任何輸入走就是常數
+   （`UseSkinMask_DYN` 關時的 `DefaultSkinFactor`）。
+4. 一個 shader map 的所有 base pass 變體結果必須一致，否則寫 `variants_differ` 與各變體。
+
+指令的 `[precise]` 修飾拿掉（只禁止重排，值相同）、`oDepthLE`／`oDepthGE` 當成深度輸出。結果依規則版本與材質 JSON 的雜湊快取在
+`shaders/skin_band/`。2026-11-13 對 61 個鳴潮模型的 91 個 `skin_and_clothing` 材質（含 Polylode 拆出的 `_Overlap`／`_Strands` 複本）：
+74 個讀 `TypeMask` R、`> 0.9`（50 個在 UV 0 取樣、24 個在 shader 自己算的座標上取樣，例如 Zanni 20011 的毛髮），6 個讀頂點色 R、`> 0.9`
+（ChangLi 10011 `Cloth`、Jinxi 20011 `Up`、Kamola 20011 `Down`、Sanhua 10011 `Body`、Xiakong 10011 `Cloth`、Zanni 10011 `Cloth`），
+11 個是常數 0（`UseSkinMask_DYN` 0），全部讀得到；係數只有 0 與 1。FBX 本來就寫出頂點色（`interchange/fbx` 的 `LayerElementColor`），
+Sanhua 10011 `Body` 的 FBX 頂點色與交換場景逐值相同（R 全是 255，3 776 面都在帶內）。
 
 ### 視差毛髮做成毛絲層（`wuthering_waves/fur_shells.py`）
 

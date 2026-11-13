@@ -22,12 +22,23 @@ same interchange scene the FBX was written from:
 ``parts``       each mesh, why it is hidden (the source switched it off, a coarser
                 level of detail, a dormitory or alternate version), and each
                 material slot's role (body skin, face, eye, hair, clothing,
-                overlay, outline, effect … or ``unknown``) with what decided it;
+                overlay, outline, effect, weapon … or ``unknown``) with what
+                decided it; whether the FBX carries its vertex colours; for a
+                part the source switched off, which node or renderer did it and
+                (GF2's cut-scene prefabs) the timeline tracks on its way;
 ``expressions`` the shape keys the FBX's BlendShapes already hold, and the
                 expressions the game drives with bones (Endfield's face
                 controls and presets), as local bone transforms in the FBX's own
                 space — see :func:`expressions` for why they are not baked into
                 shape keys.
+
+Wuthering Waves' ``skin_and_clothing`` materials also carry ``skin_band``: where the
+game's own compiled shader draws skin (``wuthering_waves.skin_band``); GF2's
+materials a weapon prefab draws with carry ``weapon`` (``gf2.scene_facts``).
+These, ``vertex_colors``, ``source_off``, ``timeline`` and ``skin_materials`` were
+added to version 1 without moving or reinterpreting a field: a reader of the first
+version reads the same values, and ``weapon`` is a role such a reader treats as it
+treats any role it has no use for (as ``unknown``).
 
 Nothing is filled in by guess: a value the source does not say is written as
 ``null`` with the reason, a role the data does not decide is ``unknown``.
@@ -84,6 +95,12 @@ WUWA_ROLES = {"MSM_ToonHair": "hair", "MSM_ToonOutline": "outline"}
 #: GF2: only its eye shaders say what they draw; the ``uber`` shader draws skin, cloth, hair, face and weapons alike
 GF2_ROLES = {"gf_shader/pbr/character/eye": "eye", "gf_shader/pbr/character/eyeblend_add": "eye_overlay",
              "gf_shader/pbr/character/eyeblend_multiply": "eye_overlay"}
+#: how the FBX carries a part's vertex colours (``interchange.fbx``), as the sidecar says it once
+VERTEX_COLORS = ("LayerElementColor 'Col' of the part's geometry, ByPolygonVertex / IndexToDirect, RGBA linear 0..1: "
+                 "the source's own values (Wuthering Waves: the mesh's 8-bit colour / 255, what its shaders read as "
+                 "COLOR0; Endfield and GF2: Unity's mesh colours)")
+#: the GF2 material float some shaders name after skin; :func:`gf2_skin_materials` reports what it holds
+GF2_SKIN_FLOAT = "_IsSkin"
 
 
 def slot_role(record: dict) -> tuple[str, str]:
@@ -106,6 +123,10 @@ def slot_role(record: dict) -> tuple[str, str]:
     if shader.startswith("gf_shader/"):
         if shader in GF2_ROLES:
             return GF2_ROLES[shader], f"shader {shader}"
+        if record.get("weapon"):
+            named = ", ".join(f"{row['weapon']} ({row['prefab']})" for row in record["weapon"])
+            return "weapon", ("the material is one a weapon prefab of GunWeaponData draws with (the same material "
+                              f"asset): {named}")
         return "unknown", (f"shader {shader} draws skin, clothing, hair, face and weapons alike; the prefab has no "
                            "component naming its renderers' kinds")
     native = record.get("native_material")
@@ -175,10 +196,16 @@ def _maps(record: dict, folder: Path, out_folder: Path, carried: dict, used: boo
 def _material(name: str, record: dict, folder: Path, out_folder: Path, carried: dict, triangles: int,
               copied: dict) -> dict:
     from ..extractor.character_styles import native_style
-    native = {key: value for key, value in record.items() if key != "maps"}
+    native = {key: value for key, value in record.items() if key not in ("maps", "skin_band", "weapon")}
     style = native_style(record)
     role, basis = slot_role(record)
-    return {"triangles": int(triangles), "role": role, "role_basis": basis, "native": native,
+    extra = {}
+    if role == "skin_and_clothing":
+        extra["skin_band"] = record.get("skin_band") or {
+            "status": None, "reason": "the export did not read the game's shader for this material's skin band"}
+    if record.get("weapon"):
+        extra["weapon"] = record["weapon"]
+    return {"triangles": int(triangles), "role": role, "role_basis": basis, **extra, "native": native,
             "style": style, "fbx": {key: carried.get(key) for key in ("DiffuseColor", "TransparentColor",
                                                                      "EmissiveColor", "Opacity", "alpha_from")},
             "maps": _maps(record, folder, out_folder, carried, triangles > 0, copied)}
@@ -279,6 +306,27 @@ def expressions(document: dict, arrays) -> dict:
     return out
 
 
+def gf2_skin_materials(materials: dict) -> dict | None:
+    """Whether GF2's own data names the character's skin materials: None for another game's model.
+
+    It does not: the prefab's root carries a Transform and an Animator and no component naming its renderers'
+    kinds, no table lists renderers or materials by kind, and the one float named after skin, ``_IsSkin``, is 0 or
+    absent on every material (skin, face and clothes alike: of the 2 019 materials of the 161 character models
+    converted from the install on 2026-11-13, 315 hold 0 and 1 704 do not have it).  What this model's materials
+    hold is written, so a reader sees it."""
+    gf2 = {name: record for name, record in materials.items() if str(record.get("shader", "")).startswith("gf_shader/")}
+    if not gf2:
+        return None
+    values = {name: (record.get("floats") or {}).get(GF2_SKIN_FLOAT) for name, record in gf2.items()}
+    if any(value not in (None, 0, 0.0) for value in values.values()):
+        return {"status": "flag_set", GF2_SKIN_FLOAT: values,
+                "reason": f"a material sets {GF2_SKIN_FLOAT}: what the shader does with it is not read here"}
+    return {"status": None, GF2_SKIN_FLOAT: values,
+            "reason": ("GF2's data names no skin material: the prefab has no component naming its renderers' kinds, "
+                       f"no table lists them, and {GF2_SKIN_FLOAT} is 0 or absent on every material, skin and clothes "
+                       "alike")}
+
+
 # -- the file -------------------------------------------------------------------------------------------------
 
 def write(document_path: Path, model: Path, fbx_report: dict, *, identity: dict, humanoid_statement: dict,
@@ -307,9 +355,14 @@ def write(document_path: Path, model: Path, fbx_report: dict, *, identity: dict,
             rows.append({"slot": slot, "material": name, "triangles": int(per_slot[slot]), "role": role,
                          "role_basis": basis})
         hidden_by = list(part.get("hidden_by") or (["source"] if part.get("hidden") else []))
-        parts.append({"name": part["name"], "path": part.get("path", ""), "hidden": bool(part.get("hidden")),
-                      "hidden_by": hidden_by, "vertices": part.get("vertices"),
-                      "triangles": int(len(slots)), "shapes": list(part.get("shapes") or []), "slots": rows})
+        row = {"name": part["name"], "path": part.get("path", ""), "hidden": bool(part.get("hidden")),
+               "hidden_by": hidden_by, "vertices": part.get("vertices"),
+               "triangles": int(len(slots)), "shapes": list(part.get("shapes") or []),
+               "vertex_colors": bool(part.get("colors")) and f"p{index}_col" in arrays, "slots": rows}
+        for key in ("source_off", "timeline"):
+            if key in part:
+                row[key] = part[key]
+        parts.append(row)
     copied: dict = {}
     materials = {name: _material(name, document["materials"][name], folder, target.parent, carried.get(name) or {},
                                  counts.get(name, 0), copied)
@@ -321,7 +374,15 @@ def write(document_path: Path, model: Path, fbx_report: dict, *, identity: dict,
                "humanoid": humanoid(document, humanoid_statement),
                "materials": materials,
                "parts": parts,
+               "vertex_colors": VERTEX_COLORS,
                "expressions": expressions(document, arrays)}
+    if document.get("timeline"):
+        sidecar["timeline"] = document["timeline"]
+    if document.get("facts_failure"):
+        sidecar["facts_failure"] = document["facts_failure"]
+    skin = gf2_skin_materials(document["materials"])
+    if skin is not None:
+        sidecar["skin_materials"] = skin
     # compact: three quarters of an Endfield sidecar is its face poses, and indented it was 8.5 MB rather than 3.6
     write_json_atomic(target, sidecar, separators=(",", ":"))
     return target

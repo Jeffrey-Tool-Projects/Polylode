@@ -137,6 +137,9 @@ def scene_document(ident, declared=None):
         match = [p.shader for p in item.pieces if RS._material(p.shader, by_key) == record]
         if match:
             record['base'] = match[0].get('_base_property')
+            # the material asset itself (bundle, path id): what the weapon table is matched against (scene_facts)
+            if match[0].get('source_material'):
+                record['source_material'] = list(match[0]['source_material'])
             coverage_fields(record)
     folder = store.root() / 'exports' / ident
     folder.mkdir(parents=True, exist_ok=True)
@@ -172,11 +175,43 @@ def scene_document(ident, declared=None):
             part['hidden'] = hidden[part['name']] or combat[part['name']] or spare.get(part['name'], False)
         if picked:
             document_data['parts_choice'] = picked
+    source_facts(document_data, item, extra)
     layout = frames.plan(scene.bones, scene.parts)
     if any(any(v != 0 for v in frame['origin']) for frame in layout['frames']):
         document_data['local_frames'] = layout
     write_json_atomic(document, document_data, indent=1)
     return scene, selection, layout, folder, document
+
+
+def source_facts(document_data: dict, item, extra: dict, log=lambda message: None) -> None:
+    """What the game's data says beyond the prefab's flags, for the FBX's sidecar (``scene_facts``): each material
+    a weapon prefab of ``GunWeaponData`` draws with (``weapon``), and for each part the prefab ships switched off,
+    which node or renderer does it (``source_off``) and the prefab's timeline tracks on its way (``timeline``).
+    Read from the install; when it cannot be, ``facts_failure`` says why."""
+    from . import scene_facts
+    from .catalog import Catalog
+    for part in document_data['parts']:
+        if not part.get('source_hidden', part.get('hidden')):
+            continue
+        shaders = [p.shader for p in item.pieces if p.shader.get('_rendName') == part['name']]
+        part['source_off'] = {'inactive_node': next((s['_offNode'] for s in shaders if s.get('_offNode')), None),
+                              'renderer_disabled': any(bool(s.get('_rendOff')) for s in shaders)}
+    try:
+        catalog = Catalog(_install(), store.root() / 'bundle_index.jsonl')
+        table = scene_facts.weapon_materials(catalog, store.root(), log)
+        for record in document_data['materials'].values():
+            key = '/'.join(str(v) for v in record.get('source_material') or [])
+            if key in table:
+                record['weapon'] = table[key]
+        if any('source_off' in part for part in document_data['parts']):
+            facts = scene_facts.timeline(catalog, extra['entry'])
+            if facts['directors']:
+                document_data['timeline'] = {'directors': facts['directors']}
+                for part in document_data['parts']:
+                    if 'source_off' in part:
+                        part['timeline'] = scene_facts.path_facts(part.get('path', ''), facts)
+    except (OSError, ValueError, KeyError, IndexError, AttributeError) as failure:
+        document_data['facts_failure'] = f'{type(failure).__name__}: {failure}'
 
 
 def _install() -> Path:

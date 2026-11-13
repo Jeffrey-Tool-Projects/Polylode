@@ -181,3 +181,47 @@ def test_a_morph_config_on_a_bone_the_rig_lacks_is_recorded_not_raised():
     finally:
         morph.for_actor, morph.emotions, morph.poses, morph.Face = original
     assert "x_jnt" in document["expression_failure"] and any("x_jnt" in line for line in lines)
+
+
+def test_gf2_weapon_materials_take_the_weapon_role_and_the_sidecar_says_what_the_game_marks_as_skin(tmp_path):
+    (tmp_path / "out").mkdir()
+    document, arrays = _scene(tmp_path)
+    weapon = [{"weapon": 10362, "prefab": "Player/KseniaSR01/KseniaSR01_WL"}]
+    document["materials"]["skin"].update(shader="gf_shader/pbr/character/uber", floats={"_IsSkin": 0.0})
+    document["materials"]["cloth"].update(shader="gf_shader/pbr/character/uber", weapon=weapon)
+    _path, data = _written(tmp_path, document, arrays)
+    cloth = data["materials"]["cloth"]
+    assert cloth["role"] == "weapon" and "10362" in cloth["role_basis"] and cloth["weapon"] == weapon
+    assert "weapon" not in cloth["native"] and data["materials"]["skin"]["role"] == "unknown"
+    assert [s["role"] for s in data["parts"][0]["slots"]] == ["unknown", "weapon"]
+    skin = data["skin_materials"]
+    assert skin["status"] is None and skin["_IsSkin"] == {"skin": 0.0, "cloth": None} and "no skin" in skin["reason"]
+    assert sidecar.gf2_skin_materials({"x": {"shader": "HGRP/CharacterNPR"}}) is None
+    flagged = sidecar.gf2_skin_materials({"x": {"shader": "gf_shader/pbr/character/uber", "floats": {"_IsSkin": 1.0}}})
+    assert flagged["status"] == "flag_set"
+
+
+def test_a_skin_and_clothing_material_carries_its_band_or_why_it_has_none_and_parts_their_colours(tmp_path):
+    (tmp_path / "out").mkdir()
+    document, arrays = _scene(tmp_path)
+    toon = {"Switches": {"UseSkinMask": True}, "Properties": {"BasePropertyOverrides": {"ShadingModel": "MSM_ToonCommon"}}}
+    band = {"status": "read", "source": "TypeMask", "channel": "R", "comparison": ">", "threshold": 0.9}
+    document["materials"]["skin"].update(native_material=toon, skin_band=band)
+    document["materials"]["cloth"].update(native_material=toon)
+    document["parts"][0].update(colors=True, source_off={"inactive_node": "Char", "renderer_disabled": False},
+                                timeline={"inactive_nodes": ["fx/Char"], "tracks": [], "activated_by_timeline": False})
+    arrays["p0_col"] = np.ones((4, 4), np.float32)
+    document["timeline"] = {"directors": [{"node": "", "timeline": "t", "duration": 1.0, "plays_on_awake": True}]}
+    _path, data = _written(tmp_path, document, arrays)
+    assert data["materials"]["skin"]["skin_band"] == band and "skin_band" not in data["materials"]["skin"]["native"]
+    assert data["materials"]["cloth"]["skin_band"]["status"] is None
+    assert data["materials"]["cloth"]["skin_band"]["reason"]
+    part = data["parts"][0]
+    assert part["vertex_colors"] is True and "LayerElementColor" in data["vertex_colors"]
+    assert part["source_off"]["inactive_node"] == "Char" and part["timeline"]["inactive_nodes"] == ["fx/Char"]
+    assert data["timeline"]["directors"][0]["timeline"] == "t" and "skin_materials" not in data
+    # a part without colours says so, and no band is written for a material that is not skin_and_clothing
+    document["parts"][0]["colors"] = False
+    del document["materials"]["skin"]["native_material"]
+    _path, data = _written(tmp_path, document, arrays)
+    assert data["parts"][0]["vertex_colors"] is False and "skin_band" not in data["materials"]["skin"]

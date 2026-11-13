@@ -39,7 +39,9 @@ The English window, taken from a real scan and preview with `tools/screenshots.p
 - **A sidecar for every FBX.** Beside `<name>.fbx` goes `<name>.islandlife.json` (versioned schema): the game's
   human-bone table and where it comes from (or why there is none), each material's native values and every map the
   FBX does not embed (copied once into `textures/`, with its SHA-256 and colour space), each mesh slot's role and why
-  a hidden part is hidden, the expressions (shape keys, and Endfield's face controls as bone poses), and the model's
+  a hidden part is hidden (with the cut scene's timeline tracks for GF2's cut-scene prefabs), where a Wuthering Waves
+  material that draws both skin and clothes draws skin (read off the game's own compiled shader: the mask channel or
+  vertex colour and the threshold), which GF2 renderers are weapons (the weapon table's materials), the expressions (shape keys, and Endfield's face controls as bone poses), and the model's
   ids, install version and source-file hashes. A value the game does not give is written as missing, never guessed.
 - **Materials as the games draw them.** Cut-outs, transparency, eye-shadow overlays and eye highlight layers are
   written from the rules read out of each game's shaders. Where glTF/FBX cannot blend a layer, its effect is baked
