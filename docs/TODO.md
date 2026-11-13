@@ -2,12 +2,10 @@
 
 只記還沒做完的事，做完的整段刪掉。§7.x 是 IslandLife 的逐節紀錄（`D:\Codes\IslandLife\docs\updates\`）。
 
-- **鳴潮用 ID 圖選皮膚的材質讀不出皮膚帶**（IslandLife §7.1492）：約 110 個 `MSM_ToonCommon` 材質（shader map 沒有 `UseSkinMask_DYN`、
-  材質有 `SkinMin`／`SkinMax`：PlayerFemale 10011／20011、Lucy、Aimisi、Suoming、Luosela、Mone、Linnaea、Qingxiao…）的 lerp 係數跟著一張貼圖
-  解碼出的整數 ID 與 `SkinMin`／`SkinMax` 比；`skin_band` 掃到它跟著別的圖走就寫 `null`，旁檔角色 `unknown`，這些角色在 IslandLife 轉不了。
-  - 要讀出那張 ID 圖（哪張、哪個通道、怎麼解碼成整數、比哪個範圍都在 base pass 裡），寫出「哪些 ID 是皮膚」，旁檔像 `TypeMask` 一樣帶上那張圖。
-  - 另有 4 個 lerp 寫法讀不懂（Fuludelisi 10011 `Cloth`／`Alpha`、Shouanren 10011 `Up02`、Younuo 10011 `Alpha`），
-    Xuanling 10011 `Down` 讀材質時索引越界。
+- **鳴潮兩個材質讀不到 shader map，皮膚帶寫 `null`**（IslandLife §7.1502；ID 圖選皮膚的材質已讀成查表）：
+  - Xuanling 10011 `Down`：實例自己設了 25 個靜態開關、套件 436 KB，`shaders.inline.read` 卻找不到凍結的資源（同模型的 `Up`、`Cloth` 讀得到）。
+  - Calbrena 10011 `MI_Eye_OL`：實例沒有自己的靜態開關，畫的是上層材質 `M_Empty` 的 shader map；要讀上層材質（不是實例）的 shader map，
+    並確認中間沒有別的實例改參數。
 - **FBX 的貼圖平移方向**（§7.1449）：自寫的 FBX 已經用 Autodesk FBX SDK 2020.3.11 讀回過，終末地 jsspsi／ardelia、GF2 Groza、
   鳴潮 Rebecca 逐項相符，但還沒有在 Unity 或 Maya 的畫面上打開過。
   - 底色圖的縮放與偏移照 Unity 的 tiling／offset，寫進 `Texture` 的 `Scaling`／`Translation`。
