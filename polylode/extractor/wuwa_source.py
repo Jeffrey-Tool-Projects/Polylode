@@ -322,6 +322,10 @@ class WuwaSource:
                 from ..wuthering_waves.skin_band import annotate_case
                 progress.step("讀遊戲 shader 的皮膚帶")
                 annotate_case(case, files, log)
+            # an eye's highlights as its own base pass draws them: a lit base colour and an unlit emission, for
+            # every format (wuthering_waves.eye_bake, IslandLife §7.1491)
+            from ..wuthering_waves.eye_bake import bake_case as bake_eyes
+            bake_eyes(case, files, log, progress.step)
         # the fur shader's parallax depth as layers of strands (fur_shells), after the coverage it stands on
         from ..wuthering_waves.fur_shells import apply as fur_layers
         progress.step("把毛髮視差做成毛絲層")
@@ -466,7 +470,7 @@ class GameFiles:
             self._raw([package + ".uasset", package + ".uexp"])
         return path.read_bytes()
 
-    def json(self, package: str) -> dict:
+    def json(self, package: str, types=("Material", "MaterialParameterCollection")) -> dict:
         path = self.root / "json" / (package + ".json")
         if not path.is_file():
             folder = self.root / "json_out"
@@ -476,7 +480,13 @@ class GameFiles:
             shutil.move(str(folder / "package.json"), path)
         data = json.loads(path.read_text(encoding="utf-8"))
         items = data if isinstance(data, list) else [data]
-        return next(e for e in items if isinstance(e, dict) and e.get("Type", "").startswith(("Material", "MaterialParameterCollection")))
+        return next(e for e in items if isinstance(e, dict) and e.get("Type", "").startswith(tuple(types)))
+
+    def address(self, package: str) -> tuple[str, str]:
+        """How a texture is read past its edge (its asset's ``AddressX``／``AddressY``; Unreal's default
+        ``TA_Wrap`` when the asset does not set one): a material samples a texture with its own sampler state."""
+        properties = self.json(package, ("Texture2D",)).get("Properties", {})
+        return properties.get("AddressX", "TA_Wrap"), properties.get("AddressY", "TA_Wrap")
 
     def root_of(self, package: str):
         """The root material's ``CachedExpressionData`` above *package*, and its parameter collections."""

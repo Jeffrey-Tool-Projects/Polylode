@@ -361,6 +361,27 @@ class Machine:
             w(a[0], value, active, kind="u")
         elif op == "ineg":
             w(a[0], -i(a[1]), active, kind="u")
+        elif op in ("imad", "umad"):
+            x, y, z = (i(a[1]), i(a[2]), i(a[3])) if op == "imad" else (u(a[1]), u(a[2]), u(a[3]))
+            w(a[0], x * y + z, active, kind="u")
+        elif op in ("ubfe", "ibfe"):
+            # Direct3D: width and offset are their low 5 bits; a width of 0 gives 0; a field running past bit 31
+            # is the value shifted right by the offset (logically for ubfe, arithmetically for ibfe)
+            width, offset = u(a[1]) & 31, u(a[2]) & 31
+            inside = width + offset < 32
+            left = np.where(inside, 32 - (width + offset), 0).astype(np.uint64)
+            right = np.where(inside, 32 - width, offset).astype(np.uint64)
+            shifted = (u(a[3]) << left) & 0xFFFFFFFF
+            if op == "ubfe":
+                field = shifted >> right
+            else:
+                signed = shifted.astype(np.int64)
+                field = np.where(signed >= 2 ** 31, signed - 2 ** 32, signed) >> right.astype(np.int64)
+            w(a[0], np.where(width == 0, 0, field), active, kind="u")
+        elif op == "bfi":
+            width, offset = u(a[1]) & 31, u(a[2]) & 31
+            mask = (((np.uint64(1) << width) - np.uint64(1)) << offset) & np.uint64(0xFFFFFFFF)
+            w(a[0], ((u(a[3]) << offset) & mask) | (u(a[4]) & ~mask & np.uint64(0xFFFFFFFF)), active, kind="u")
         elif op == "udiv":
             x, y = u(a[2]), u(a[3])
             safe = np.where(y == 0, 1, y)

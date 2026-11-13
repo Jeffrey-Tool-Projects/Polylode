@@ -325,33 +325,9 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, case: P
     full = (base.shape[1], base.shape[0])
     scale = min(1.0, MOST / max(full))
     size = (max(1, round(full[0] * scale)), max(1, round(full[1] * scale)))
-    triangles = []
-    for index, part in enumerate(document["parts"]):
-        if name not in part["materials"]:
-            continue
-        p = f"p{index}_"
-        chosen = arrays[p + "tri"][arrays[p + "slot"] == part["materials"].index(name)]
-        uvs = [arrays[f"{p}uv{k}"].astype(np.float64) * [1, -1] + [0, 1] for k in part.get("uvs", [0])]  # v down
-        colour = arrays[p + "col"] if p + "col" in arrays else np.ones((len(arrays[p + "co"]), 4))
-        tangent = arrays[p + "tan"] if p + "tan" in arrays else np.zeros((len(arrays[p + "co"]), 4))
-        triangles.append(dict(uvs=[uv[chosen] for uv in uvs], normal=arrays[p + "no"][chosen],
-                              tangent=tangent[chosen][..., :3], sign=-tangent[chosen][..., 3],  # v down: sign turns
-                              colour=colour[chosen]))
-    if not triangles:
-        raise BakeError("沒有部件用這個材質")
-    joined = {k: np.concatenate([t[k] for t in triangles]) for k in ("normal", "tangent", "sign", "colour")}
-    uv_sets = [np.concatenate([t["uvs"][k] for t in triangles]) for k in range(len(triangles[0]["uvs"]))]
-    rows, columns, which, weights = _texels(uv_sets[0], size, unique=False)
-    at = lambda values: (weights[:, :, None] * values[which]).sum(axis=1)
-    normal = at(joined["normal"])
-    normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-12)
-    tangent = at(joined["tangent"])
-    tangent -= (tangent * normal).sum(1, keepdims=True) * normal
-    tangent /= np.maximum(np.linalg.norm(tangent, axis=1, keepdims=True), 1e-12)
-    sign = np.where(at(joined["sign"][:, :, None])[:, 0] < 0, -1.0, 1.0)
-    points = dict(normal=normal, tangent=tangent, sign=sign, colour=at(joined["colour"]),
-                  uvs=[at(uv) for uv in uv_sets])
-    unknown = unknown_inputs(shader, len(uv_sets))
+    points, rows, columns, which, count, uv_count = surface_points(name, document, arrays, size)
+    normal = points["normal"]
+    unknown = unknown_inputs(shader, uv_count)
     if unknown:
         # the coverage may not depend on what the mesh lacks: run a sample with it at 0 and at 1
         pick = np.random.default_rng(0).choice(len(normal), min(PROBE, len(normal)), replace=False)
@@ -371,14 +347,48 @@ def bake_material(name: str, record: dict, document: dict, arrays: dict, case: P
         if all(np.array_equal(t, tried[0]) for t in tried[1:]):
             screens = screens[:1]
     covered = _covered(lambda pick: coverage(shader, buffers, textures, _subset(points, pick), fill, screens),
-                       rows, columns, which, len(joined["normal"]), size[0])
-    maps, layer = _layers(rows, columns, which, covered, len(joined["normal"]), (size[1], size[0]))
+                       rows, columns, which, count, size[0])
+    maps, layer = _layers(rows, columns, which, covered, count, (size[1], size[0]))
     maps = [_fill(alpha) for alpha in maps]
     if size != full:
         maps = [np.asarray(Image.fromarray(alpha.astype(np.float32), "F").resize(full, Image.BILINEAR))
                 for alpha in maps]
     return maps, layer
 
+
+
+def surface_points(name: str, document: dict, arrays: dict, size: tuple[int, int], unique: bool = False):
+    """Every texel centre of a *size* map (``_texels``) inside a triangle drawn with material *name*, and the
+    surface there: ``(points, rows, columns, which, triangles, uv_sets)`` — *points* the interpolated normal,
+    tangent, bitangent sign, vertex colour and UV sets (Unreal's, v down), *which* each sample's triangle among
+    the material's *triangles* (the parts in order, each part's triangles in order)."""
+    triangles = []
+    for index, part in enumerate(document["parts"]):
+        if name not in part["materials"]:
+            continue
+        p = f"p{index}_"
+        chosen = arrays[p + "tri"][arrays[p + "slot"] == part["materials"].index(name)]
+        uvs = [arrays[f"{p}uv{k}"].astype(np.float64) * [1, -1] + [0, 1] for k in part.get("uvs", [0])]  # v down
+        colour = arrays[p + "col"] if p + "col" in arrays else np.ones((len(arrays[p + "co"]), 4))
+        tangent = arrays[p + "tan"] if p + "tan" in arrays else np.zeros((len(arrays[p + "co"]), 4))
+        triangles.append(dict(uvs=[uv[chosen] for uv in uvs], normal=arrays[p + "no"][chosen],
+                              tangent=tangent[chosen][..., :3], sign=-tangent[chosen][..., 3],  # v down: sign turns
+                              colour=colour[chosen]))
+    if not triangles:
+        raise BakeError("沒有部件用這個材質")
+    joined = {k: np.concatenate([t[k] for t in triangles]) for k in ("normal", "tangent", "sign", "colour")}
+    uv_sets = [np.concatenate([t["uvs"][k] for t in triangles]) for k in range(len(triangles[0]["uvs"]))]
+    rows, columns, which, weights = _texels(uv_sets[0], size, unique=unique)
+    at = lambda values: (weights[:, :, None] * values[which]).sum(axis=1)
+    normal = at(joined["normal"])
+    normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-12)
+    tangent = at(joined["tangent"])
+    tangent -= (tangent * normal).sum(1, keepdims=True) * normal
+    tangent /= np.maximum(np.linalg.norm(tangent, axis=1, keepdims=True), 1e-12)
+    sign = np.where(at(joined["sign"][:, :, None])[:, 0] < 0, -1.0, 1.0)
+    points = dict(normal=normal, tangent=tangent, sign=sign, colour=at(joined["colour"]),
+                  uvs=[at(uv) for uv in uv_sets])
+    return points, rows, columns, which, len(joined["normal"]), len(uv_sets)
 
 
 #: how many of a triangle's own samples are run to tell whether it agrees with the texels' first triangles

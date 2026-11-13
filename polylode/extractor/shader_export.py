@@ -26,7 +26,10 @@ def write_bundle(model: Path, target: Path) -> Path:
     for index, material in enumerate(document.get("materials", [])):
         material.setdefault("extras", {})["polylode_material_index"] = index
     for data in materials:
-        for key in ("baseTexture", "ramp", "surface", "shadowLut"):
+        for key in ("baseTexture", "ramp", "surface", "shadowLut", "eyeBase", "eyeMatcap", "eyeSpecular", "eyeAdd",
+                    "eyeMultiply", "eyeEmission"):
+            if key not in data:
+                continue
             uri = data[key]
             if not uri:
                 continue

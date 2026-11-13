@@ -169,7 +169,9 @@ def _material(name: str, record: dict, folder: Path, builder: _Builder, gltf: di
     extras["maps"] = {key: {k: v for k, v in value.items() if k != "sha256"} for key, value in record["maps"].items()}
     # Native lighting lookups are portable too; texture indices explicitly name
     # their glTF resources instead of relying on the conversion cache's paths.
-    for prop in ("_DiffRampMap", "_ShadowLutTex", "_RampMap", "_RMOTex", "_MetallicGlossMap"):
+    # and so are the maps an eye's own terms read (``eye.maps``: its unbaked map, matcap, layers, emission)
+    eye_maps = list(((record.get("eye") or {}).get("maps") or {}).values())
+    for prop in ("_DiffRampMap", "_ShadowLutTex", "_RampMap", "_RMOTex", "_MetallicGlossMap", *eye_maps):
         entry = record["maps"].get(prop)
         if entry is None:
             continue

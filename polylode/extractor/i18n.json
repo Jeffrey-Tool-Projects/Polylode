@@ -2081,11 +2081,11 @@
   "ja": "鳴潮のキャラクターシェーディング",
   "ko": "명조 캐릭터 셰이딩"
  },
- "角色著色預覽改編；不含遊戲場景後製、投影與眼睛／頭髮專用效果": {
-  "en": "Adapted character shading preview; excludes game post-processing, cast shadows, and specialized eye/hair effects",
-  "zh-CN": "角色着色预览改编；不含游戏场景后期、投影与眼睛／头发专用效果",
-  "ja": "キャラクターシェーディングのプレビュー用移植。ゲームのポスト処理、投影、目・髪の専用効果は含みません",
-  "ko": "캐릭터 셰이딩 미리보기 이식. 게임 후처리, 투영 그림자 및 눈·머리카락 전용 효과는 제외됩니다"
+ "角色著色預覽改編；不含遊戲場景後製、投影與頭髮專用效果": {
+  "en": "Adapted character shading preview; excludes game post-processing, cast shadows, and specialized hair effects",
+  "zh-CN": "角色着色预览改编；不含游戏场景后期、投影与头发专用效果",
+  "ja": "キャラクターシェーディングのプレビュー用移植。ゲームのポスト処理、投影、髪の専用効果は含みません",
+  "ko": "캐릭터 셰이딩 미리보기 이식. 게임 후처리, 투영 그림자 및 머리카락 전용 효과는 제외됩니다"
  },
  "此模型無法套用角色著色；目前使用攝影棚": {
   "en": "Character shading is unavailable for this model; using Studio",
@@ -2248,5 +2248,17 @@
   "zh-CN": "读游戏 shader 的皮肤带",
   "ja": "ゲームのシェーダーから肌の帯を読み取り中",
   "ko": "게임 셰이더에서 피부 영역을 읽는 중"
+ },
+ "以遊戲 shader 烘焙眼睛的高光": {
+  "en": "Baking the eyes' highlights with the game's shader",
+  "zh-CN": "以游戏 shader 烘焙眼睛的高光",
+  "ja": "ゲームのシェーダーで目のハイライトを焼き込み中",
+  "ko": "게임 셰이더로 눈 하이라이트를 굽는 중"
+ },
+ "把虹膜的高光烘進貼圖": {
+  "en": "Baking the iris highlight into the texture",
+  "zh-CN": "把虹膜的高光烘进贴图",
+  "ja": "虹彩のハイライトをテクスチャに焼き込み中",
+  "ko": "홍채 하이라이트를 텍스처에 굽는 중"
  }
 }

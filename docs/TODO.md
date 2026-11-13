@@ -21,3 +21,10 @@
   - 確認方法：Release 的 exe 留空讀取器欄位，預覽一個鳴潮模型。
 
 - **鳴潮本機 AES 自動取得的版本支援**：目前安裝的遊戲程式未找到可驗證的候選金鑰；需研究該版本的程式封裝後再擴充。
+- **眼睛烘焙是正面看的一個畫面**（§7.1491）：glTF／FBX 帶的是正面、燈 1 的結果。
+  - GF2 `eye` 的視差偏移（頂點程式的輸出 × `_CorneaParallax`／`_SpecularParallax`）沒有讀，`_Specularmap` 照原 UV 取樣。
+  - 鳴潮眼睛 base pass 的 `EM` 視差在正面看是 0；側看時虹膜的位移只有預覽與 IslandLife 以外的讀者會缺。
+  - 終末地 matcap 用「相機的右、上沿著 u、v」的約定；左右眼 UV 若是鏡像，烘出的 matcap 會左右相反，還沒有對遊戲畫面比過。
+- **鳴潮覆蓋率烘焙的貼圖一律 wrap**（§7.1491 發現）：`shader_bake` 的直譯器不看貼圖資產的 `AddressX`／`AddressY`；
+  眼睛烘焙已改照資產讀（`TA_Clamp` 的 `HeightLightMap` 用 wrap 會鋪滿整顆眼睛），裁切材質的覆蓋率還沒有改、也還沒有量過有沒有 clamp 的貼圖受影響。
+

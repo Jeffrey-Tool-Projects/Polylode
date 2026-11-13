@@ -12,7 +12,7 @@ from pathlib import Path
 
 STYLES = (("studio", "攝影棚"), ("endfield", "終末地角色著色"),
           ("gf2", "少女前線 2 角色著色"), ("wuwa", "鳴潮角色著色"))
-LIMITS = "角色著色預覽改編；不含遊戲場景後製、投影與眼睛／頭髮專用效果"
+LIMITS = "角色著色預覽改編；不含遊戲場景後製、投影與頭髮專用效果"
 WUWA_PARAMETERS = {"backShadowOffset": ("BackShadowProcessOffset", -.1),
                    "frontShadowOffset": ("FrontShadowProcessOffset", .4),
                    "shadowProcess": ("ShadowProcess", .5), "shadowWidth": ("ShadowWidth", .01),
@@ -78,6 +78,7 @@ def read_materials(path: Path, texture_dir: Path | None = None) -> tuple[dict, b
         transform = base_texture.get("extensions", {}).get("KHR_texture_transform", {})
         maps = native.get("maps", {})
         style = native_style(native, pbr)
+        eye = eye_style(native)
         materials.append({"id": index, "name": material.get("name", str(index)),
                           "baseColor": pbr.get("baseColorFactor", [1, 1, 1, 1]),
                           "alphaMode": material.get("alphaMode", "OPAQUE"),
@@ -91,7 +92,8 @@ def read_materials(path: Path, texture_dir: Path | None = None) -> tuple[dict, b
                           "baseRotation": transform.get("rotation", 0),
                           "shadowLut": texture(maps.get(style.pop("shadowLutMap"))),
                           "surface": texture(maps.get(style.pop("surfaceMap"))),
-                          **style})
+                          **{key: texture(maps.get(prop)) for key, prop in eye.pop("maps").items()},
+                          **style, **eye})
     return document, blob, materials
 
 
@@ -129,6 +131,53 @@ def native_style(native: dict, pbr: dict | None = None) -> dict:
             "smoothness": values.get("_Smoothness", .5) if family == "endfield" else 1 - pbr.get("roughnessFactor", .5),
             "metallic": values.get("_Metallic", 0.) if family == "endfield" else pbr.get("metallicFactor", 0.),
             "specularLevel": values.get("_Specular", 0.)}
+
+
+#: ``character.frag``'s ``eyeMode``: the eye's own program, per game (its ``game``), from the material's ``eye``
+EYE_MODES = {"endfield": 1, "gf2": 2, "wuwa": 3}
+#: the preview's texture inputs an eye reads, by the role its ``eye.maps`` names
+EYE_TEXTURES = {"source_base": "eyeBase", "matcap": "eyeMatcap", "specular": "eyeSpecular", "add": "eyeAdd",
+                "multiply": "eyeMultiply", "emission": "eyeEmission"}
+
+
+def eye_style(native: dict) -> dict:
+    """The eye program's parameters ``character.frag`` reads from a material's ``eye`` (IslandLife §7.1491, written
+    by ``endfield.eye_bake``, ``gf2.eye_bake`` and ``wuthering_waves.eye_bake``): ``eyeMode`` (0 for any other
+    material) and its values; ``maps`` is preview input → the material's map property.  What a statement leaves
+    out is the program's own default (Unity's for a colour the material does not hold), never made up."""
+    eye = native.get("eye") or {}
+    out = {"eyeMode": 0, "eyeHighlight": False, "eyeMatcapOn": False, "eyeHighlightColor": [1, 1, 1, 1],
+           "eyeScattering": [1, 1, 1, 1], "matcapColor": [1, 1, 1, 1], "eyeParallax": 0.0, "matcapNormalScale": 1.0,
+           "eyeShadowIntensity": 0.25, "eyeSpecularIntensity": 0.0, "eyeFinalTint": [1, 1, 1, 1], "eyeAddScale": 1.0,
+           "eyeEmissionStrength": 0.0, "maps": {}}
+    if eye.get("status") != "baked" or eye.get("game") not in EYE_MODES:
+        return out
+    out["eyeMode"] = EYE_MODES[eye["game"]]
+    roles = eye.get("maps") or {}
+    out["maps"] = {EYE_TEXTURES[role]: prop for role, prop in roles.items() if role in EYE_TEXTURES}
+    for role, prop in roles.items():
+        if role in EYE_TEXTURES:
+            out[EYE_TEXTURES[role] + "Srgb"] = bool((native.get("maps", {}).get(prop) or {}).get("srgb"))
+    if eye["game"] == "endfield":
+        floats, colours = eye.get("floats") or {}, eye.get("colors") or {}
+        out.update(eyeHighlight="_EYE_HIGHLIGHT" in eye.get("keywords", ()),
+                   eyeMatcapOn="_MATCAP_ON" in eye.get("keywords", ()),
+                   eyeHighlightColor=colours.get("_EyeHighLightColor", [1, 1, 1, 1]),
+                   eyeScattering=colours.get("_EyeScatteringColor", [1, 1, 1, 1]),
+                   matcapColor=colours.get("_MatcapColor", [1, 1, 1, 1]),
+                   eyeParallax=float(floats.get("_ParallaxScale", 0.0)),
+                   matcapNormalScale=float(floats.get("_MatcapNormalScale", 1.0)))
+    elif eye["game"] == "gf2":
+        values = eye.get("values") or {}
+        out.update(eyeShadowIntensity=float(values.get("_ShadowIntensity") if values.get("_ShadowIntensity")
+                                            is not None else 0.25),
+                   eyeSpecularIntensity=float(values.get("_SpecularIntensity") if values.get("_SpecularIntensity")
+                                              is not None else 1.5),
+                   eyeFinalTint=values.get("_FinalTint") or [1, 1, 1, 1],
+                   eyeAddScale=float(eye.get("add_scale", 1.0)))
+    else:
+        out["eyeEmissionStrength"] = float((native.get("emission") or {}).get("strength", 0.0))
+    return out
 
 
 def check_styles(view, output: Path | None = None) -> dict:

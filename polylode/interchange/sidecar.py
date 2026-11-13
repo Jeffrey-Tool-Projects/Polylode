@@ -34,8 +34,14 @@ same interchange scene the FBX was written from:
 
 Wuthering Waves' ``skin_and_clothing`` materials also carry ``skin_band``: where the
 game's own compiled shader draws skin (``wuthering_waves.skin_band``); GF2's
-materials a weapon prefab draws with carry ``weapon`` (``gf2.scene_facts``).
-These, ``vertex_colors``, ``source_off``, ``timeline`` and ``skin_materials`` were
+materials a weapon prefab draws with carry ``weapon`` (``gf2.scene_facts``).  An eye
+whose highlight the FBX holds only baked carries ``eye`` (IslandLife §7.1491): the
+game, what was baked into the map the FBX carries and how (seen head-on, lights 1),
+the unbaked map (``source_base``) and the program's terms and values — Endfield's
+iris program (``endfield.eye_bake``), GF2's eye program and its add / multiply
+layers as maps on the eye's UV (``gf2.eye_bake``), Wuthering Waves' base pass run
+per texel into a lit base colour and an unlit emission (``wuthering_waves.eye_bake``).
+These, ``eye``, ``vertex_colors``, ``source_off``, ``timeline`` and ``skin_materials`` were
 added to version 1 without moving or reinterpreting a field: a reader of the first
 version reads the same values, and ``weapon`` is a role such a reader treats as it
 treats any role it has no use for (as ``unknown``).
@@ -196,7 +202,7 @@ def _maps(record: dict, folder: Path, out_folder: Path, carried: dict, used: boo
 def _material(name: str, record: dict, folder: Path, out_folder: Path, carried: dict, triangles: int,
               copied: dict) -> dict:
     from ..extractor.character_styles import native_style
-    native = {key: value for key, value in record.items() if key not in ("maps", "skin_band", "weapon")}
+    native = {key: value for key, value in record.items() if key not in ("maps", "skin_band", "weapon", "eye")}
     style = native_style(record)
     role, basis = slot_role(record)
     extra = {}
@@ -205,6 +211,8 @@ def _material(name: str, record: dict, folder: Path, out_folder: Path, carried: 
             "status": None, "reason": "the export did not read the game's shader for this material's skin band"}
     if record.get("weapon"):
         extra["weapon"] = record["weapon"]
+    if record.get("eye"):
+        extra["eye"] = record["eye"]
     return {"triangles": int(triangles), "role": role, "role_basis": basis, **extra, "native": native,
             "style": style, "fbx": {key: carried.get(key) for key in ("DiffuseColor", "TransparentColor",
                                                                      "EmissiveColor", "Opacity", "alpha_from")},

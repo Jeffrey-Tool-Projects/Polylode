@@ -299,11 +299,21 @@ def write_files(ident: str, blender: Path | None, output: Path, formats: list[st
                                              (lambda ids, bones: frames_in_workers(ident, ids, bones, log))
                                              if parallel else None, clips=pose_clips and animated,
                                              expressions=expressions)
+        # glTF and FBX cannot run the iris's program: its highlight sprite and matcap are baked into the iris's map
+        # (endfield.eye_bake, IslandLife §7.1491); the sidecar keeps the unbaked map and the terms
+        from ..endfield.eye_bake import bake as bake_eyes
+        progress.step("把虹膜的高光烘進貼圖")
+        drawn = bake_eyes(document, log) if document is not None else document
         try:
-            written += write_own(formats, document, output / folder, target.stem, blender, log,
+            written += write_own(formats, drawn, output / folder, target.stem, blender, log,
                                  export_shaders=export_shaders, sidecar=statement)
         finally:
             (output / folder / f"{target.stem}.npz").unlink(missing_ok=True)
+            if drawn is not None and Path(drawn) != Path(document):
+                for record in json.loads(Path(drawn).read_text(encoding="utf-8"))["materials"].values():
+                    if (record.get("eye") or {}).get("status") == "baked":
+                        (output / folder / record["maps"][record["eye"]["baked_base"]]["file"]).unlink(missing_ok=True)
+                Path(drawn).unlink(missing_ok=True)
         # the scene's own copies of the maps (inside every file); the sidecar's are in the same folder, named by
         # their hash, and stay
         scratch = {}

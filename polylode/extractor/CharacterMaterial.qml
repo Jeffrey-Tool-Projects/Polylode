@@ -40,6 +40,38 @@ CustomMaterial {
     property real smoothness: 0.5
     property real metallic: 0
     property real specularLevel: 0
+    // the eye's own program (character_styles.eye_style): 1 Endfield's iris, 2 GF2's eye, 3 Wuthering Waves' base
+    // pass (its lit colour is the base map, its unlit emission eyeEmission); drawn when the style is its game's
+    property int eyeMode: 0
+    property bool eyeOn: eyeMode !== 0 && eyeMode === game
+    property bool eyeHighlight: false
+    property bool eyeMatcapOn: false
+    property vector4d eyeHighlightColor: Qt.vector4d(1, 1, 1, 1)
+    property vector4d eyeScattering: Qt.vector4d(1, 1, 1, 1)
+    property vector4d matcapColor: Qt.vector4d(1, 1, 1, 1)
+    property real eyeParallax: 0
+    property real matcapNormalScale: 1
+    property real eyeShadowIntensity: 0.25
+    property real eyeSpecularIntensity: 0
+    property vector4d eyeFinalTint: Qt.vector4d(1, 1, 1, 1)
+    property real eyeAddScale: 1
+    property real eyeEmissionStrength: 0
+    property bool hasEyeBase: false
+    property bool hasEyeMatcap: false
+    property bool hasEyeSpecular: false
+    property bool hasEyeAdd: false
+    property bool hasEyeMultiply: false
+    property bool hasEyeEmission: false
+    property bool eyeMatcapSrgb: false
+    property bool eyeSpecularSrgb: false
+    property bool eyeAddSrgb: false
+    property bool eyeEmissionSrgb: false
+    property TextureInput eyeBaseMap: TextureInput { texture: Texture { source: "" } }
+    property TextureInput eyeMatcapMap: TextureInput { texture: Texture { source: ""; tilingModeHorizontal: Texture.ClampToEdge; tilingModeVertical: Texture.ClampToEdge } }
+    property TextureInput eyeSpecularMap: TextureInput { texture: Texture { source: "" } }
+    property TextureInput eyeAddMap: TextureInput { texture: Texture { source: "" } }
+    property TextureInput eyeMultiplyMap: TextureInput { texture: Texture { source: "" } }
+    property TextureInput eyeEmissionMap: TextureInput { texture: Texture { source: "" } }
     property real cutoff: original.alphaMode === PrincipledMaterial.Mask ? original.alphaCutoff : 0
     shadingMode: CustomMaterial.Shaded
     cullMode: original.cullMode

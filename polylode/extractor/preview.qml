@@ -76,6 +76,24 @@ Rectangle {
                 mat.rampMap.texture.source = data.ramp || "";
                 mat.surfaceMap.texture.source = data.surface || "";
                 mat.shadowLutMap.texture.source = data.shadowLut || "";
+                // the eye's own program (character_styles.eye_style)
+                mat.eyeMode = data.eyeMode || 0;
+                var eyeValues = ["eyeHighlight", "eyeMatcapOn", "eyeParallax", "matcapNormalScale", "eyeShadowIntensity",
+                                 "eyeSpecularIntensity", "eyeAddScale", "eyeEmissionStrength", "eyeMatcapSrgb",
+                                 "eyeSpecularSrgb", "eyeAddSrgb", "eyeEmissionSrgb"];
+                for (var e = 0; e < eyeValues.length; ++e)
+                    if (data[eyeValues[e]] !== undefined) mat[eyeValues[e]] = data[eyeValues[e]];
+                var eyeColours = ["eyeHighlightColor", "eyeScattering", "matcapColor", "eyeFinalTint"];
+                for (var c = 0; c < eyeColours.length; ++c) {
+                    var v = data[eyeColours[c]];
+                    if (v) mat[eyeColours[c]] = Qt.vector4d(v[0], v[1], v[2], v[3]);
+                }
+                var eyeMaps = ["eyeBase", "eyeMatcap", "eyeSpecular", "eyeAdd", "eyeMultiply", "eyeEmission"];
+                for (var k = 0; k < eyeMaps.length; ++k) {
+                    var name = eyeMaps[k];
+                    mat[name + "Map"].texture.source = data[name] || "";
+                    mat["has" + name.charAt(0).toUpperCase() + name.slice(1)] = Boolean(data[name]);
+                }
                 var parameters = ["backShadowOffset", "frontShadowOffset", "shadowProcess", "shadowWidth",
                                   "pbrRate", "specularPower", "metalSpecularPower"];
                 for (var p = 0; p < parameters.length; ++p)

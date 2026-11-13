@@ -13,6 +13,11 @@ left as they were; a texel the two eyes share is the mean of what each gives.
 
 The ``.blend`` keeps the layers as layers (it can blend them); this writes a copy of the scene document whose
 eye material reads the baked map, for the glTF and FBX writers only.
+
+The eye's own program also lights a specular map (``_Specularmap``; 5 of the 168 exported eyes set one, the
+shader's default is black) by N·L: it is laid on fully lit as well (IslandLife §7.1491).  Each eye keeps its
+unbaked map under its own name and says, in ``eye``, the program's terms and the add and multiply layers as maps on
+its own UV, for a reader that lights the eye itself (the add layer by 0.2 + 0.8 · N·L, not by a ramp).
 """
 from __future__ import annotations
 
@@ -132,16 +137,60 @@ def _eye_texels(corners: np.ndarray, uvs: np.ndarray, record: dict, size: tuple[
     return np.concatenate(rows), np.concatenate(columns), np.concatenate(points)
 
 
+#: the maps a baked eye adds beside its own (which stays under its name, the program's unbaked map)
+BAKED_KEY, ADD_KEY, MULTIPLY_KEY = "EyeLayers_BaseColor", "EyeLayers_Add", "EyeLayers_Multiply"
+#: the eye program's terms, read from its compiled fragment (IslandLife §7.1491; ``gf_shader/pbr/character/eye``,
+#: pass 0, the variant without keywords, UnityPerMaterial by byte offset): what a reader that lights the eye
+#: itself needs, and what the formats without the program are given instead
+PROGRAM_TERMS = {
+    "diffuse": "_MainTex × (the ambient's colour at N, scaled to the ambient's mean luminance + _MainLightColor × "
+               "lerp(_ShadowIntensity, 1, saturate(N·L))): no ramp, no cast shadow",
+    "specular": "_Specularmap × _SpecularIntensity × saturate(N·L) × _MainLightColor (the shader's default map is "
+                "black: no term without one)",
+    "final": "× _FinalTint",
+    "add_layer": "eyeblend_add (Blend One One, queue +458): its map × _MainColor × _SpecularIntensity × "
+                 "(0.2 + 0.8 × saturate(N·L) × the main light's shadow) — the light's direction, not its colour",
+    "multiply_layer": "eyeblend_multiply (Blend DstColor Zero, queue +459): lerp(1, its map × _MainColor, "
+                      "_SpecularIntensity), unlit",
+    "parallax": "the vertex program's offset × _CorneaParallax (base) and × _SpecularParallax (specular): not "
+                "worked out here (head-on)"}
+
+
+def _uv_of(rows, columns, record: dict, size) -> np.ndarray:
+    """The mesh's UV (Unity's, v up) at texel centres of a map read through *record*'s scale and offset."""
+    scale = np.asarray(record.get("scale") or (1.0, 1.0), np.float64)
+    offset = np.asarray(record.get("offset") or (0.0, 0.0), np.float64)
+    at = np.stack([(columns + 0.5) / size[0], 1.0 - (rows + 0.5) / size[1]], axis=1)
+    return (at - offset) / np.where(scale == 0, 1.0, scale)
+
+
+def _program(eye: dict, image_of, rows, columns, size) -> tuple[np.ndarray | None, dict]:
+    """The eye program's specular term at the eye's texels (fully lit, head-on) and the values it reads."""
+    floats, colours = eye.get("floats") or {}, eye.get("colors") or {}
+    stated = {"_ShadowIntensity": floats.get("_ShadowIntensity"), "_SpecularIntensity": floats.get("_SpecularIntensity"),
+              "_FinalTint": colours.get("_FinalTint")}
+    spec = None
+    if "_Specularmap" in eye.get("maps", {}):
+        record = eye["maps"]["_Specularmap"]
+        image = image_of(record)
+        at = _texels(_uv_of(rows, columns, eye["maps"][eye["base"]], size), record, (image.shape[1], image.shape[0]))
+        spec = _linear(_sample(image, at)[:, :3]) * float(floats.get("_SpecularIntensity", 1.5))
+    return spec, stated
+
+
 def bake(document_path: Path, log=print) -> Path:
-    """A copy of the scene document at *document_path* whose eye materials read their maps with the eye blend
-    layers baked in; the document itself when it has no eye layer.  The baked maps go beside the originals."""
+    """A copy of the scene document at *document_path* whose eye materials read their maps with the eye program's
+    specular map (fully lit) and the eye blend layers baked in; the document itself when it has no eye.  The
+    baked maps go beside the originals; each eye keeps its own map under its name and states, in ``eye``, the
+    program's terms and the maps a reader that lights the eye itself needs: the add layer's colour (at the
+    scale ``add_scale``) and the multiply layer's factor, both on the eye's own UV."""
     document_path = Path(document_path)
     folder = document_path.parent
     document = json.loads(document_path.read_text(encoding="utf-8"))
     materials = document["materials"]
     eyes = {n for n, m in materials.items() if m.get("shader") == EYE and m.get("base")}
     layers = {n: m for n, m in materials.items() if m.get("shader") in (EYE_ADD, EYE_MULTIPLY) and m.get("base")}
-    if not eyes or not layers:
+    if not eyes:
         return document_path
     arrays = np.load(folder / document["arrays"])
     surfaces = _surfaces(document, arrays, eyes | set(layers))
@@ -157,14 +206,22 @@ def bake(document_path: Path, log=print) -> Path:
                 images[path] = np.asarray(opened.convert("RGBA"), np.float64) / 255.0
         return images[path]
 
+    changed = False
     for eye in sorted(n for n in eyes if n in surfaces):
-        record = materials[eye]["maps"][materials[eye]["base"]]
+        source = materials[eye]["base"]
+        record = materials[eye]["maps"][source]
         base = image_of(record)
         size = (base.shape[1], base.shape[0])
         rows, columns, points = _eye_texels(*surfaces[eye], record, size)
         if not len(points):
             continue
         colour = _linear(base[rows, columns, :3])
+        spec, program = _program(materials[eye], image_of, rows, columns, size)
+        if spec is not None:
+            colour = colour + spec                                   # the main light's terms taken as 1
+        added = np.zeros_like(colour)
+        factor = np.ones_like(colour)
+        laid = []
         for name in order:
             layer = materials[name]
             corners, uvs = surfaces[name]
@@ -179,25 +236,64 @@ def bake(document_path: Path, log=print) -> Path:
             value = _linear(_sample(layer_image, at)[:, :3]) * _linear(np.asarray(layer.get("tint", [1, 1, 1])[:3]))
             strength = float(layer.get("strength", 1.0))
             if layer["shader"] == EYE_ADD:
-                colour[near] = colour[near] + value * strength          # the main light's term taken as 1
+                # every add layer draws before every multiply one (+458, +459): the adds sum, then the factors apply
+                added[near] += value * strength
             else:
-                colour[near] = colour[near] * (1.0 + strength * (value - 1.0))
+                factor[near] *= 1.0 + strength * (value - 1.0)
+            laid.append({"material": name, "blend": "add" if layer["shader"] == EYE_ADD else "multiply",
+                         "strength": strength, "tint": [float(v) for v in layer.get("tint", [1, 1, 1, 1])],
+                         "texels": int(near.sum())})
             log(f"{eye}: {name} over {int(near.sum())} of {len(points)} texels")
-        # a texel the two eyes share is the mean of what each gives
-        out = base.copy()
+        baked = (colour + added) * factor                            # the add layer's light term taken as 1
         flat = rows * size[0] + columns
-        totals = np.zeros((size[0] * size[1], 3))
-        counts = np.zeros(size[0] * size[1])
-        np.add.at(totals, flat, _srgb(colour))
-        np.add.at(counts, flat, 1)
-        done = counts > 0
-        out.reshape(-1, 4)[done, :3] = totals[done] / counts[done, None]
-        source = Path(record["file"])
-        baked = source.with_name(f"{source.stem}_eyelayers{source.suffix if source.suffix == '.png' else '.png'}")
-        Image.fromarray(np.round(out * 255).astype(np.uint8), "RGBA").save(folder / baked)
-        materials[eye] = dict(materials[eye], maps=dict(materials[eye]["maps"],
-                                                       **{materials[eye]["base"]: dict(record, file=baked.as_posix())}),
-                              eye_layers_baked=sorted(order))
+        done, mean = _mean(flat, size, _srgb(baked))
+        out = base.copy()
+        out.reshape(-1, 4)[done, :3] = mean
+        stem = Path(record["file"]).stem
+        target = Path(record["file"]).with_name(f"{stem}_eyelayers.png")
+        Image.fromarray(np.round(out * 255).astype(np.uint8), "RGBA").save(folder / target)
+        entries = {BAKED_KEY: dict(record, file=target.as_posix(), srgb=True)}
+        statement = {"game": "gf2", "status": "baked", "program": EYE, "terms": PROGRAM_TERMS, "values": program,
+                     "source_base": source, "baked_base": BAKED_KEY, "layers": laid,
+                     "baked": ("the program's specular map (fully lit) and the layers (the add layer's light term "
+                               "1) laid on the eye's map for glTF and FBX"),
+                     "maps": {"source_base": source} | ({"specular": "_Specularmap"} if spec is not None else {})}
+        if laid:
+            # the layers on the eye's own UV, for a reader that lights the add layer itself
+            scale = max(1.0, float(added.max()))
+            _done, add_mean = _mean(flat, size, _srgb(added / scale))
+            _done, mul_mean = _mean(flat, size, np.clip(factor, 0.0, 1.0))
+            add_map = np.zeros((size[1] * size[0], 4))
+            add_map[:, 3] = 1.0
+            add_map[done, :3] = add_mean
+            mul_map = np.ones((size[1] * size[0], 4))
+            mul_map[done, :3] = mul_mean
+            for key, image, srgb in ((ADD_KEY, add_map, True), (MULTIPLY_KEY, mul_map, False)):
+                path = Path(record["file"]).with_name(f"{stem}_{key.lower()}.png")
+                pixels = np.round(image.reshape(size[1], size[0], 4) * 255).astype(np.uint8)
+                Image.fromarray(pixels, "RGBA").save(folder / path)
+                entries[key] = {k: v for k, v in record.items() if k != "sha256"} | {"file": path.as_posix(),
+                                                                                     "srgb": srgb}
+            statement["maps"].update(add=ADD_KEY, multiply=MULTIPLY_KEY)
+            statement["add_scale"] = scale
+            statement["multiply_clipped_texels"] = int(((factor < 0.0) | (factor > 1.0)).any(1).sum())
+        materials[eye] = dict(materials[eye], base=BAKED_KEY, maps=dict(materials[eye]["maps"], **entries),
+                              eye=statement, **({"eye_layers_baked": sorted(r["material"] for r in laid)}
+                                                if laid else {}))
+        changed = True
+    if not changed:
+        return document_path
     out_path = document_path.with_name(document_path.stem + "_eyebaked.json")
     out_path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
     return out_path
+
+
+def _mean(flat: np.ndarray, size, values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """A texel the two eyes (or two levels of detail) share is the mean of what each gives: the texels written
+    (a mask over the flattened map) and their values."""
+    totals = np.zeros((size[0] * size[1], values.shape[1]))
+    counts = np.zeros(size[0] * size[1])
+    np.add.at(totals, flat, values)
+    np.add.at(counts, flat, 1)
+    done = counts > 0
+    return done, totals[done] / counts[done, None]

@@ -111,6 +111,13 @@
     - GF2 過場預製物的 `timeline`（頂層：預製物的 PlayableDirector 與它播的 TimelineAsset）與部件的 `timeline`
       （`gf2/scene_facts.timeline`／`path_facts`：路徑上關著的節點、各 director 綁在路徑節點上的軌道與片段、`activated_by_timeline`）。
       讀不到安裝時頂層寫 `facts_failure`。
+    - 眼睛的 `eye`（IslandLife §7.1491，見下面「眼睛」）：`game`、`status`（`baked`；`null` 加 `reason` 是遊戲的程式在這裡跑不了）、
+      `source_base`（未烘的底色圖：FBX 帶的是烘過的）、`maps`（角色 → 材質的貼圖名：`source_base`、終末地 `matcap`、
+      GF2 `specular`／`add`／`multiply`、鳴潮 `emission`）、烘了什麼、怎麼看（正面、燈 1）。終末地另有程式的 keyword、
+      純量、顏色與 `clipped_texels`；GF2 有 `terms`（程式的式子）、`values`（`_ShadowIntensity`、`_SpecularIntensity`、
+      `_FinalTint`）、`layers`、`add_scale`、`multiply_clipped_texels`；鳴潮有 `base_color`（受光）、`emission`（不受光、強度）
+      與 `evidence`（跑過的 base pass、各貼圖的 address、靈敏度測試、`HeightLightMap` 各通道的作用）。GF2 的 `eye_layers_baked`
+      照舊；`eye` 的眼睛底色在 FBX 裡換成烘過的那一張（`EyeLayers_BaseColor`、`EyeProgram_BaseColor`、`EyeBasePass_BaseColor`）。
   - `expressions`：形狀鍵的表情就是 FBX 的 BlendShape（`shape_keys` 列名字與部件）。終末地的臉部控制、情緒與姿態預設是骨頭驅動的
     （它的模型沒有形狀鍵），寫成 `bone_poses`：每個表情動到的骨頭在 FBX 空間的局部變換（3×4，同 FBX 的 `Lcl`）、材質值（表情圖索引）與控制項；
     不烘成形狀鍵，因為形狀鍵是靜止網格上的固定位移，頭一動或兩個表情疊加就和骨頭重複移動。只匯出 FBX 時，終末地也照 `expressions` 設定算這些（不算姿勢）。
@@ -241,3 +248,30 @@ glTF／FBX 不能走視線，所以把同一個高度場做成幾何：卡片原
 - `Plane` 不是 0 的材質走法不同，沒有讀過，不做毛絲層（記錄裡會寫）。
 
 「心」兩套都只有尾巴部件裡的白毛（袖口、耳內毛球）落在這個頂點色範圍，深度約 6 mm，7 層。尾巴本體是另外的毛絲卡片（頂點 alpha 0 或 1），由上面的覆蓋率處理。
+
+## 眼睛：三個遊戲自己的眼睛程式（IslandLife §7.1491）
+
+眼睛的高光是各遊戲眼睛程式的一部分，不是一般的貼圖。glTF／FBX 跑不了程式，所以照「疊不了的就烘進底下的貼圖」烘進眼睛的底色
+（正面看、燈 1），材質帶 `eye` 記下未烘的貼圖與程式的值；預覽（`character.frag`，`character_styles.eye_style`）三個遊戲都照程式畫。
+
+- **終末地**（`endfield/eye_bake.py`，只給 glTF／FBX）：`HGRP/CharacterNPR_Eye` 在 `_EYE_HIGHLIGHT` 下把 UV 圓 `|frac(uv) − ½| < ½`
+  外的底色乘 `_EyeHighLightColor`（HDR），全部乘 `lerp(1, _EyeScatteringColor, base.a)`；`_MATCAP_ON` 用角膜圓頂法線
+  `(q·−_MatcapNormalScale, √(1−|q|²))` 讀 `_MatcapTex`，`rgb·_MatcapColor.a + a·_MatcapColor.rgb`。烘的時候視差 0、相機的右與上沿著 u、v，
+  超過 1 的截斷並計數（Pelica 8 848 個貼圖像素）。少一個值就不烘、寫原因。
+- **GF2**（`gf2/eye_bake.py`）：`eye` 程式（pass 0、無 keyword 的變體，UnityPerMaterial 依位元組位移對名）沒有 ramp：
+  `_MainTex ×（環境光 + 主光 × lerp(_ShadowIntensity, 1, saturate(N·L))）+ _Specularmap × _SpecularIntensity × N·L × 主光`，再乘 `_FinalTint`；
+  開 `_MAIN_LIGHT_SHADOWS` 的變體 N·L 乘上投影。`eyeblend_add` 是 `貼圖 × _MainColor × _SpecularIntensity × (0.2 + 0.8·N·L·投影)`（只用光的方向、
+  不乘光色），`eyeblend_multiply` 是 `lerp(1, 貼圖 × _MainColor, _SpecularIntensity)` 不受光。烘焙照舊把疊層與（全亮的）高光貼圖烘進底色，
+  另把加法層（`EyeLayers_Add`，sRGB，乘 `add_scale`）與乘法層（`EyeLayers_Multiply`，線性）照眼睛自己的 UV 寫成貼圖。`_Specularmap` 預設黑，
+  2026-11-13 的 168 個 `eye` 材質只有 5 個有。
+- **鳴潮**（`wuthering_waves/eye_bake.py`，三種格式都用）：`MSM_ToonFace` + `UseEyeSDF` 的眼睛在 base pass 裡畫高光：`HeightLightMap`
+  （`T_EyesSecondHeightLight*_EG`）在由 UV0、材質的位置／寬度／旋轉參數與頂點色 G（選兩個位置之一）算出的座標取樣，`EM` 給視差高度與
+  另一個高光形狀。直接執行實例 shader map 的全部 base pass 變體（`shaders.vm`；整數位元指令 `ubfe`／`ibfe`／`bfi`／`imad` 是這次加的），
+  在眼睛底色圖每個被三角形蓋到的貼圖像素上，正面看、時間 0、pre-exposure 1：`SV_Target3`（GBufferC 的底色，延遲的卡通光照會照到）寫成底色圖，
+  `SV_Target0`（base pass 自己加的場景色，即 Unreal 的 emissive，不受光）寫成發光圖與強度。貼圖照資產自己的 `AddressX`／`AddressY`
+  取樣（`GameFiles.address`；`TA_Clamp` 夾在邊緣，直譯器本身是 wrap），`HeightLightMap` 與 `EM` 都是 clamp——用 wrap 讀會把高光鋪滿整顆眼睛。
+  沒寫在 `FRAME` 的 View／Primitive／ToonShadowLightData 槽一一給亂數、網格沒有的輸入給 0 與 1、螢幕位置移動，目標有變就拒絕；
+  參數集合給資產的預設值；全部變體（立即常數表兩個值）結果必須相同。兩眼疊在同一塊 UV、高光位置靠頂點色分開時，三角形照 `_layers`
+  分到 `<材質>_Overlap<k>`（和覆蓋率同一套搬部件）。椿：12 個 base pass 變體一致，2 507 499 個貼圖像素、4 898 923 個取樣，
+  兩張圖（591／41 個三角形），發光最大 1.74；在 4 096 個取樣上，`HeightLightMap` 的 R 同時改底色（最多 0.049）與發光（0.021），
+  B 只改發光（0.40），G、A 不影響。結果依規則版本、材質與幾何快取在 `shaders/eye/`，第一次約 3 分鐘。

@@ -81,7 +81,7 @@ def selftest(path: str) -> int:
                  "polylode.endfield.pipeline", "polylode.endfield.fbx_export",
                  "polylode.endfield.hscope", "polylode.endfield.body_scope", "polylode.gf2.convert",
                  "polylode.gf2.bundles", "polylode.gf2.catalog", "polylode.gf2.selection", "polylode.gf2.scene_facts",
-                 "polylode.wuthering_waves.skin_band",
+                 "polylode.wuthering_waves.skin_band", "polylode.wuthering_waves.eye_bake", "polylode.endfield.eye_bake",
                  "polylode.wuthering_waves.assembly", "polylode.wuthering_waves.source_scene",
                  "polylode.wuthering_waves.extract", "polylode.wuthering_waves.keys", "polylode.converted.names", "polylode.converted.scope",
                  "polylode.interchange.glb", "polylode.interchange.fbx", "polylode.interchange.expressions",
