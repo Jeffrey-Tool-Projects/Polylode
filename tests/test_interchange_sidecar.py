@@ -119,6 +119,10 @@ def test_slot_roles_come_from_each_games_shader_data():
     assert role(banded(status="constant", constant_factor=0.5)) == "unknown"
     assert role(banded(status=None, reason="unread")) == "unknown"
     assert role(banded(status="variants_differ")) == "unknown"
+    # a factor read as a table over its maps (an ID map, IslandLife §7.1502): skin where the table is 1
+    table = {"status": "table", "inputs": [{"map": "RegionIDTex", "channel": "R"}]}
+    assert role(banded(**table, levels=[0.0, 1.0])) == "skin_and_clothing"
+    assert role(banded(**table, levels=[0.0, 0.5, 1.0])) == "unknown"
     assert role({**wuwa("MSM_ToonCommon", UseSkinMask=True), "skin_band": {"status": "constant",
                                                                            "constant_factor": 0.0}}) == "skin_and_clothing"
     assert role({**wuwa("MSM_ToonHair"), "skin_band": {"status": "read"}}) == "hair"

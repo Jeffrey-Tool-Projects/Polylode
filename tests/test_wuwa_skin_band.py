@@ -30,7 +30,7 @@ def read(body: str, buffer=None) -> dict:
     if buffer:
         for slot, value in buffer.items():
             material[slot] = value
-    return skin_band._variant(shader(body), {4: material}, 4, SKIN, 1)
+    return skin_band._variant(shader(body), {4: material}, 4, SKIN, 1, ["Normal", "TypeMask", "RegionIDTex"])
 
 
 def test_a_band_on_the_type_masks_red_strictly_above_its_literal_is_read_with_its_comparison():
@@ -66,11 +66,23 @@ def test_the_lerp_left_unfused_as_a_multiply_and_an_add_is_found():
     assert read(body)["source"] == "TypeMask"
 
 
-def test_a_factor_that_also_follows_another_map_is_refused_not_read_as_a_band():
+def test_a_factor_that_also_follows_another_map_is_read_as_a_table_over_both_not_as_a_band():
     body = (SAMPLE + "sample_indexable(texture2d)(float,float,float,float) r4.xyzw, v1.xyxx, t2.xyzw, s2\n"
             "lt r0.x, r4.x, r3.x\nand r0.x, r0.x, l(0x3f800000)\n" + LERP)
-    with pytest.raises(skin_band.BandError, match="other maps"):
-        read(body)
+    found = read(body)
+    assert found["source"] == "maps" and found["levels"] == [0.0, 1.0] and found["otherwise"] in (0.0, 1.0)
+    assert {(row["map"], row["channel"], row["uv_set"]) for row in found["inputs"]} == {("TypeMask", "R", 0),
+                                                                                         ("RegionIDTex", "R", 0)}
+    # the table is the game's comparison: skin where RegionIDTex R < TypeMask R, on every pair of 8-bit values
+    order = [row["map"] for row in found["inputs"]]
+    table = np.full((256, 256), found["otherwise"])
+    for box in found["boxes"]:
+        (a0, a1), (b0, b1) = box["ranges"]
+        table[a0:a1 + 1, b0:b1 + 1] = box["factor"]
+    mask, ids = np.meshgrid(np.arange(256), np.arange(256), indexing="ij")
+    if order[0] != "TypeMask":
+        mask, ids = ids, mask
+    np.testing.assert_array_equal(table, (ids < mask).astype(float))
 
 
 def test_the_switches_and_scalars_say_where_their_values_come_from():
@@ -143,18 +155,59 @@ def test_a_translucent_map_is_read_off_the_passes_that_tint_toward_skin_colour(m
     assert skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])["status"] == "variants_differ"
 
 
-def test_a_factor_that_follows_only_another_map_is_refused_not_read_as_a_constant():
-    # an ID decoded from another map and compared with a range (PlayerFemale / Lucy 10011's SkinMin, SkinMax;
-    # IslandLife §7.1492): at the two constant fills it is the same (0.25 → ID 63, 0.75 → ID 191, neither 4),
-    # so without sweeping that map it read as the constant 0
-    body = ("sample_indexable(texture2d)(float,float,float,float) r4.xyzw, v1.xyxx, t2.xyzw, s2\n"
-            "mul r4.x, r4.x, l(255.000000)\nftoi r4.x, r4.x\nieq r0.x, r4.x, l(4)\n"
-            "and r0.x, r0.x, l(0x3f800000)\n" + LERP)
-    with pytest.raises(skin_band.BandError, match="another of the material's maps"):
-        read(body)
+#: an ID decoded from RegionIDTex (t2) R as the game does (×255.5, to an integer, two nibbles) and compared with a
+#: range, the high nibble taken where TypeMask (t1) A ≥ 0.5 and it is not 0 (PlayerFemale 10011's ``Up``, §7.1502)
+ID = ("sample_indexable(texture2d)(float,float,float,float) r4.xyzw, v1.xyxx, t2.xyzw, s2\n"
+      "mul r4.x, r4.x, l(255.500000)\nftoi r4.x, r4.x\nand r5.x, r4.x, l(15)\nishr r4.x, r4.x, l(4)\n"
+      "itof r5.y, r5.x\nilt r6.y, l(0), r4.x\nitof r5.z, r4.x\n"
+      "ge r5.w, r3.w, l(0.500000)\nand r6.x, r6.y, r5.w\nmovc r5.y, r6.x, r5.z, r5.y\n"
+      "ge r0.x, r5.y, l(3.500000)\nge r0.y, l(4.500000), r5.y\nand r0.x, r0.x, r0.y\n"
+      "and r0.x, r0.x, l(0x3f800000)\n")
 
 
-def test_a_map_one_of_whose_variants_follows_another_map_is_refused_whatever_the_others_read(monkeypatch):
+def test_a_factor_that_follows_only_another_map_is_read_as_a_table_not_as_a_constant():
+    # at the two constant fills the ID is the same (0.25 → 63, 0.75 → 191, neither 4), so without sweeping that map
+    # it read as the constant 0 (§7.1492); every 8-bit value of it says where the game draws skin
+    found = read("sample_indexable(texture2d)(float,float,float,float) r4.xyzw, v1.xyxx, t2.xyzw, s2\n"
+                 "mul r4.x, r4.x, l(255.500000)\nftoi r4.x, r4.x\nieq r0.x, r4.x, l(4)\n"
+                 "and r0.x, r0.x, l(0x3f800000)\n" + LERP)
+    assert found["inputs"] == [{"map": "RegionIDTex", "channel": "R", "uv_set": 0}]
+    assert (found["otherwise"], found["boxes"]) == (0.0, [{"factor": 1.0, "ranges": [[4, 4]]}])
+
+
+def test_an_id_whose_nibble_another_map_chooses_is_a_table_over_both():
+    found = read(SAMPLE + ID + LERP)
+    assert [(row["map"], row["channel"]) for row in found["inputs"]] == [("TypeMask", "A"), ("RegionIDTex", "R")]
+    expected = ([[[0, 127], [16 * k + 4, 16 * k + 4]] for k in range(16)]
+                + [[[128, 255], [4, 4]], [[128, 255], [64, 79]]])
+    assert sorted(box["ranges"] for box in found["boxes"]) == sorted(expected)
+
+
+def test_a_factor_in_the_register_of_its_difference_is_read_as_the_factor():
+    # the compiler can keep the factor in the components the difference does not use (PlayerFemale 10011's Up:
+    # ``mad r9.yzw, r9.xxxx, r9.yyzw, l(0, 1, 1, 1)``); taking the difference for the factor read a constant
+    body = (SAMPLE + "lt r1.x, l(0.900000), r3.x\nand r1.x, r1.x, l(0x3f800000)\n"
+            "add r1.yzw, cb4[7].xxyz, l(0.000000, -1.000000, -1.000000, -1.000000)\n"
+            "mad r1.yzw, r1.xxxx, r1.yyzw, l(0.000000, 1.000000, 1.000000, 1.000000)\nmov o0.xyz, r1.yzwy\nret\n")
+    found = read(body)
+    assert (found["source"], found["channel"], found["threshold"]) == ("TypeMask", "R", 0.9)
+
+
+#: a factor that follows four inputs: RegionIDTex R and G each against TypeMask R and G
+FOUR = (SAMPLE + "sample_indexable(texture2d)(float,float,float,float) r4.xyzw, v1.xyxx, t2.xyzw, s2\n"
+        "lt r0.x, r4.x, r3.x\nlt r0.y, r4.y, r3.y\nand r0.x, r0.x, r0.y\nand r0.x, r0.x, l(0x3f800000)\n")
+
+
+def test_a_table_is_refused_over_more_maps_than_it_reads_or_over_the_vertex_colour():
+    with pytest.raises(skin_band.BandError, match="follows 4 inputs"):
+        read(FOUR + LERP)
+    colour = ("sample_indexable(texture2d)(float,float,float,float) r4.xyzw, v1.xyxx, t2.xyzw, s2\n"
+              "lt r0.x, r4.x, v2.x\nand r0.x, r0.x, l(0x3f800000)\n" + LERP)
+    with pytest.raises(skin_band.BandError, match="not a map of the material: the vertex colour"):
+        read(colour)
+
+
+def test_a_map_one_of_whose_variants_follows_another_map_is_not_read_as_the_others(monkeypatch):
     # Lucy 10011's Up (§7.1492): some base-pass variants read the constant 0, the others an ID map
     from polylode.wuthering_waves import shader_bake
     from polylode.wuthering_waves.shaders.inline import Uniforms
@@ -168,11 +221,18 @@ def test_a_map_one_of_whose_variants_follows_another_map_is_refused_whatever_the
     by_id = shader(declared + "sample_indexable(texture2d)(float,float,float,float) r4.xyzw, v1.xyxx, t2.xyzw, s2\n"
                    "mul r4.x, r4.x, l(255.000000)\nftoi r4.x, r4.x\nieq r0.x, r4.x, l(4)\n"
                    "and r0.x, r0.x, l(0x3f800000)\n" + LERP)
-    monkeypatch.setattr(skin_band.inline, "read", lambda uexp: [Uniforms([], [], [], [("SkinColor", (1, 1, 1, 1))], [])])
+    textures = [("Normal", 0), ("TypeMask", 1), ("RegionIDTex", 2)]
+    monkeypatch.setattr(skin_band.inline, "read", lambda uexp: [Uniforms([], [], [], [("SkinColor", (1, 1, 1, 1))], textures)])
     monkeypatch.setattr(skin_band, "_slots", lambda *a: set(SKIN))
     monkeypatch.setattr(shader_bake, "_frozen_values", lambda *a: np.zeros((16, 4)))
     monkeypatch.setattr(skin_band, "base_passes", lambda store, index: [(1, constant), (2, by_id)])
-    with pytest.raises(skin_band.BandError, match="another of the material's maps"):
+    assert skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])["status"] == "variants_differ"
+    monkeypatch.setattr(skin_band, "base_passes", lambda store, index: [(2, by_id)])
+    assert skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])["status"] == "table"
+    # a variant that follows other maps and cannot be read as a table refuses the material
+    monkeypatch.setattr(skin_band, "base_passes",
+                        lambda store, index: [(1, constant), (2, shader(declared + FOUR + LERP))])
+    with pytest.raises(skin_band.BandError, match="another of the material's maps, not read as a table"):
         skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])
     monkeypatch.setattr(skin_band, "base_passes", lambda store, index: [(1, constant)])
     assert skin_band.analyse({"native_material": {}}, Store(), b"x" + b"m" * 20, None, [])["status"] == "constant"

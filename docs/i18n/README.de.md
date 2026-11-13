@@ -37,7 +37,7 @@ Das englische Fenster, aufgenommen bei einem echten Scan und einer echten Vorsch
 - **Eine Begleitdatei zu jeder FBX.** Neben `<Name>.fbx` liegt `<Name>.islandlife.json` (versioniertes Schema): die
   Human-Bone-Tabelle des Spiels und ihre Herkunft (oder warum es keine gibt), die nativen Werte jedes Materials und jede
   Textur, die die FBX nicht einbettet (einmal nach `textures/` kopiert, mit SHA-256 und Farbraum), die Rolle jedes
-  Material-Slots und warum ein verborgenes Teil verborgen ist (bei GF2s Zwischensequenz-Prefabs mit den Timeline-Spuren der Szene), wo ein Wuthering-Waves-Material, das Haut und Kleidung zugleich zeichnet, Haut zeichnet (aus dem kompilierten Shader des Spiels gelesen: Maskenkanal oder Vertexfarbe und Schwellenwert), welche GF2-Renderer Waffen sind (die Materialien der Waffentabelle), die Ausdrücke (Shape Keys und Endfields Gesichtssteuerung
+  Material-Slots und warum ein verborgenes Teil verborgen ist (bei GF2s Zwischensequenz-Prefabs mit den Timeline-Spuren der Szene), wo ein Wuthering-Waves-Material, das Haut und Kleidung zugleich zeichnet, Haut zeichnet (aus dem kompilierten Shader des Spiels gelesen: Maskenkanal oder Vertexfarbe und Schwellenwert, oder – wo eine ID-Map entscheidet – die Werte der Map, die Haut sind), welche GF2-Renderer Waffen sind (die Materialien der Waffentabelle), die Ausdrücke (Shape Keys und Endfields Gesichtssteuerung
   als Knochenposen) sowie IDs, Installationsversion und Hashes der Quelldateien. Was das Spiel nicht angibt, steht als
   fehlend da und wird nie geraten.
 - **Materialien, wie die Spiele sie zeichnen.** Ausschnitte, Transparenz, Lidschatten-Ebenen und Augenglanz-Ebenen werden nach den Regeln geschrieben,

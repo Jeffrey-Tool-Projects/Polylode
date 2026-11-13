@@ -35,7 +35,8 @@ same interchange scene the FBX was written from:
 Wuthering Waves' ``MSM_ToonCommon`` materials also carry ``skin_band``: where the
 game's own compiled shader draws skin (``wuthering_waves.skin_band``); a material whose
 instance sets no ``UseSkinMask`` takes its role from it (``skin_and_clothing`` when the
-base pass reads a band, ``clothing`` when its shader map draws no skin); GF2's
+base pass reads a band or a table over its maps (an ID map, IslandLife §7.1502),
+``clothing`` when its shader map draws no skin); GF2's
 materials a weapon prefab draws with carry ``weapon`` (``gf2.scene_facts``).  An eye
 whose highlight the FBX holds only baked carries ``eye`` (IslandLife §7.1491): the
 game, what was baked into the map the FBX carries and how (seen head-on, lights 1),
@@ -163,6 +164,10 @@ def slot_role(record: dict) -> tuple[str, str]:
                 return "skin_and_clothing", ("shading model MSM_ToonCommon whose compiled base pass reads a skin band "
                                              f"({band.get('source')} {band.get('channel')}; the instance sets no "
                                              "UseSkinMask)")
+            if status == "table" and set(band.get("levels") or []) == {0.0, 1.0}:
+                named = ", ".join(f"{row.get('map')} {row.get('channel')}" for row in band.get("inputs") or [])
+                return "skin_and_clothing", ("shading model MSM_ToonCommon whose compiled base pass's skin factor is a "
+                                             f"table over its maps ({named}; the instance sets no UseSkinMask)")
             if status == "no_skin_color":
                 return "clothing", ("shading model MSM_ToonCommon whose compiled shader map draws no skin ("
                                     f"{band.get('reason') or 'its base pass never reads SkinColor'})")

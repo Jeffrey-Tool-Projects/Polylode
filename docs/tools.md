@@ -96,8 +96,10 @@
   - 2026-11-13 加進 version 1 的欄位（沒有搬動或改義既有欄位，讀第一版的程式讀到的值不變；`weapon` 是新的角色值，
     不認得它的讀者當成用不上的角色處理，和 `unknown` 一樣）：
     - 鳴潮 `MSM_ToonCommon` 材質的 `skin_band`（`wuthering_waves/skin_band.py`，見下面「鳴潮的皮膚帶」）：`status`
-      （`read` 讀到帶、`constant` 係數是常數、`no_skin_color` 這個 shader map 的 base pass 不讀 `SkinColor`（或 shader map 根本沒有 `SkinColor` 參數）、`variants_differ`、`null` 讀不到並寫 `reason`）、
+      （`read` 讀到帶、`table` 係數是幾張圖的查表（ID 圖，見下）、`constant` 係數是常數、`no_skin_color` 這個 shader map 的 base pass 不讀 `SkinColor`（或 shader map 根本沒有 `SkinColor` 參數）、`variants_differ`、`null` 讀不到並寫 `reason`）、
       `source`（`TypeMask` 或頂點色 `COLOR0`）、`channel`、`comparison`／`threshold`（例：`>` 0.9）、`factor_below`／`factor_above`、`uv_set`、
+      `table` 的 `inputs`（每個輸入的圖參數名 `map`、`channel`、`uv_set`）、`otherwise`（盒子以外的係數）、`boxes`（每個輸入一段 8 位元值的閉區間、
+      該處的 `factor`）、`levels`、`checked_lanes`，
       `constant_factor`、`parameters`（`UseSkinMask`、`UseTypeMask`、`UseSkinMask_DYN`、`DefaultSkinFactor`、`UseFaceAni_SkinMask` 的值與出處）、
       `evidence`（shader map 的 SHA-1、跑過的 base pass 像素 shader、`SkinColor` 在 Material buffer 的槽、沒跑成的變體與原因）。
     - GF2 的 `weapon`：材質就是 `GunWeaponData`（欄位 1 武器編號、欄位 9 預製物路徑）某個武器預製物的 Renderer 用的那個材質資產
@@ -235,9 +237,27 @@ Sanhua 10011 `Body` 的 FBX 頂點色與交換場景逐值相同（R 全是 255�
 `parameters` 裡實例沒設的開關寫 `value: null`（上層的值，看讀到的帶），不再當成關。shader map 根本沒有 `SkinColor` 參數 → `no_skin_color`；
 沒有 7 目標 base pass 的半透明 shader map，改讀它所有讀 Material buffer 的像素 shader 中會往 `SkinColor` lerp 的那些，一個都沒有就是 `no_skin_color`。
 直譯器讀得懂反組譯器的非有限常數寫法（`-1.#QNAN0`、`1.#INF00`）。
-另加一段掃描：`TypeMask` 與頂點色以外的每張貼圖一起、每個通道沿同一個格點（帶的兩個輸入固定 0 與 1）。係數跟著這段走的變體表示皮膚由另一張圖決定
-（ID 圖解碼成整數、和 `SkinMin`／`SkinMax` 比；兩個常數填值 0.25／0.75 解出的 ID 都不是皮膚，原本讀成常數 0），拒絕；一個 shader map 只要有一個
-base pass 變體是這樣，整個材質就讀不出（寫 `null` 與原因），不拿其他變體的常數頂替。快取版本 3 → 4。
+另加一段掃描：`TypeMask` 與頂點色以外的每張貼圖一起、每個通道沿同一個格點（帶的兩個輸入固定 0 與 1）。係數跟著這段走、或兩個常數填值
+（0.25／0.75）讀出不同的係數，表示皮膚由另一張圖決定，改讀成**查表**（`table`，IslandLife §7.1502）：
+
+1. 每個貼圖暫存器的每個通道與頂點色的每個通道都是輸入，給 8 192 道隨機的 8 位元值（種子固定 1502）；再對每個輸入各跑一次，只把它換成另一個
+   隨機值，係數有任何一道變了，它就是係數跟著的輸入。
+2. 跟著的輸入最多兩個（`TABLE_INPUTS`），而且都要是材質自己的圖（頂點色、別的 buffer 的貼圖拒絕：讀者沒有圖可查）；
+   在三組隨機背景值與兩個抖動表常數上，把它們的每一對 8 位元值都跑一次，六張表要完全相同，而且要給出第 1 步每一道隨機值的係數。
+3. 寫成 `otherwise` 與 `boxes`：表上最多的那個係數以外，連續的值合成閉區間（兩種輸入順序取盒子少的）。
+
+圖的值以匯出的 8 位元 PNG 為準（遊戲取樣的就是 8 位元的 UNORM，ID 解碼是 `ftoi(v·255.5)`）。一個 shader map 只要有一個 base pass 變體跟著別的圖走
+而讀不成表，整個材質就讀不出（寫 `null` 與原因），不拿其他變體頂替；各變體讀成的表不同 → `variants_differ`。`table` 而係數只有 0 與 1 →
+旁檔角色 `skin_and_clothing`。
+
+`_lerp` 找係數時，係數可以和差值在同一個暫存器（PlayerFemale 10011 `Up`：`add r9.yzw, SkinColor, −1` 之後 `mad r9.yzw, r9.xxxx, r9.yyzw, l(0, 1, 1, 1)`）：
+差值是那個暫存器裡分量落在 `add` 寫的那幾個分量的運算元，係數是另一個。原本只比暫存器號，把差值當成係數，讀成常數；這是 §7.1492
+「各變體不同」的來源之一（PlayerFemale 10011 `Up` 12 個變體中 4 個）。快取版本 4 → 5。
+
+PlayerFemale 10011 `Up` 讀成的表：輸入 `TypeMask` A 與 `RegionIDTex` R；`TypeMask` A < 128 時 R 的低四位元是 4 為皮膚（4、20、36…244），
+≥ 128 時 R 為 4 或 64–79（高四位元是 4；高四位元是 0 時取低四位元）。和反組譯逐條對過：`ftoi(R·255.5)`、`and 15`／`ishr 4`，A ≥ 0.5 而高四位元
+不是 0 時取高四位元，ID 和 `SkinMin`／`SkinMax`（4／4）比（`ID + 0.5 ≥ SkinMin` 且 `SkinMax ≥ ID − 0.5`），再和 `TypeMask` B 的帶取 max
+（這個材質那一項是 0）。
 
 2026-11-13 對 60 個案例的 252 個 `MSM_ToonCommon` 材質量（加掃描之前）：開關有設的 91 個照舊；沒設的 161 個中，13 個讀到帶（12 個 `TypeMask` R、1 個頂點色 R，
 例如 Kanteleila 10011 的 `Up`／`Down`／`Cloth`——她的皮膚全在這三個沒設開關的材質裡）、7 個 `no_skin_color`（Zhezhi 10011 `Glass` 等）、

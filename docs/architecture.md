@@ -26,6 +26,6 @@
 
 三個遊戲的眼睛程式（IslandLife §7.1491）：`endfield/eye_bake.py`（虹膜的高光貼片與 matcap，烘給 glTF／FBX）、`gf2/eye_bake.py`（疊層與高光貼圖烘進底色，並把加法／乘法層照眼睛 UV 另寫成貼圖）、`wuthering_waves/eye_bake.py`（執行眼睛的 base pass，寫成受光的底色與不受光的發光）；材質帶 `eye`，旁檔照抄，預覽由 `character_styles.eye_style` 讀。
 
-`polylode/wuthering_waves/skin_band.py`：鳴潮 `MSM_ToonCommon` 材質的皮膚帶（實例沒設 `UseSkinMask` 的也讀，旁檔的角色照讀到的定）——在 base pass 的編譯碼上掃 `TypeMask` 與頂點色，量出 `SkinColor` lerp 的係數跟哪個輸入、在哪個門檻跳（`docs/tools.md`），寫進交換場景的材質（`skin_band`），旁檔照抄。
+`polylode/wuthering_waves/skin_band.py`：鳴潮 `MSM_ToonCommon` 材質的皮膚帶（實例沒設 `UseSkinMask` 的也讀，旁檔的角色照讀到的定）——在 base pass 的編譯碼上掃 `TypeMask` 與頂點色，量出 `SkinColor` lerp 的係數跟哪個輸入、在哪個門檻跳；係數跟著別的圖走（ID 圖和 `SkinMin`／`SkinMax` 比，IslandLife §7.1502）時讀成那些圖的 8 位元值查表（`docs/tools.md`），寫進交換場景的材質（`skin_band`），旁檔照抄。
 `polylode/gf2/scene_facts.py`：GF2 資料在預製物旗標之外說的事——`GunWeaponData` 武器預製物用的材質（旁檔的 `weapon` 角色）、過場預製物的 Timeline 對關著的節點做什麼（旁檔的 `timeline`），由 `gf2.export.source_facts` 在建交換場景時讀。
 `polylode/wuthering_waves/shaders/` 與 `shader_bake.py`：鳴潮裁切材質的覆蓋率由遊戲自己的 shader 決定——讀材質實例嵌入的 shader map、執行 preshader、從 shader 封存檔取出陰影深度 pass 的 DXBC，用直譯器逐像素執行後烘進底色圖的 alpha（`docs/tools.md` 有細節）。遊戲檔由 `extractor/wuwa_source.GameFiles` 取出並快取。`wuthering_waves/fur_shells.py` 接在後面，把視差毛髮的高度場做成一層層毛絲幾何。

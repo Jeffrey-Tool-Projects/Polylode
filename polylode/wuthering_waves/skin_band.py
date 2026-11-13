@@ -31,7 +31,7 @@ from .shaders import archive as A
 from .shaders import dxbc, inline, preshader, vm
 
 #: bump when what :func:`analyse` returns changes: the case cache key carries it
-VERSION = 4
+VERSION = 5
 #: the sweep: an even grid and every 8-bit value (:data:`_ROUND`), and the floats either side of the literals the
 #: game's band compares against, so ``> 0.9`` and ``≥ 0.9`` are told apart
 _ROUND = np.unique(np.concatenate([np.linspace(0.0, 1.0, 1001), np.arange(256) / 255.0,
@@ -46,8 +46,16 @@ SWITCHES = ("UseSkinMask", "UseTypeMask")
 FILLS = (0.25, 0.75)
 #: the sweep of every map other than TypeMask together (:func:`_run`)
 OTHER = "other maps"
-#: how a variant whose factor follows a map other than the band is refused (:func:`_variant`)
+#: how a variant whose factor follows a map other than the band, and cannot be read as a table, is refused
+#: (:func:`_variant`)
 FOLLOWS_OTHER = "the skin factor follows another of the material's maps"
+#: a map's texel as the base pass samples it from the exported 8-bit map: one of an 8-bit channel's 256 values
+TEXELS = np.arange(256, dtype=np.float32) / 255.0
+#: the most inputs a table is read over (every 8-bit value of each against every one of the other's)
+TABLE_INPUTS = 2
+#: the random texels a table is found and checked on (:func:`_table`): lanes, the backgrounds a table is read on,
+#: and the seed (fixed, so a reading is reproduced)
+CHECK_LANES, TABLE_BACKGROUNDS, SEED = 8192, 3, 1502
 #: the values each read of the immediate constant buffer is given in turn
 ICB = (0.0, 0.777778)
 CHANNELS = "RGBA"
@@ -107,12 +115,25 @@ def _lerp(program: list[vm.Instruction], material: int, slots: set[int]) -> tupl
     def ones(operand, mask, value):
         return operand.kind == "l" and np.allclose(operand.literal.view(np.float32)[list(mask)], value)
 
-    def other(ins, register):
+    def picked(operand, mask):
+        # the components an operand gives under a destination mask (DXBC lines the source's swizzle up with the
+        # mask; a short swizzle repeats its last component, as ``vm`` reads it)
+        picks = list(operand.swizzle) + [operand.swizzle[-1]] * (4 - len(operand.swizzle))
+        return {picks[c] for c in mask}
+
+    def reads_difference(operand, mask, register, written):
+        # the difference is the operand of its register whose components are the ones the ``add`` wrote: the
+        # factor can sit in the same register (PlayerFemale 10011's ``Up``: ``add r9.yzw, SkinColor, −1`` then
+        # ``mad r9.yzw, r9.xxxx, r9.yyzw, l(0, 1, 1, 1)``, IslandLife §7.1502)
+        return operand.kind == "r" and operand.index == register and picked(operand, mask) <= set(written)
+
+    def other(ins, register, written):
         a, b = ins.operands[1:3]
-        if a.kind == "r" and a.index == register and b.kind == "r":
-            return b
-        if b.kind == "r" and b.index == register and a.kind == "r":
-            return a
+        mask = ins.operands[0].mask
+        for difference, factor in ((a, b), (b, a)):
+            if (reads_difference(difference, mask, register, written) and factor.kind == "r"
+                    and not reads_difference(factor, mask, register, written)):
+                return factor
         return None
 
     for pc, ins in enumerate(program):
@@ -124,15 +145,15 @@ def _lerp(program: list[vm.Instruction], material: int, slots: set[int]) -> tupl
         # a literal's components line up with the destination's mask (``add r6.xzw, …, l(-1, 0, -1, -1)``)
         if not any(ones(s, ins.operands[0].mask, -1.0) for s in sources):
             continue
-        difference = ins.operands[0].index
+        difference, written = ins.operands[0].index, ins.operands[0].mask
         for later in range(pc + 1, min(pc + 12, len(program))):
             nxt = program[later]
             if nxt.op == "mad" and ones(nxt.operands[3], nxt.operands[0].mask, 1.0):
-                factor = other(nxt, difference)
+                factor = other(nxt, difference, written)
                 if factor is not None:
                     return later, factor
             if nxt.op == "mul":
-                factor = other(nxt, difference)
+                factor = other(nxt, difference, written)
                 product = nxt.operands[0]
                 for after in range(later + 1, min(later + 4, len(program))):
                     then = program[after]
@@ -140,7 +161,8 @@ def _lerp(program: list[vm.Instruction], material: int, slots: set[int]) -> tupl
                             and any(o.kind == "r" and o.index == product.index for o in then.operands[1:])
                             and any(ones(o, then.operands[0].mask, 1.0) for o in then.operands[1:])):
                         return later, factor
-            if nxt.operands and nxt.operands[0].kind == "r" and nxt.operands[0].index == difference:
+            if (nxt.operands and nxt.operands[0].kind == "r" and nxt.operands[0].index == difference
+                    and set(nxt.operands[0].mask) & set(written)):
                 break                                       # the difference is overwritten before any lerp
     return None
 
@@ -227,7 +249,10 @@ def _run(shader: dxbc.Shader, program, at: int, factor: vm.Operand, buffers: dic
     return results, machine.reached
 
 
-def _variant(shader: dxbc.Shader, buffers: dict, material: int, slots: set[int], typemask: int | None) -> dict:
+def _variant(shader: dxbc.Shader, buffers: dict, material: int, slots: set[int], typemask: int | None,
+             textures: list[str] = ()) -> dict:
+    """What one base-pass pixel shader's skin factor follows; *textures*: the material's texture parameters in the
+    order of its uniform buffer's resources."""
     # the immediate constant buffer (a dither table) is not run here: its declaration is dropped and each read of
     # it given a constant, twice (two constants); a factor that differs between the two is refused below
     asm = re.sub(r"dcl_immediateConstantBuffer \{.*?\}\s*\}", "", shader.asm, flags=re.S)
@@ -252,13 +277,15 @@ def _variant(shader: dxbc.Shader, buffers: dict, material: int, slots: set[int],
     (first, reached), *others = runs
     if not reached.all():
         raise BandError("some lanes do not reach the SkinColor lerp (it is under a branch)")
-    if any(not np.array_equal(first[key], other[key]) for other, _r in others for key in first):
-        raise BandError("the skin factor changes with the other maps or the dither table, not only with a band")
-    other = sorted({CHANNELS[channel] for (source, channel, _b), values in first.items()
-                    if source == OTHER and _step(_GRID, values)["follows"]})
-    if other:
-        raise BandError(FOLLOWS_OTHER + " (channels "
-                        + "".join(other) + "), not only TypeMask or the vertex colour")
+    if (any(not np.array_equal(first[key], other[key]) for other, _r in others for key in first)
+            or any(source == OTHER and _step(_GRID, values)["follows"] for (source, _c, _b), values in first.items())):
+        # the factor follows a map other than the band, or changes with the constants the other maps are given: an
+        # ID map decoded to integers and compared with SkinMin / SkinMax (PlayerFemale 10011's ``Up``: RegionIDTex
+        # R, its nibble chosen by TypeMask A, IslandLife §7.1502).  Read it as a table over the maps it follows
+        try:
+            return _table(shader, programs, [(at, factor), second], buffers, material, textures)
+        except BandError as failure:
+            raise BandError(f"{FOLLOWS_OTHER}, not read as a table: {failure}") from None
     first = {key: values for key, values in first.items() if key[0] != OTHER}
     followed = {}
     for (source, channel, background), factor_values in first.items():
@@ -286,6 +313,144 @@ def _variant(shader: dxbc.Shader, buffers: dict, material: int, slots: set[int],
     else:
         out["in_fbx"] = "the part's vertex colours (the FBX's LayerElementColor)"
     return out
+
+
+def _names(shader: dxbc.Shader, material: int, textures: list[str]) -> dict[int, str]:
+    """Each texture register's name: the material's texture parameter it is (a uniform buffer's resources are its
+    textures, two entries each), or what else it is."""
+    out = {}
+    for register, (buffer, resource) in shader.textures.items():
+        if buffer == material and resource % 2 == 0 and resource // 2 < len(textures):
+            out[register] = textures[resource // 2]
+        else:
+            out[register] = f"t{register} (buffer {buffer} resource {resource}), {NOT_A_MAP}"
+    return out
+
+
+#: how a texture register that is not one of the material's maps is named (:func:`_names`)
+NOT_A_MAP = "not a map of the material"
+
+
+def _texel_run(shader: dxbc.Shader, program, at: int, factor: vm.Operand, buffers: dict,
+               candidates: list[tuple], values: np.ndarray) -> np.ndarray:
+    """The factor per lane where each candidate input ``(texture register | "COLOR0", channel)`` takes its column of
+    *values* (8-bit, lanes × candidates); every lane must reach the lerp."""
+    n = len(values)
+    textures = {register: np.zeros((n, 4), np.float32) for register in shader.textures}
+    colour = np.zeros((n, 4), np.float32)
+    for k, (source, channel) in enumerate(candidates):
+        (colour if source == "COLOR0" else textures[source])[:, channel] = TEXELS[values[:, k]]
+    inputs = {}
+    for register, semantics in shader.inputs.items():
+        is_colour = any(semantic == "COLOR" and index == 0 for semantic, index, _mask in semantics)
+        inputs[register] = colour if is_colour else np.zeros((n, 4), np.float32)
+    machine = _Probe(program, n, inputs, buffers, textures, at, factor)
+    try:
+        machine.run()
+    except _Captured:
+        pass
+    if machine.value is None:
+        raise BandError("the run ended before the SkinColor lerp")
+    if not machine.reached.all():
+        raise BandError("some lanes do not reach the SkinColor lerp (it is under a branch)")
+    return np.round(machine.value.astype(np.float64), 6)
+
+
+def _boxes(table: np.ndarray) -> tuple[float, list[dict]]:
+    """A factor table over one or two 8-bit inputs as the value most of it takes (``otherwise``) and boxes — per
+    input an inclusive range of 8-bit values — where it takes another; the fewer boxes of the two input orders."""
+    levels, counts = np.unique(table, return_counts=True)
+    otherwise = float(levels[np.argmax(counts)])
+
+    def runs(rows):
+        out, start = [], 0
+        for k in range(1, len(rows) + 1):
+            if k == len(rows) or not np.array_equal(rows[k], rows[start]):
+                out.append((start, k - 1, rows[start]))
+                start = k
+        return out
+
+    def flat(grid, swapped):
+        boxes = []
+        if grid.ndim == 1:
+            for lo, hi, value in runs(grid):
+                if float(value) != otherwise:
+                    boxes.append({"factor": float(value), "ranges": [[int(lo), int(hi)]]})
+            return boxes
+        for lo, hi, row in runs(list(grid)):
+            for lo2, hi2, value in runs(row):
+                if float(value) != otherwise:
+                    ranges = [[int(lo), int(hi)], [int(lo2), int(hi2)]]
+                    boxes.append({"factor": float(value), "ranges": ranges[::-1] if swapped else ranges})
+        return boxes
+
+    readings = [flat(table, False)] + ([flat(table.T, True)] if table.ndim == 2 else [])
+    return otherwise, min(readings, key=len)
+
+
+def _table(shader: dxbc.Shader, programs, lerps, buffers: dict, material: int, textures: list[str]) -> dict:
+    """The skin factor as a table over the maps it follows: ``{"source": "maps", "inputs": […], "otherwise", "boxes"}``.
+
+    Every texture register's every channel and the vertex colour's are inputs, given random 8-bit texels
+    (:data:`CHECK_LANES` lanes, :data:`SEED`); an input the factor follows is one whose new random values change it
+    on some lane.  The factor is then run over every 8-bit value of each followed input against every one of the
+    other's (at most :data:`TABLE_INPUTS`), on :data:`TABLE_BACKGROUNDS` random values of the rest and with both
+    dither-table constants; the table must be the same on all of them, and must give the factor of every random lane.
+    A followed input that is not a map of the material (the vertex colour, a texture of another buffer) is refused:
+    a reader has no map to look it up in."""
+    names = _names(shader, material, textures)
+    (at, factor), second = lerps
+    if second is None:
+        raise BandError("the SkinColor lerp moves when the dither table is given another value")
+    colour = any(semantic == "COLOR" and index == 0
+                 for semantics in shader.inputs.values() for semantic, index, _mask in semantics)
+    candidates = [(register, channel) for register in sorted(shader.textures) for channel in range(4)]
+    candidates += [("COLOR0", channel) for channel in range(4)] if colour else []
+    rng = np.random.default_rng(SEED)
+    base = rng.integers(0, 256, (CHECK_LANES, len(candidates)))
+    blocks = [base]
+    for k in range(len(candidates)):
+        moved = base.copy()
+        moved[:, k] = (base[:, k] + rng.integers(1, 256, CHECK_LANES)) % 256    # another value on every lane
+        blocks.append(moved)
+    factors = _texel_run(shader, programs[0], at, factor, buffers, candidates, np.concatenate(blocks))
+    reference = factors[:CHECK_LANES]
+    followed = [k for k in range(len(candidates))
+                if not np.array_equal(factors[(k + 1) * CHECK_LANES:(k + 2) * CHECK_LANES], reference)]
+
+    def named(k):
+        source, channel = candidates[k]
+        return ("the vertex colour COLOR0" if source == "COLOR0" else names[source]) + " " + CHANNELS[channel]
+
+    if not followed:
+        raise BandError("the skin factor changes with the constants the maps are given but follows no texel")
+    if len(followed) > TABLE_INPUTS:
+        raise BandError(f"the skin factor follows {len(followed)} inputs: " + ", ".join(named(k) for k in followed))
+    foreign = [named(k) for k in followed if candidates[k][0] == "COLOR0" or NOT_A_MAP in names[candidates[k][0]]]
+    if foreign:
+        raise BandError("the skin factor follows an input that is not a map of the material: " + ", ".join(foreign))
+    grid = np.stack(np.meshgrid(*[np.arange(256)] * len(followed), indexing="ij"), -1).reshape(-1, len(followed))
+    tables = []
+    for background in rng.integers(0, 256, (TABLE_BACKGROUNDS, len(candidates))):
+        lanes = np.repeat(background[None, :], len(grid), axis=0)
+        lanes[:, followed] = grid
+        for program, (pc, operand) in ((programs[0], (at, factor)), (programs[1], second)):
+            tables.append(_texel_run(shader, program, pc, operand, buffers, candidates, lanes))
+    if any(not np.array_equal(table, tables[0]) for table in tables[1:]):
+        raise BandError("the skin factor's table over " + ", ".join(named(k) for k in followed)
+                        + " changes with the other inputs or the dither table")
+    table = tables[0].reshape([256] * len(followed))
+    if not np.isfinite(table).all():
+        raise BandError("the skin factor's table has a value that is not finite")
+    if not np.array_equal(table[tuple(base[:, followed].T)], reference):
+        raise BandError("the table over " + ", ".join(named(k) for k in followed)
+                        + " does not give the factor of the random texels")
+    otherwise, boxes = _boxes(table)
+    inputs = [{"map": names[candidates[k][0]], "channel": CHANNELS[candidates[k][1]],
+               **_uv_set(shader, programs[0], candidates[k][0])} for k in followed]
+    return {"source": "maps", "inputs": inputs, "values": "each input's texel as an 8-bit value (0-255)",
+            "levels": sorted({float(v) for v in np.unique(table)}), "otherwise": otherwise, "boxes": boxes,
+            "checked_lanes": CHECK_LANES, "lerp_instruction": at}
 
 
 def _uv_set(shader: dxbc.Shader, program, register: int) -> dict:
@@ -353,7 +518,14 @@ def analyse(record: dict, store: A.Archive, uexp: bytes, size, collections: list
     from .shader_bake import FRAME, _collection, _frozen_values, _sizes, collections_in_map
     resources = inline.read(uexp)
     if not resources:
-        raise BandError("the instance's package has no inline shader map")
+        switches = (record.get("native_material") or {}).get("Switches") or {}
+        if not switches:
+            # an instance with no static switch of its own has no static permutation: it draws with its parent's
+            # shader map, which is not in its package (Calbrena 10011's MI_Eye_OL over M_Empty, §7.1502)
+            raise BandError("the instance sets no static switch, so it draws with its parent material's shader map, "
+                            "which is not in its package and is not read here")
+        # Xuanling 10011's Down sets 25 switches and carries a 436 KB package, but no frozen resource is found in it
+        raise BandError("the instance sets static switches, but no inline shader map is read out of its package")
     uniforms = resources[0]
     digests = [uexp[i:i + 20] for i in range(len(uexp) - 19) if store.map_index(uexp[i:i + 20]) is not None]
     if not digests:
@@ -399,15 +571,15 @@ def analyse(record: dict, store: A.Archive, uexp: bytes, size, collections: list
                          if buffer == material and typemask_index is not None and resource == 2 * typemask_index),
                         None)
         try:
-            variants.append((index, _variant(shader, buffers, material, slots, typemask)))
+            variants.append((index, _variant(shader, buffers, material, slots, typemask,
+                                             [name for name, _ref in uniforms.textures])))
         except (BandError, vm.ShaderError, preshader.PreshaderError) as failure:
             failures.append((index, str(failure)))
     if not variants:
         reasons = sorted({reason for _i, reason in failures}) or ["the shader map has no base-pass pixel shader"]
         raise BandError("; ".join(reasons))
-    # a variant whose factor was read through and follows another map is not unread: it draws its skin by that
-    # map, so what the other variants read is not the material's band (Lucy 10011's Up: some variants constant 0,
-    # the others an ID map, §7.1492)
+    # a variant whose factor follows another map and cannot be read as a table (:func:`_table`) is not unread: it
+    # draws its skin by that map, so what the other variants read is not the material's band (§7.1492)
     elsewhere = sorted({reason for _i, reason in failures if reason.startswith(FOLLOWS_OTHER)})
     if elsewhere:
         raise BandError("; ".join(elsewhere))
@@ -436,7 +608,8 @@ def analyse(record: dict, store: A.Archive, uexp: bytes, size, collections: list
                 "parameters": parameters(record, uniforms), "evidence": evidence}
     result = dict(variants[0][1])
     result.pop("lerp_instruction", None)
-    status = "read" if result.get("source") else "no_skin_color" if result.get("skin_color_read") is False         else "constant"
+    status = ("table" if result.get("source") == "maps" else "read" if result.get("source")
+              else "no_skin_color" if result.get("skin_color_read") is False else "constant")
     return {"status": status, **result, "parameters": parameters(record, uniforms), "evidence": evidence}
 
 
