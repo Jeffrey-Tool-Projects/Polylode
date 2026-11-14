@@ -17,3 +17,9 @@ commit 訊息、PR 標題與內文、PR／issue 留言、Release 說明、倉庫
 
 - `python -m pytest tests`、`python -m ruff check --select F,E9 polylode tests tools build.py main.py`，以及 `python -m polylode.extractor --selftest <json>`。
 - 改到打包內容（新的延遲匯入、資料檔、外掛）時，跑一次 `python build.py`，並且把那一項加進 selftest 的檢查清單。
+
+## Worktree：做完要合併並刪除
+
+- 為任務建立的每個 git worktree 都要收尾：把它的分支合併回原本的起始分支，然後移除 worktree（`git worktree remove <path>`）並刪除該分支（`git branch -d <branch>`）。
+- 工作完成後不得留下 worktree；結束任務前用 `git worktree list` 檢查。
+- 若 worktree 暫時還不能合併，要明確說明，不可默默留著。
