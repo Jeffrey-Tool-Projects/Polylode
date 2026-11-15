@@ -2260,5 +2260,17 @@
   "zh-CN": "把虹膜的高光烘进贴图",
   "ja": "虹彩のハイライトをテクスチャに焼き込み中",
   "ko": "홍채 하이라이트를 텍스처에 굽는 중"
- }
+ },
+  "讀動畫藍圖的擺動鏈": {
+    "en": "Reading the swing chains in the animation blueprints",
+    "zh-CN": "读取动画蓝图的摆动链",
+    "ja": "アニメーションブループリントの揺れチェーンを読み込み中",
+    "ko": "애니메이션 블루프린트의 흔들림 체인 읽는 중"
+  },
+  "讀骨架與動畫藍圖的 RBF 修正": {
+    "en": "Reading the RBF correctives in the skeleton and animation blueprints",
+    "zh-CN": "读取骨架与动画蓝图的 RBF 修正",
+    "ja": "スケルトンとアニメーションブループリントの RBF 補正を読み込み中",
+    "ko": "스켈레톤과 애니메이션 블루프린트의 RBF 보정 읽는 중"
+  }
 }
