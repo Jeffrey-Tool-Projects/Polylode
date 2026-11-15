@@ -78,10 +78,11 @@
 - `resolved`：`radius_m`（`PhysicsSettings.Radius`／100）、`dummy`：`{"length_m", "forward": [x,y,z]}`（`BoneForwardAxis` 換到 FBX 骨頭 local 的單位向量）、
   `gravity_world`（`Gravity`／100，FBX 世界，m/s²）、`teleport_distance_m`、`alpha`（`AlphaInputType` 是 Float 時就是 `Alpha × AlphaScaleBias`；
   是曲線時 `null`，曲線名在 `params`）、曲線（`DampingCurve`… 引用的 `CurveFloat` 資產讀到的鍵，讀不到的寫 `null` 加原因）。
-- 碰撞體：`SphericalLimits`、`CapsuleLimits`、`PlanarLimits`（與 `*LimitsData`、`LimitsDataAsset` 的）在 1.6.1 是
-  `UpdateCapsuleLimits` 的組法：宿主骨的 bone-space 變換的旋轉前乘 `OffsetRotation`、平移加 `OffsetLocation`，再換回 component space；
-  膠囊兩端是中心 ± 旋轉的 Z 軸 × `Length`/2、半徑 `Radius`；平面法線是旋轉的上方向（Z）。Polylode 在**參考姿勢**算出這個位置，換到宿主骨的 FBX 框架寫進 `start`／`end`。
-  （1.6.1 的組法讓位置跟著宿主骨的**父骨**轉：動畫中宿主骨相對父骨轉動時，遊戲的碰撞體位置與「固定在宿主骨上」不同；這裡寫的是固定在宿主骨上的版本，`source.fields` 保留原值。）
+- 碰撞體：`SphericalLimits`、`CapsuleLimits`、`PlanarLimits`（與 `*LimitsData`、`LimitsDataAsset` 的）照 1.6.1 的 `UpdateCapsuleLimits` 組：
+  宿主骨的 component-space 變換換到 `BCS_BoneSpace`（相對宿主骨自己，所以是單位變換），旋轉前乘 `OffsetRotation`、平移加 `OffsetLocation`，再換回 component space——
+  碰撞體跟著宿主骨走，偏移在宿主骨的框架裡。膠囊兩端是中心 ± 旋轉的 Z 軸 × `Length`/2、半徑 `Radius`；平面法線是旋轉的上方向（Z）。
+  Polylode 在參考姿勢算出來，換到宿主骨的 FBX 框架寫進 `start`／`end`；`source.fields` 保留原值。
+  （核對：椿的裙節點兩個大腿膠囊的中心在髖關節下方 11 公分、沿大腿；若把偏移當成父骨框架，中心會跑到髖關節上方 11 公分。）
 
 ### 沒有讀的來源
 

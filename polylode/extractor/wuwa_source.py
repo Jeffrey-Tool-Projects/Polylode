@@ -342,6 +342,8 @@ class WuwaSource:
             written.append(Path(shutil.copy2(case / f"{model.ident}.blend", output / f"{model.ident}.blend")))
         statement = None
         if "fbx" in formats:
+            progress.step("讀動畫藍圖的擺動鏈")
+            self._physics(settings, root, row, case, sources, log)
             from .identity import wuwa_statement
             progress.step("記錄來源與人形骨表")
             document = json.loads((case / "source_document.json").read_text(encoding="utf-8"))
@@ -349,6 +351,63 @@ class WuwaSource:
                                        self._skeleton(settings, row["parts"][0]["package"], sources, log))
         return written + write_own(formats, case / "source_document.json", output, model.ident, blender, log,
                                    export_shaders=settings.export_shaders, sidecar=statement)
+
+    def _physics(self, settings, root: Path, row: dict, case: Path, sources: Path, log: Log) -> None:
+        """Write the model's swing chains into the case's scene document (``physics``, ``docs/sidecar_physics.md``).
+
+        The animation blueprint is the one the model table names for the display model's default model id
+        (``kawaii.BLUEPRINT_COLUMN``); it and the ``CurveFloat`` assets its nodes name are read with the reader's
+        ``json`` mode, kept per install in ``<primary>/kawaii/``.  A model the table names no blueprint for is
+        written ``unread`` with that reason."""
+        import numpy as np
+        from ..wuthering_waves import kawaii
+        from .sources import shared_writes
+        document_path = case / "source_document.json"
+        document = json.loads(document_path.read_text(encoding="utf-8"))
+        table = json.loads((root / MODEL_TABLE_JSON).read_text(encoding="utf-8-sig"))[0]["Rows"]
+        config = table.get(str(row["default_model_id"])) or {}
+        blueprint = kawaii.blueprint_package(config, kawaii.BLUEPRINT_COLUMN)
+        if blueprint is None:
+            document["physics"] = {"format": 1, "status": "unread", "system": None, "chains": [], "colliders": [],
+                                   "reason": f"the model table names no animation blueprint for model "
+                                             f"{row['default_model_id']}"}
+        else:
+            ident = row["parts"][0]["package"].rsplit("/", 1)[-1]
+            folder = sources / ident / "kawaii"
+            stamp = (root / "install.json").read_text(encoding="utf-8")
+            cache = folder / "read.json"
+            saved = json.loads(cache.read_text(encoding="utf-8")) if cache.is_file() else {}
+            if saved.get("stamp") != stamp or saved.get("blueprint") != blueprint:
+                log(f"讀取動畫藍圖 {blueprint.rsplit('/', 1)[-1]} 的 KawaiiPhysics 節點…")
+                with shared_writes("wuwa", log):
+                    scratch = folder / "json"
+
+                    def package_json(name: str):
+                        shutil.rmtree(scratch, ignore_errors=True)
+                        _reader(settings, "json", scratch, name, log)
+                        return json.loads((scratch / "package.json").read_text(encoding="utf-8-sig"))
+
+                    nodes = kawaii.nodes_of(package_json(blueprint))
+                    curves = {}
+                    for path, package in kawaii.curve_packages(nodes).items():
+                        try:
+                            curves[path] = kawaii.curve_keys(package_json(package))
+                        except (ExtractorError, kawaii.KawaiiError, OSError, ValueError) as failure:
+                            log(f"{path}：讀不到曲線（{failure}）")
+                            curves[path] = None
+                    shutil.rmtree(scratch, ignore_errors=True)
+                    saved = {"stamp": stamp, "blueprint": blueprint, "nodes": nodes, "curves": curves}
+                    folder.mkdir(parents=True, exist_ok=True)
+                    cache.write_text(json.dumps(saved, ensure_ascii=False), encoding="utf-8")
+            arrays = np.load(case / document["arrays"])
+            try:
+                document["physics"] = kawaii.physics(document, arrays["bone_rest"], blueprint,
+                                                     [tuple(node) for node in saved["nodes"]], saved["curves"])
+            except kawaii.KawaiiError as refusal:
+                raise ExtractorError(f"{row['ident']} 的擺動鏈：{refusal}") from None
+            physics = document["physics"]
+            log(f"擺動鏈 {len(physics['chains'])} 個節點、碰撞體 {len(physics['colliders'])} 個")
+        document_path.write_text(json.dumps(document, indent=2, ensure_ascii=False), encoding="utf-8")
 
     def _skeleton(self, settings, package: str, sources: Path, log: Log) -> dict:
         """What the main mesh's ``USkeleton`` holds about human bones (``identity.wuwa_skeleton``), read once per

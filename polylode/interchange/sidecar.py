@@ -44,7 +44,10 @@ the unbaked map (``source_base``) and the program's terms and values — Endfiel
 iris program (``endfield.eye_bake``), GF2's eye program and its add / multiply
 layers as maps on the eye's UV (``gf2.eye_bake``), Wuthering Waves' base pass run
 per texel into a lit base colour and an unlit emission (``wuthering_waves.eye_bake``).
-These, ``eye``, ``vertex_colors``, ``source_off``, ``timeline`` and ``skin_materials`` were
+``physics`` holds the swing chains and their colliders as the game states them
+(Endfield's ``BeyondBoneCloth``, Wuthering Waves' ``AnimNode_KawaiiPhysicsGroup``; ``docs/sidecar_physics.md``,
+IslandLife §7.1512), or ``unread`` with the reason.
+These, ``eye``, ``vertex_colors``, ``source_off``, ``timeline``, ``skin_materials`` and ``physics`` were
 added to version 1 without moving or reinterpreting a field: a reader of the first
 version reads the same values, and ``weapon`` is a role such a reader treats as it
 treats any role it has no use for (as ``unknown``).
@@ -344,6 +347,17 @@ def expressions(document: dict, arrays) -> dict:
     return out
 
 
+#: what a reader is told when the export's source read no swing chains (``docs/sidecar_physics.md``)
+UNREAD_PHYSICS = {"format": 1, "status": "unread", "system": None, "chains": [], "colliders": [],
+                  "reason": "the export's source reads no swing chains or colliders"}
+
+
+def physics(document: dict) -> dict:
+    """The swing chains and colliders the source read (``docs/sidecar_physics.md``), or :data:`UNREAD_PHYSICS`."""
+    found = document.get("physics")
+    return dict(found) if found else dict(UNREAD_PHYSICS)
+
+
 def gf2_skin_materials(materials: dict) -> dict | None:
     """Whether GF2's own data names the character's skin materials: None for another game's model.
 
@@ -413,7 +427,8 @@ def write(document_path: Path, model: Path, fbx_report: dict, *, identity: dict,
                "materials": materials,
                "parts": parts,
                "vertex_colors": VERTEX_COLORS,
-               "expressions": expressions(document, arrays)}
+               "expressions": expressions(document, arrays),
+               "physics": physics(document)}
     if "timeline" in document:
         # GF2 writes it for every model (``gf2.scene_facts.apply_timeline``): no director is ``directors: []``
         sidecar["timeline"] = document["timeline"]

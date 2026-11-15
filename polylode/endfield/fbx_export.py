@@ -163,6 +163,9 @@ def scene_document(target: Target, out_dir: Path, pipeline, shaders=None, log=pr
     folder = out_dir / target.folder
     copy_textures(scene, folder)
     document = RS.write(scene, folder, target.stem, extra, target.source)
+    # the swing chains and their colliders, said against the FBX's bones (``physics``, IslandLife §7.1512)
+    from .physics import add_to_document
+    add_to_document(document, scene, nodes, extra)
     vfx_bake.complete(document, shaders, log)
     if poses is not None:
         P.add(document, scene, nodes, extra, poses, log, frames_of=pose_frames, pose_clips=clips, expressions=expressions)
