@@ -129,6 +129,10 @@
   - `expressions`：形狀鍵的表情就是 FBX 的 BlendShape（`shape_keys` 列名字與部件）。終末地的臉部控制、情緒與姿態預設是骨頭驅動的
     （它的模型沒有形狀鍵），寫成 `bone_poses`：每個表情動到的骨頭在 FBX 空間的局部變換（3×4，同 FBX 的 `Lcl`）、材質值（表情圖索引）與控制項；
     不烘成形狀鍵，因為形狀鍵是靜止網格上的固定位移，頭一動或兩個表情疊加就和骨頭重複移動。只匯出 FBX 時，終末地也照 `expressions` 設定算這些（不算姿勢）。
+  - `rbf`（2026-11-16 加進 version 1，IslandLife §7.1514，細節 `docs/sidecar_rbf.md`）：鳴潮骨架的 `RBFDriver`（驅動骨、基準骨、targets、驅動的形狀鍵、
+    `WeightModifier` 原樣、量到的解法與遊戲的 `RBFPrecomputations` 權重表，表和解法的差寫在 `table.max_error`）與動畫藍圖的 `AnimNode_PoseDriver`
+    （來源骨、`FRBFParams`、targets 的旋轉與 `TargetScale`、姿勢資產裡被驅動骨的加法變換），向量與旋轉另寫一份在 FBX 骨頭框架。
+    匯出時由 `wuwa_source._rbf` 讀骨架、預算表、動畫藍圖與姿勢資產，快取在部件資料夾的 `rbf/read.json`；終末地與 GF2 寫 `unread`。
   - 終末地的輸出資料夾原本整個刪掉 `textures/`（交換場景的暫存圖），現在只刪場景列的那些檔，旁檔的貼圖留下。旁檔用緊湊 JSON：
     EndminF 303 個表情佔大半，縮排時 8.5 MB、緊湊 3.6 MB。
 - Autodesk FBX SDK 讀回（§7.1449）：`<裝了 fbx wheel 的 Python 3.11> tools/fbx_sdk_check.py <檔.fbx> <場景.json>`。SDK 是 Autodesk 的，

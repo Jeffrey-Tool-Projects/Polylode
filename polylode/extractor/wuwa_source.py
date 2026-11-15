@@ -344,6 +344,8 @@ class WuwaSource:
         if "fbx" in formats:
             progress.step("讀動畫藍圖的擺動鏈")
             self._physics(settings, root, row, case, sources, log)
+            progress.step("讀骨架與動畫藍圖的 RBF 修正")
+            self._rbf(settings, root, row, case, sources, log)
             from .identity import wuwa_statement
             progress.step("記錄來源與人形骨表")
             document = json.loads((case / "source_document.json").read_text(encoding="utf-8"))
@@ -407,6 +409,79 @@ class WuwaSource:
                 raise ExtractorError(f"{row['ident']} 的擺動鏈：{refusal}") from None
             physics = document["physics"]
             log(f"擺動鏈 {len(physics['chains'])} 個節點、碰撞體 {len(physics['colliders'])} 個")
+        document_path.write_text(json.dumps(document, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    def _rbf(self, settings, root: Path, row: dict, case: Path, sources: Path, log: Log) -> None:
+        """Write the model's pose-space correctives into the case's scene document (``rbf``, ``docs/sidecar_rbf.md``).
+
+        The skeleton is the main mesh's (``_skeleton``); its ``RBFDrivers``, the ``RBFPrecomputations`` it names,
+        the ``AnimNode_PoseDriver`` nodes of the blueprint the model table names (``kawaii.BLUEPRINT_COLUMN``) and
+        their pose assets are read with the reader's ``json`` mode, kept per install in ``<primary>/rbf/``."""
+        import numpy as np
+        from ..wuthering_waves import kawaii, rbf
+        from .sources import shared_writes
+        document_path = case / "source_document.json"
+        document = json.loads(document_path.read_text(encoding="utf-8"))
+        skeleton = (self._skeleton(settings, row["parts"][0]["package"], sources, log).get("skeleton") or "")
+        skeleton = skeleton.rsplit(".", 1)[0] + ".uasset" if skeleton else ""
+        table = json.loads((root / MODEL_TABLE_JSON).read_text(encoding="utf-8-sig"))[0]["Rows"]
+        blueprint = kawaii.blueprint_package(table.get(str(row["default_model_id"])) or {}, kawaii.BLUEPRINT_COLUMN)
+        if not skeleton:
+            document["rbf"] = {"format": 1, "status": "unread", "drivers": [], "pose_drivers": [],
+                               "reason": "the main mesh names no skeleton"}
+        else:
+            ident = row["parts"][0]["package"].rsplit("/", 1)[-1]
+            folder = sources / ident / "rbf"
+            stamp = (root / "install.json").read_text(encoding="utf-8")
+            cache = folder / "read.json"
+            saved = json.loads(cache.read_text(encoding="utf-8")) if cache.is_file() else {}
+            if saved.get("stamp") != stamp or saved.get("skeleton") != skeleton or saved.get("blueprint") != blueprint:
+                log(f"讀取骨架 {skeleton.rsplit('/', 1)[-1]} 的 RBF 驅動與動畫藍圖的 PoseDriver…")
+                with shared_writes("wuwa", log):
+                    scratch = folder / "json"
+
+                    def package_json(name: str):
+                        shutil.rmtree(scratch, ignore_errors=True)
+                        _reader(settings, "json", scratch, name, log)
+                        return json.loads((scratch / "package.json").read_text(encoding="utf-8-sig"))
+
+                    try:
+                        skeleton_json = package_json(skeleton)
+                        drivers = rbf.skeleton_drivers(skeleton_json)
+                        precomputation = rbf.precomputation_path(skeleton_json)
+                        tables = rbf.tables(package_json(precomputation)) if precomputation and drivers else None
+                        nodes = rbf.pose_driver_nodes(package_json(blueprint)) if blueprint else []
+                    except rbf.RbfError as refusal:
+                        raise ExtractorError(f"{row['ident']} 的 RBF 驅動：{refusal}") from None
+                    assets = {}
+                    for _name, node in nodes:
+                        path = ((node.get("PoseAsset") or {}).get("ObjectPath") or "").rsplit(".", 1)[0]
+                        if path and path + ".uasset" not in assets:
+                            try:
+                                assets[path + ".uasset"] = rbf.pose_asset(package_json(path + ".uasset"), None)
+                            except (ExtractorError, rbf.RbfError, OSError, ValueError) as failure:
+                                log(f"{path}：讀不到姿勢資產（{failure}）")
+                                assets[path + ".uasset"] = None
+                    shutil.rmtree(scratch, ignore_errors=True)
+                    saved = {"stamp": stamp, "skeleton": skeleton, "blueprint": blueprint, "drivers": drivers,
+                             "precomputation": precomputation,
+                             "tables": None if tables is None else {
+                                 key: {**value, "weights": value["weights"].tolist()} for key, value in tables.items()},
+                             "nodes": nodes, "assets": assets}
+                    folder.mkdir(parents=True, exist_ok=True)
+                    cache.write_text(json.dumps(saved, ensure_ascii=False), encoding="utf-8")
+            tables = None if saved["tables"] is None else {
+                key: {**value, "weights": np.asarray(value["weights"], dtype=np.float64)}
+                for key, value in saved["tables"].items()}
+            arrays = np.load(case / document["arrays"])
+            try:
+                document["rbf"] = rbf.section(document, arrays["bone_rest"], skeleton, saved["drivers"],
+                                              saved["precomputation"], tables, saved["blueprint"],
+                                              [tuple(node) for node in saved["nodes"]], saved["assets"])
+            except rbf.RbfError as refusal:
+                raise ExtractorError(f"{row['ident']} 的 RBF 驅動：{refusal}") from None
+            found = document["rbf"]
+            log(f"RBF 驅動 {len(found['drivers'])} 個、PoseDriver {len(found['pose_drivers'])} 個")
         document_path.write_text(json.dumps(document, indent=2, ensure_ascii=False), encoding="utf-8")
 
     def _skeleton(self, settings, package: str, sources: Path, log: Log) -> dict:

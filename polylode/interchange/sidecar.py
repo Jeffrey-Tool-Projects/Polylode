@@ -47,7 +47,10 @@ per texel into a lit base colour and an unlit emission (``wuthering_waves.eye_ba
 ``physics`` holds the swing chains and their colliders as the game states them
 (Endfield's ``BeyondBoneCloth``, Wuthering Waves' ``AnimNode_KawaiiPhysicsGroup``; ``docs/sidecar_physics.md``,
 IslandLife §7.1512), or ``unread`` with the reason.
-These, ``eye``, ``vertex_colors``, ``source_off``, ``timeline``, ``skin_materials`` and ``physics`` were
+``rbf`` holds the pose-space correctives (Wuthering Waves: the skeleton's ``RBFDriver`` objects that drive the
+shoulder shape keys, with the game's precomputed weight tables, and the blueprint's ``AnimNode_PoseDriver`` nodes
+that turn hair bones by the head; ``docs/sidecar_rbf.md``, IslandLife §7.1514), or ``unread`` with the reason.
+These, ``eye``, ``vertex_colors``, ``source_off``, ``timeline``, ``skin_materials``, ``physics`` and ``rbf`` were
 added to version 1 without moving or reinterpreting a field: a reader of the first
 version reads the same values, and ``weapon`` is a role such a reader treats as it
 treats any role it has no use for (as ``unknown``).
@@ -358,6 +361,17 @@ def physics(document: dict) -> dict:
     return dict(found) if found else dict(UNREAD_PHYSICS)
 
 
+#: what a reader is told when the export's source read no pose-space correctives (``docs/sidecar_rbf.md``)
+UNREAD_RBF = {"format": 1, "status": "unread", "drivers": [], "pose_drivers": [],
+              "reason": "the export's source reads no pose-space correctives"}
+
+
+def rbf(document: dict) -> dict:
+    """The pose-space correctives the source read (``docs/sidecar_rbf.md``), or :data:`UNREAD_RBF`."""
+    found = document.get("rbf")
+    return dict(found) if found else dict(UNREAD_RBF)
+
+
 def gf2_skin_materials(materials: dict) -> dict | None:
     """Whether GF2's own data names the character's skin materials: None for another game's model.
 
@@ -428,7 +442,8 @@ def write(document_path: Path, model: Path, fbx_report: dict, *, identity: dict,
                "parts": parts,
                "vertex_colors": VERTEX_COLORS,
                "expressions": expressions(document, arrays),
-               "physics": physics(document)}
+               "physics": physics(document),
+               "rbf": rbf(document)}
     if "timeline" in document:
         # GF2 writes it for every model (``gf2.scene_facts.apply_timeline``): no director is ``directors: []``
         sidecar["timeline"] = document["timeline"]

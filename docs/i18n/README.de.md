@@ -38,7 +38,7 @@ Das englische Fenster, aufgenommen bei einem echten Scan und einer echten Vorsch
   Human-Bone-Tabelle des Spiels und ihre Herkunft (oder warum es keine gibt), die nativen Werte jedes Materials und jede
   Textur, die die FBX nicht einbettet (einmal nach `textures/` kopiert, mit SHA-256 und Farbraum), die Rolle jedes
   Material-Slots und warum ein verborgenes Teil verborgen ist (und bei jedem GF2-Modell, ob sein Prefab eine Timeline abspielt – der Director einer Zwischensequenz – und die Timeline-Spuren auf dem Weg jedes Teils), wo ein Wuthering-Waves-Material, das Haut und Kleidung zugleich zeichnet, Haut zeichnet (aus dem kompilierten Shader des Spiels gelesen: Maskenkanal oder Vertexfarbe und Schwellenwert, oder – wo eine ID-Map entscheidet – die Werte der Map, die Haut sind), welche GF2-Renderer Waffen sind (die Materialien der Waffentabelle), die Ausdrücke (Shape Keys und Endfields Gesichtssteuerung
-  als Knochenposen) sowie IDs, Installationsversion und Hashes der Quelldateien. Was das Spiel nicht angibt, steht als
+  als Knochenposen), die Posenkorrekturen von Wuthering Waves (die RBF-Treiber des Skeletts für die Schulter-Shape-Keys mit den vorberechneten Gewichtstabellen des Spiels und die Haarposen bei Kopfdrehung) sowie IDs, Installationsversion und Hashes der Quelldateien. Was das Spiel nicht angibt, steht als
   fehlend da und wird nie geraten.
 - **Materialien, wie die Spiele sie zeichnen.** Ausschnitte, Transparenz, Lidschatten-Ebenen und Augenglanz-Ebenen werden nach den Regeln geschrieben,
   die aus den Shadern jedes Spiels gelesen wurden. Wo glTF/FBX eine Ebene nicht mischen können, wird ihre Wirkung in die Textur darunter gebacken;
