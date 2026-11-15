@@ -243,9 +243,20 @@ def scan(install: Path, output: Path, limit: int = 0, parallel=None):
         for line in output.read_text(encoding='utf8').splitlines():
             row = json.loads(line)
             previous[row['path']] = row
-    paths = bundle_paths(install)
-    if limit:
-        paths = paths[:limit]
+    everything = bundle_paths(install)
+    present = {path.relative_to(install).as_posix() for path in everything}
+    if any(relative not in present for relative in previous):
+        # A bundle the install no longer has keeps giving the catalog its CABs and GameObjects, pointing at a file that
+        # is not there: an update renames bundles (GF2 3.0 dropped thousands, IslandLife §7.1508), and a scan then
+        # listed every candidate of those CABs as unread instead of reading the renamed bundles.  The index is
+        # rewritten with the latest row of each bundle still installed before this scan appends to it.
+        previous = {relative: row for relative, row in previous.items() if relative in present}
+        partial = output.with_suffix(output.suffix + '.part')
+        with partial.open('w', encoding='utf8') as log:
+            for row in previous.values():
+                log.write(json.dumps(row, ensure_ascii=False) + '\n')
+        partial.replace(output)
+    paths = everything[:limit] if limit else everything
     todo = []
     for path in paths:
         relative = path.relative_to(install).as_posix()
