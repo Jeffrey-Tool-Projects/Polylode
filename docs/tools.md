@@ -74,6 +74,7 @@
     角色表列、`GameConfig.cfg` 的 `CacheResVersion`／`CodeResVersion`、Unity 版本、轉換讀過的每個 bundle（`gf2.convert` 的 `source_files`）。
     鳴潮：角色選單的顯示模型 id、各部件的套件、`launcherDownloadConfig.json` 的版本、封存檔戳記、讀取器取出的每個套件檔（`source_provenance.json`）。
     性別與年齡不在這裡，由 IslandLife 從它審過的名單抄入。
+  - `physics`：擺動鏈與碰撞體（終末地 `BeyondBoneCloth` 與碰撞體元件，`endfield/physics.py`；鳴潮動畫藍圖的 `AnimNode_KawaiiPhysicsGroup` 節點與它引用的 `CurveFloat`，`wuthering_waves/kawaii.py`，讀取結果依安裝快取在主網格資料夾的 `kawaii/`）：每條鏈的根骨、骨頭、塗刷狀態、遊戲參數與碰撞清單，每個碰撞體在參考姿勢放到它的骨頭的 FBX 框架；格式在 `docs/sidecar_physics.md`（IslandLife §7.1512）。沒讀的來源寫 `unread` 加原因。
   - `humanoid`：`HumanBodyBones` 名 → 檔內骨名，`status`（`complete`／`partial`／`missing`，以 Unity 的 15 根必要骨為準）、`basis` 與 `source`。
     終末地 `unity_avatar`（`m_HumanBoneIndex` 經 `m_TOS` 對到預製物，`endfield.components.humanoid`；Avatar 沒有手，手指寫缺）。
     鳴潮 `biped_naming_with_parent_chain`（`source_scene.humanoid`：3ds Max Biped 固定的骨名，逐段核對父子）；同時讀主網格的 `USkeleton`

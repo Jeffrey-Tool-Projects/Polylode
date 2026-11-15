@@ -26,6 +26,8 @@
 
 三個遊戲的眼睛程式（IslandLife §7.1491）：`endfield/eye_bake.py`（虹膜的高光貼片與 matcap，烘給 glTF／FBX）、`gf2/eye_bake.py`（疊層與高光貼圖烘進底色，並把加法／乘法層照眼睛 UV 另寫成貼圖）、`wuthering_waves/eye_bake.py`（執行眼睛的 base pass，寫成受光的底色與不受光的發光）；材質帶 `eye`，旁檔照抄，預覽由 `character_styles.eye_style` 讀。
 
+`polylode/endfield/physics.py` 與 `polylode/wuthering_waves/kawaii.py`（IslandLife §7.1512）：旁檔的 `physics` 段——終末地預製物的 `BeyondBoneCloth` 與碰撞體元件、鳴潮動畫藍圖的 KawaiiPhysics 節點，照遊戲的規則展開鏈、把碰撞體放到 FBX 骨頭的框架；`fbx_export.scene_document` 與 `wuwa_source._physics` 寫進交換場景，`interchange.sidecar.physics` 照抄（格式：`docs/sidecar_physics.md`）。
+
 `polylode/wuthering_waves/skin_band.py`：鳴潮 `MSM_ToonCommon` 材質的皮膚帶（實例沒設 `UseSkinMask` 的也讀，旁檔的角色照讀到的定）——在 base pass 的編譯碼上掃 `TypeMask` 與頂點色，量出 `SkinColor` lerp 的係數跟哪個輸入、在哪個門檻跳；係數跟著別的圖走（ID 圖和 `SkinMin`／`SkinMax` 比，IslandLife §7.1502）時讀成那些圖的 8 位元值查表（`docs/tools.md`），寫進交換場景的材質（`skin_band`），旁檔照抄。
 `polylode/wuthering_waves/rbf.py`（IslandLife §7.1514）：鳴潮的姿勢修正——骨架的 `RBFDriver`（肩部修正形狀鍵）連同遊戲預算的權重表，與動畫藍圖的 `AnimNode_PoseDriver`（頭轉→髮束）——寫進旁檔的 `rbf` 段（`docs/sidecar_rbf.md`），由 `wuwa_source._rbf` 在匯出 FBX 時讀。
 `polylode/gf2/scene_facts.py`：GF2 資料在預製物旗標之外說的事——`GunWeaponData` 武器預製物用的材質（旁檔的 `weapon` 角色）、每個模型的預製物有沒有播 Timeline 的 PlayableDirector、Timeline 對關著的節點做什麼（旁檔的 `timeline`，每個 GF2 模型都寫），由 `gf2.export.source_facts` 在建交換場景時讀。
