@@ -52,7 +52,7 @@
   再開一次核對網格、骨架與「沒有不在檔內的圖」（`blend_problems`）。
 - 鳴潮（`wuwa_source`）：要遊戲資料夾、`tools/wuwa_cli` 建出的讀取器（`.exe` 直接跑、`.dll` 經 `dotnet`）、.NET 10 資料夾與 AES 金鑰檔。
   掃描用 `raw-list` 抄出 `wuthering_waves.scope.FILES`（角色、預載、繁中語言表與四份 JS 讀取器），再用 `json` 讀模型表
-  （`assembly.MODEL_TABLE`），都放在 `assets_cache/wuthering_waves/config`，封存檔的數量／大小／時間不變就不再讀。
+  （`assembly.MODEL_TABLE`），都放在 `assets_cache/wuthering_waves/config`，封存檔的數量／大小／時間不變就不再讀（`extract.install_stamp`：讀取器掛載的 `Client/Content` 底下每個 `.pak`／`.sig`／`.utoc`／`.ucas`；3.8.0 起 HD 資源包在 `Content/HD`，只數 `Content/Paks` 時它單獨更新會被當成沒變，IslandLife §7.1508）。
   `scope.read_scope` 照遊戲自己的 getter 讀 FlatBuffers 列，`assembly.display_models` 照角色選單的組法每個主網格一列，
   再去掉 `converted.scope.EXCLUDED_WUWA`。
   匯出：每個部件 `mesh` 傾印到 `assets_cache/wuthering_waves/source/<部件>`（已有成功的 `export.json` 就不重讀），再對這些部件跑 `metadata`；

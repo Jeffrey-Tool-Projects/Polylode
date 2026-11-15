@@ -50,7 +50,14 @@ def run(reader: Path, dotnet: Path, install: Path, keys: Path, output: Path, mod
     return done.stdout
 
 
+#: the archive files the reader mounts (``Client/Content``, every folder below it)
+ARCHIVES = (".pak", ".sig", ".utoc", ".ucas")
+
+
 def install_stamp(install: Path) -> list:
-    """The archives' count, size and newest change: another stamp means the game was updated."""
-    files = [p for p in (install / "Client" / "Content" / "Paks").rglob("*") if p.is_file()]
+    """The archives' count, size and newest change: another stamp means the game was updated.
+
+    Every archive the reader mounts counts, not only ``Content/Paks``: from 3.8.0 the client keeps its HD resource
+    pack in ``Content/HD`` (39 archives), and an update of those alone left the stamp unchanged (IslandLife §7.1508)."""
+    files = [p for p in (install / "Client" / "Content").rglob("*") if p.is_file() and p.suffix.lower() in ARCHIVES]
     return [len(files), sum(p.stat().st_size for p in files), max((p.stat().st_mtime_ns for p in files), default=0)]
