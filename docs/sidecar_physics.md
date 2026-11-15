@@ -87,4 +87,23 @@
 ### 沒有讀的來源
 
 - GF2：`status: "unread"`，`reason` 說明（遊戲的戰鬥預製物沒有物理元件，擺動在每套衣裝的 clip 裡，IslandLife §7.1511）。
-  從 clip 反推的參數由寫它的人定 `system` 名稱並在本檔加一節；格式的其他欄位照上面。
+  從 clip 反推的參數見下一節；Polylode 匯出的旁檔照舊是 `unread`。
+
+### `gf2.clip_fit`（GF2，從戰鬥 clip 反推，IslandLife §7.1513）
+
+- **不是 Polylode 寫的**：IslandLife `converted/gf2_sway`（`tools/gf2_sway_fit.py`）用 Polylode 的 GF2 clip 讀取器（`gf2.clips`，唯讀）
+  讀每套戰鬥衣裝的 clip，找出擺動鏈、擬合 IslandLife 自己的骨鏈解算器的參數，把結果寫成同樣格式的 `physics` 段
+  （IslandLife 的轉出物 `build/gf2_sway/<衣裝>.sway.json` 的 `physics`），由 IslandLife 讀進轉換角色。
+- 鏈：每根**錨骨**（擺動鏈掛的身體骨：GF2 人形表 `gf2_humanoid.json` 的骨頭，加上兩根人形骨之間的骨頭）一筆。
+  `roots` 是錨骨（`states` 裡 `fixed`），`exclude` 是錨骨底下不屬於這幾條鏈的子骨（整支），其餘 `bones` 全是 `move`。
+  `frame.bone` 是錨骨、`local` 是單位矩陣。骨名是遊戲節點名。
+- `params.fitted`：擬合的六個值——`gravity`（m/s²，向下）、`damping`、`restore`（角度回復剛性）、`attenuation`（角度回復的速度衰減）、
+  `inertia`（世界與局部慣性同一個值）、`limit`（角度限制，度；到上限 120 表示不限）。
+  `params.serializeData`：同樣的值寫成 `magica_cloth2.bone_cloth` 的 `serializeData`（Unity 慣例，去掉已解到上面欄位的鍵）；
+  沒有擬合的一律中性（無速度限制、tether 與距離 1、旋轉內插 0、動畫姿勢比 0、質點半徑 0、不碰撞）。
+- `resolved`：`gravity_world`（FBX 世界，m/s²）。
+- `colliders` 是空的（遊戲沒有碰撞體）。每條鏈另有 `body_contacts`：`[{"humanoid": 人形骨名, "nearest": 最近距離／髖高}]`——
+  clip 全部格裡鏈骨離那一段身體骨（身體骨到它的身體父骨）最近的距離，只列髖高 0.156 倍以內的；膠囊大小由讀者量自己的身體。
+- `fit`：`rms_deg`（擬合用的 clip 上邊方向誤差的 RMS，度）、`held_out`（沒參與擬合的 clip）、`held`（它的誤差：中位數／p95／最大、
+  鏈留在靜止姿勢時的同樣誤差、相位延遲與振幅比）。擬合不好的鏈照樣寫出，誤差就在這裡。
+  （IslandLife §7.1513：擬合了 4 套衣裝，留出的 clip 上和鏈不擺差不多，IslandLife 現在不讀這份記錄。）
