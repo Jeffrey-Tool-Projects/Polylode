@@ -104,6 +104,9 @@
 - `resolved`：`gravity_world`（FBX 世界，m/s²）。
 - `colliders` 是空的（遊戲沒有碰撞體）。每條鏈另有 `body_contacts`：`[{"humanoid": 人形骨名, "nearest": 最近距離／髖高}]`——
   clip 全部格裡鏈骨離那一段身體骨（身體骨到它的身體父骨）最近的距離，只列髖高 0.156 倍以內的；膠囊大小由讀者量自己的身體。
-- `fit`：`rms_deg`（擬合用的 clip 上邊方向誤差的 RMS，度）、`held_out`（沒參與擬合的 clip）、`held`（它的誤差：中位數／p95／最大、
-  鏈留在靜止姿勢時的同樣誤差、相位延遲與振幅比）。擬合不好的鏈照樣寫出，誤差就在這裡。
-  （IslandLife §7.1513：擬合了 4 套衣裝，留出的 clip 上和鏈不擺差不多，IslandLife 現在不讀這份記錄。）
+- `fit`：`rms_deg`（擬合用的 clip 上**擺動**誤差的 RMS，度：每條鏈邊繞自己整支 clip 的平均方向比，平均方向之間的差不擬合）、
+  `held_out`（沒參與擬合的 clip）、`held`（它的分數：擺動誤差 `dyn_*` 與不擺的 `rest_dyn_*`、平均方向的差 `static` 與靜止姿勢的 `rest_static`、
+  整體角度 `median`／`p95`／`max` 與 `rest_*`、相位延遲與相關、振幅比、`swing_left`＝解出的擺動留下多少 keyed 擺動，1 是和不擺一樣）。
+  擬合時鏈碰得到的身體段放了膠囊（量在衣裝自己的皮膚上，記在 IslandLife 的表、不在這份記錄）。擬合不好的鏈照樣寫出，誤差就在這裡。
+  （IslandLife §7.1513：4 套衣裝 12 組，留出的 clip 上都不比不擺好，連同一支 clip 自擬合也只跟得上 keyed 擺動的 0–14%——
+  GF2 key 的擺動不是這個解算器對身體動作的反應；IslandLife 不讀這份記錄，GF2 鏈的參數待決定。）
