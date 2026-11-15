@@ -8,7 +8,7 @@
 `--run-job <job.json>`（印 `LOG`／`OUTPUT`／`ERROR`，失敗 exit 1）與 `--selftest <報告.json>`（匯入、來源清單與 Blender 要讀的原始檔）。
 視窗把每一次掃描與匯出都用 `QProcess` 另起一個自己，轉檔器出錯不會帶走視窗。設定在 `%LOCALAPPDATA%/Polylode/extractor/settings.json`。
 
-- GF2：掃描先 `bundles.scan_directories`＋`bundles.scan`（續跑：大小與 mtime 不變的 bundle 不再讀），再 `gf2.batch.declared_entries` → `selection.roots_only`；
+- GF2：掃描先 `bundles.scan_directories`＋`bundles.scan`（續跑：大小與 mtime 不變的 bundle 不再讀；安裝已經沒有的 bundle 先從索引刪掉，不然改了名的 bundle 的舊列會讓目錄指向不存在的檔案，IslandLife §7.1508），再 `gf2.batch.declared_entries` → `selection.roots_only`；
   `conversion.json` 記為 `not_model`／`excluded_scope` 的不列。匯出 `gf2.batch.convert_entry` → `gf2.export.export_one`（Blender 寫出與讀回），
   `ok` 才複製 FBX（連同 `textures/`）與 `.blend` 到 `<輸出>/gf2/<編號>/`。轉換暫存仍在 `gf2.store.root()`。
 - GF2 的可見性（沒有審過的 `display_profiles` 時，`gf2.export.scene_document`）：三條規則的聯集，被藏的照樣寫進 FBX 與 `.blend`、只是隱藏（Blender 匯入 FBX 時會照 `Visibility` 0 隱藏）。`.glb` 只寫顯示的部件（`interchange.glb.shown`，三個來源都一樣）：glTF 唯一的隱藏方式 `KHR_node_visibility` 在 Blender 5.2 與多數檢視器被忽略，隱藏的 lod1、替換造型會全部疊在 lod0 上；放進第二個場景或不放進任何場景也實測過，Blender 一樣會匯入。

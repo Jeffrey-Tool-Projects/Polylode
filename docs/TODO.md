@@ -27,6 +27,7 @@
   本機用同一份原始碼建的 v8 版已經跑通預覽（R2T1ShouanrenMd10011）。
   - 確認方法：Release 的 exe 留空讀取器欄位，預覽一個鳴潮模型。
 
+- **GF2 平行建索引被打斷就全部重來**（IslandLife §7.1508）：`bundles.scan` 交給工作行程時（`PARALLEL_FROM` 以上），要等全部工作行程做完才寫進 `bundle_index.jsonl`；GF2 3.0 的更新要重讀約 4 000 個 bundle，記憶體緊的機器上被 guard 殺掉三次都沒留下任何一列。一個工作行程的那一段做完就寫，或像單行程那樣逐列寫。這次是在 Polylode 的直譯器裡呼叫 `bundles.scan(..., parallel=None)` 逐列補完的。
 - **鳴潮本機 AES 自動取得的版本支援**：目前安裝的遊戲程式未找到可驗證的候選金鑰；需研究該版本的程式封裝後再擴充。3.8.0（2026-11-15 更新）也一樣：`--discover-wuwa-keys` 驗了 27 個候選，沒有一個解得開全部加密封存檔（IslandLife §7.1508）。
 - **眼睛烘焙是正面看的一個畫面**（§7.1491）：glTF／FBX 帶的是正面、燈 1 的結果。
   - GF2 `eye` 的視差偏移（頂點程式的輸出 × `_CorneaParallax`／`_SpecularParallax`）沒有讀，`_Specularmap` 照原 UV 取樣。
