@@ -106,15 +106,16 @@ def test_the_switches_and_scalars_say_where_their_values_come_from():
     assert found["UseFaceAni_SkinMask"]["value"] is None
 
 
-def test_every_toon_common_material_but_the_tacet_mark_has_its_band_read():
+def test_every_toon_material_but_the_tacet_mark_has_its_band_read():
     from polylode.interchange.sidecar import slot_role
     toon = lambda **extra: {"native_material": {"Switches": {}, "Properties": {                       # noqa: E731
         "BasePropertyOverrides": {"ShadingModel": "MSM_ToonCommon"}}}, **extra}
     assert skin_band.is_target(toon(), slot_role)                   # sets no UseSkinMask: read all the same
     assert skin_band.is_target(toon(skin_band={"status": "no_skin_color"}), slot_role)   # a case read before
     assert not skin_band.is_target(toon(profile="tacet_mark_texture"), slot_role)
+    # a face's and a hair's too: their band says where the SSS colour is the skin's (IslandLife §7.1525)
     hair = {"native_material": {"Properties": {"BasePropertyOverrides": {"ShadingModel": "MSM_ToonHair"}}}}
-    assert not skin_band.is_target(hair, slot_role) and not skin_band.is_target({}, slot_role)
+    assert skin_band.is_target(hair, slot_role) and not skin_band.is_target({}, slot_role)
 
 
 def test_a_shader_map_without_skin_colour_draws_no_skin():

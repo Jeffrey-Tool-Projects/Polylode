@@ -96,7 +96,7 @@
     來源關著的部件多記 `source_off`（`inactive_node` 是最近的關著節點、`renderer_disabled` 是 Renderer 自己關著）。
   - 2026-11-13 加進 version 1 的欄位（沒有搬動或改義既有欄位，讀第一版的程式讀到的值不變；`weapon` 是新的角色值，
     不認得它的讀者當成用不上的角色處理，和 `unknown` 一樣）：
-    - 鳴潮 `MSM_ToonCommon` 材質的 `skin_band`（`wuthering_waves/skin_band.py`，見下面「鳴潮的皮膚帶」）：`status`
+    - 鳴潮卡通材質（`MSM_ToonCommon`、`MSM_ToonFace`、`MSM_ToonHair`）的 `skin_band`（`wuthering_waves/skin_band.py`，見下面「鳴潮的皮膚帶」；臉與頭髮是 2026-11-17 加的，IslandLife §7.1525）：`status`
       （`read` 讀到帶、`table` 係數是幾張圖的查表（ID 圖，見下）、`constant` 係數是常數、`no_skin_color` 這個 shader map 的 base pass 不讀 `SkinColor`（或 shader map 根本沒有 `SkinColor` 參數）、`variants_differ`、`null` 讀不到並寫 `reason`）、
       `source`（`TypeMask` 或頂點色 `COLOR0`）、`channel`、`comparison`／`threshold`（例：`>` 0.9）、`factor_below`／`factor_above`、`uv_set`、
       `table` 的 `inputs`（每個輸入的圖參數名 `map`、`channel`、`uv_set`）、`otherwise`（盒子以外的係數）、`boxes`（每個輸入一段 8 位元值的閉區間、
@@ -223,6 +223,9 @@
 ### 鳴潮的皮膚帶（`wuthering_waves/skin_band.py`）
 
 `MSM_ToonCommon` 開 `UseSkinMask` 的材質一個材質畫皮膚也畫衣服，base pass 把底色乘上 `lerp(1, SkinColor, f)`，`f` 是 1 的 texel 就是皮膚。
+同一個 `f` 也把寫進 GBufferB 的 SSS 色從 `SubsurfaceColor` 內插到 `SkinSubsurfaceColor`（遊戲延遲卡通 pass 的 SSS 項讀它，IslandLife §7.1525），
+所以臉（`MSM_ToonFace`）與頭髮（`MSM_ToonHair`）也讀：椿 10011 的 `Face` 讀頂點色 R `> 0.9`，Zanni 20011 與 Katixiya 10011 的 `Face` 讀 `TypeMask` R `> 0.9`，
+三位的 `Hair` 是常數 0。臉與頭髮的帶不決定它們的角色（角色照著色模型）。
 `f` 從哪裡讀、對什麼門檻，編在每個材質實例自己的 shader map 裡，所以不寫成規則，而是在遊戲編譯好的程式上量：
 
 1. 用實例的參數算 Material uniform buffer（`shader_bake._frozen_values`）；`SkinColor` 一動就跟著動的 float4 槽是它的槽。

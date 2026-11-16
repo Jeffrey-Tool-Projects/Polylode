@@ -32,8 +32,9 @@ same interchange scene the FBX was written from:
                 space — see :func:`expressions` for why they are not baked into
                 shape keys.
 
-Wuthering Waves' ``MSM_ToonCommon`` materials also carry ``skin_band``: where the
-game's own compiled shader draws skin (``wuthering_waves.skin_band``); a material whose
+Wuthering Waves' toon materials (``MSM_ToonCommon``, ``MSM_ToonFace``, ``MSM_ToonHair``) also carry
+``skin_band``: where the game's own compiled shader draws skin (``wuthering_waves.skin_band``),
+which is also where the SSS colour the toon pass reads is the skin's; a ``MSM_ToonCommon`` material whose
 instance sets no ``UseSkinMask`` takes its role from it (``skin_and_clothing`` when the
 base pass reads a band or a table over its maps (an ID map, IslandLife §7.1502),
 ``clothing`` when its shader map draws no skin); GF2's
@@ -73,6 +74,9 @@ VERSION = 1
 SUFFIX = ".islandlife.json"
 #: the folder beside the model the maps the FBX does not embed are copied into, named by their content
 TEXTURES = "textures"
+#: Wuthering Waves' shading models whose materials carry ``skin_band`` (``wuthering_waves.skin_band.TOON_MODELS``,
+#: kept apart so this module does not load the shader reader)
+TOON_MODELS = ("MSM_ToonCommon", "MSM_ToonFace", "MSM_ToonHair")
 
 #: Unity's required human bones (``HumanTrait.RequiredBone``); the rest of :data:`HUMAN_BONES` are optional
 REQUIRED_HUMAN = ("Hips", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg", "LeftFoot",
@@ -241,8 +245,9 @@ def _material(name: str, record: dict, folder: Path, out_folder: Path, carried: 
     extra = {}
     shading = (((record.get("native_material") or {}).get("Properties") or {}).get("BasePropertyOverrides")
                or {}).get("ShadingModel")
-    if role == "skin_and_clothing" or (shading == "MSM_ToonCommon" and record.get("skin_band")):
-        # the band is also the evidence of a clothing / body_skin role read off the shader map (:func:`slot_role`)
+    if role == "skin_and_clothing" or (shading in TOON_MODELS and record.get("skin_band")):
+        # the band is also the evidence of a clothing / body_skin role read off the shader map (:func:`slot_role`);
+        # a face's or a hair's says where its SSS colour is the skin's (IslandLife §7.1525)
         extra["skin_band"] = record.get("skin_band") or {
             "status": None, "reason": "the export did not read the game's shader for this material's skin band"}
     if record.get("weapon"):

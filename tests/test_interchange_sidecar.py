@@ -255,3 +255,27 @@ def test_a_toon_common_material_without_the_skin_switch_takes_its_role_and_band_
     assert data["materials"]["skin"]["role"] == "clothing" and data["materials"]["skin"]["skin_band"] == band
     assert "SkinColor" in data["materials"]["skin"]["role_basis"]
     assert data["materials"]["cloth"]["role"] == "unknown" and "skin_band" not in data["materials"]["cloth"]
+
+
+def test_a_face_and_a_hair_carry_their_skin_band_without_it_deciding_their_role(tmp_path):
+    # IslandLife §7.1525: the toon pass's SSS colour is the skin's where the face's band (Chun 10011: COLOR0 R
+    # > 0.9) says so; the face and the hair keep the roles their shading model gives
+    from polylode.wuthering_waves import skin_band
+    assert sidecar.TOON_MODELS == skin_band.TOON_MODELS
+    (tmp_path / "out").mkdir()
+    document, arrays = _scene(tmp_path)
+    face = {"Switches": {"UseSkinMask": True}, "Properties": {"BasePropertyOverrides": {"ShadingModel": "MSM_ToonFace"}}}
+    hair = {"Switches": {}, "Properties": {"BasePropertyOverrides": {"ShadingModel": "MSM_ToonHair"}}}
+    band = {"status": "read", "source": "COLOR0", "channel": "R", "comparison": ">", "threshold": 0.9}
+    document["materials"]["skin"].update(native_material=face, skin_band=band)
+    document["materials"]["cloth"].update(native_material=hair, skin_band={"status": "constant", "constant_factor": 0.0})
+    _path, data = _written(tmp_path, document, arrays)
+    assert data["materials"]["skin"]["role"] == "face" and data["materials"]["skin"]["skin_band"] == band
+    assert data["materials"]["cloth"]["role"] == "hair" and data["materials"]["cloth"]["skin_band"]["status"] == "constant"
+    # the band is read for the three toon models, not for the tacet mark or another model
+    role = lambda record: ("face", "")                                                                    # noqa: E731
+    assert all(skin_band.is_target({"native_material": {"Properties": {"BasePropertyOverrides": {"ShadingModel": m}}}},
+                                   role) for m in skin_band.TOON_MODELS)
+    assert not skin_band.is_target({"native_material": {"Properties": {"BasePropertyOverrides": {
+        "ShadingModel": "MSM_DefaultLit"}}}}, role)
+    assert not skin_band.is_target({"native_material": face}, lambda record: ("effect", ""))

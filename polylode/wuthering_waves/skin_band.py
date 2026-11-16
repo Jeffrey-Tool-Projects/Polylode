@@ -619,19 +619,28 @@ def analyse(record: dict, store: A.Archive, uexp: bytes, size, collections: list
     return {"status": status, **result, "parameters": parameters(record, uniforms), "evidence": evidence}
 
 
+#: The shading models whose base pass reads a skin factor: the clothing-and-skin materials, and the face's and
+#: the hair's too (Chun 10011's ``Face`` reads it off its vertex colour, Zanni 20011's and Katixiya 10011's off
+#: ``TypeMask``, their ``Hair`` as the constant ``DefaultSkinFactor``).  The same factor lerps the GBufferB colour
+#: the toon pass's SSS term reads (``SubsurfaceColor`` toward ``SkinSubsurfaceColor``, IslandLife §7.1525).
+TOON_MODELS = ("MSM_ToonCommon", "MSM_ToonFace", "MSM_ToonHair")
+
+
 def is_target(record: dict, slot_role) -> bool:
-    """Whether the band is read for *record*: an ``MSM_ToonCommon`` material that is not the tacet mark.
+    """Whether the band is read for *record*: a material of :data:`TOON_MODELS` that is not the tacet mark.
 
     Not only the ``skin_and_clothing`` ones (the instance sets ``UseSkinMask``): a static switch the instance does
     not set is its parent's, compiled into its shader map, so what one without it draws is read off that map too
-    (``interchange.sidecar.slot_role`` takes its role from the result; IslandLife §7.1492)."""
+    (``interchange.sidecar.slot_role`` takes an ``MSM_ToonCommon`` role from the result; IslandLife §7.1492).
+    A face's or a hair's band says where its SSS colour is the skin's (IslandLife §7.1525); a shader map with no
+    ``SkinColor`` says so (``no_skin_color``)."""
     native = record.get("native_material") or {}
     model = ((native.get("Properties") or {}).get("BasePropertyOverrides") or {}).get("ShadingModel")
-    return model == "MSM_ToonCommon" and slot_role(record)[0] != "effect"
+    return model in TOON_MODELS and slot_role(record)[0] != "effect"
 
 
 def annotate_case(case, files, log=print) -> None:
-    """Every ``MSM_ToonCommon`` material of the scene in *case* (:func:`is_target`) given its ``skin_band``
+    """Every toon material of the scene in *case* (:func:`is_target`) given its ``skin_band``
     (:func:`analyse`), or
     ``{"status": None, "reason": …}`` when the game's shader cannot be read for it; *files* is the shader bake's
     (``shader_bake.bake_case``).  Results are kept by the material's JSON hash in ``files.cache``'s sibling
