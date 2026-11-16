@@ -110,3 +110,18 @@
   擬合時鏈碰得到的身體段放了膠囊（量在衣裝自己的皮膚上，記在 IslandLife 的表、不在這份記錄）。擬合不好的鏈照樣寫出，誤差就在這裡。
   （IslandLife §7.1513：4 套衣裝 12 組，留出的 clip 上都不比不擺好，連同一支 clip 自擬合也只跟得上 keyed 擺動的 0–14%——
   GF2 key 的擺動不是這個解算器對身體動作的反應；IslandLife 不讀這份記錄，GF2 鏈的參數待決定。）
+
+### `gf2.endfield_reference`（GF2 的鏈＋照鏈的類型借終末地的參數，IslandLife §7.1516）
+
+- **不是 Polylode 寫的**，也不在旁檔裡：IslandLife 轉換 GF2 的 FBX 時，旁檔的 `physics` 不是 `read` 就由 `converted/gf2_sway_classes.section`
+  照 FBX 旁檔 `identity.converted_ident`（模型的商店 ident）在 IslandLife 版控的兩份表裡組出這一段：
+  `gf2_chains.json`（每個模型的鏈，§7.1513 從戰鬥 clip 判的）與 `gf2_sway_endfield_reference.json`（每類鏈的參數）。
+  擁有者 2026-11-16 決定：GF2 的鏈借終末地的參數分佈。
+- 鏈：每條一筆，`roots` 是鏈的頂骨（和終末地一樣固定在動畫上，下面的骨頭擺），`exclude` 空、`states` `null`、`frame.bone` `null`（模型的根）。
+- `params.serializeData`：這條鏈的**類型**在終末地 `BeyondBoneCloth` 的中位數（`endfield/cloth.Cloth` 讀的每一項；曲線是 5 個深度的中位數，
+  開關取多數，方向取各分量中位數再單位化），長度類（質點半徑、最大距離、背擋、瞬移距離、速度上限）已乘上這個角色的髖高（表裡是髖高的倍數）。
+  `params.class` 是類型名：鏈錨的人形骨分成頭、胸、腰、手臂、腿五區，再照鏈長／髖高分短長（分界是終末地那一區的中位數）。
+  參照不到 5 條終末地鏈的類型不寫鏈，列在 `unread.skipped`。
+- `resolved`：`gravity_world`（FBX 世界，m/s²）、`hip_height`（公尺）。
+- `colliders` 空；`body_contacts` 是鏈在 GF2 自己的 clip 裡靠近的身體段（人形骨名），膠囊大小由讀者量它借用的身體。
+- 參數來源是可以換的一層：查到 GF2 自己的參數時，換一份表與 system 名，鏈與類型不動。
