@@ -19,7 +19,7 @@ from ..endfield.unitymesh import UnityMesh, to_project
 from ..origin import bake
 from ..origin import colorspace as CS
 from ..origin.prefab import Piece
-from . import playable, store
+from . import addressables, playable, role_mesh, store
 
 
 class NoGeometryError(ValueError):
@@ -73,28 +73,40 @@ def _declared_ref(pointer):
     return [cab_key(name), pointer.m_PathID]
 
 
-def _renderer_data(native, components, include):
+def _renderer_data(native, components, include, assigned=None):
+    """A renderer's declaration and, when *include*, its ``P.Renderer`` and readers.  *assigned* is
+    ``role_mesh.assignments``: the mesh a ``RoleMeshRes`` gives this renderer, in place of its empty ``m_Mesh``."""
+    from .catalog import cab_key
     rd = native.read()
     skinned = native.type.name == 'SkinnedMeshRenderer'
     meshptr = rd.m_Mesh if skinned else next(o for o in components if o.type.name == 'MeshFilter').read().m_Mesh
+    given = (assigned or {}).get(identity(native))
     declaration = {'renderer': list(identity(native)), 'skinned': skinned, 'mesh': _declared_ref(meshptr),
                    'materials': [_declared_ref(p) for p in rd.m_Materials],
                    'bones': [_declared_ref(p) for p in rd.m_Bones] if skinned else [],
                    'enabled': bool(rd.m_Enabled), 'cast_shadows': int(rd.m_CastShadows)}
+    if given is not None:
+        declaration['mesh'] = [cab_key(given[0].assets_file.name), given[0].path_id]
+        declaration['mesh_source'] = given[1]
     if not include:
         return None, {}, declaration
-    renderer = P.Renderer(skinned, ref(meshptr), [ref(p) for p in rd.m_Materials],
+    mesh = identity(given[0]) if given is not None else ref(meshptr)
+    renderer = P.Renderer(skinned, mesh, [ref(p) for p in rd.m_Materials],
                           [ref(p) for p in rd.m_Bones] if skinned else [],
                           bool(rd.m_Enabled), int(rd.m_CastShadows))
     readers = {ref(ptr): ptr.deref() for ptr in [meshptr, *rd.m_Materials] if ptr}
+    if given is not None:
+        readers[mesh] = given[0]
     return renderer, readers, declaration
 
 
-def hierarchy(gameobject, matches: list[dict] | None = None, declarations: list | None = None):
+def hierarchy(gameobject, matches: list[dict] | None = None, declarations: list | None = None, assigned=None):
     """Read the full node hierarchy with optional character renderer ownership.
 
     An ownership projection retains foreign renderer pointer declarations while
     leaving their payloads unresolved. The default still reads the full scene.
+    *assigned* (``role_mesh.assignments``) gives renderers the meshes a
+    ``RoleMeshRes`` names.
     """
     nodes, readers, lods, animators = {}, {}, [], []
 
@@ -113,7 +125,7 @@ def hierarchy(gameobject, matches: list[dict] | None = None, declarations: list 
             raise ValueError(f'{go.m_Name}: multiple mesh renderers on one node')
         if renderers:
             included = matches is None or playable.owned_part(go.m_Name, matches)
-            renderer, held, declaration = _renderer_data(renderers[0], components, included)
+            renderer, held, declaration = _renderer_data(renderers[0], components, included, assigned)
             readers.update(held)
             if declarations is not None:
                 declarations.append(dict(declaration, node=list(tid), name=go.m_Name,
@@ -418,7 +430,9 @@ def convert(catalog, entry):
     env = catalog.environment()
     gameobject = env.find_file(entry['cab']).objects[entry['id']]
     declarations = []
-    prefab, readers, animators = hierarchy(gameobject, matches, declarations)
+    # GF2 3.0's _model prefabs: the meshes RoleMeshRes names, resolved through the install's Addressables catalog
+    assigned = role_mesh.assignments(catalog, env, gameobject.read())
+    prefab, readers, animators = hierarchy(gameobject, matches, declarations, assigned)
     names = node_names(prefab)
     keep, skipped, empty = geometry_renderers(prefab, names)
     pieces, renderers = [], []
@@ -474,6 +488,10 @@ def convert(catalog, entry):
             path = catalog.install / relative
             source_files.append({'path': relative, 'offset': offset,
                                  'sha256': file_digest(path)})
+        role_catalogs = sorted({given[1]['catalog'] for given in assigned.values()})
+        for name in role_catalogs:          # the catalog that resolved the RoleMeshRes paths is a source too
+            relative = f'{addressables.BUNDLES}/{name}'
+            source_files.append({'path': relative, 'offset': 0, 'sha256': file_digest(catalog.install / relative)})
         ident = entry['name'] + '_' + hashlib.sha256(f'{entry["cab"]}/{entry["id"]}'.encode()).hexdigest()[:10]
         avatars = []
         humanoid = {}
@@ -498,6 +516,7 @@ def convert(catalog, entry):
                  'paths': {names[tid]: P.node_path(prefab, tid) for tid in prefab.nodes},
                  'renderers': renderers, 'skipped': dict(skipped), 'source_files': source_files,
                  'empty_renderers': empty,
+                 'role_mesh_res': sorted((given[1] for given in assigned.values()), key=lambda v: v['node']),
                  'humanoid': humanoid, 'avatars': avatars, 'animators': [a.read_typetree() for a in animators],
                  'runtime_shader_status': 'preserved; GF2 lighting has not been transcribed'}
         bake.write_item('chara', ident, pieces, label=entry['name'], source=store.SOURCE,

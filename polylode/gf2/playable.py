@@ -214,15 +214,18 @@ def has_owned_skin(gameobject: object, matches: list[dict]) -> bool:
 
 
 def has_owned_mesh(gameobject: object, matches: list[dict]) -> bool:
-    """Whether one of the character's own skinned renderers under the root points at a mesh: a ``_model``
-    variant has the renderers with an empty mesh reference, and its conversion stops on "no full-detail
-    skinned renderer with a source mesh" (``convert.geometry_renderers``, §7.1455).  The renderer is read,
-    the mesh is not."""
+    """Whether one of the character's own skinned renderers under the root has a mesh: one its ``m_Mesh`` points at,
+    or one a ``RoleMeshRes`` in the prefab assigns (GF2 3.0's ``_model`` prefabs leave every ``m_Mesh`` empty and
+    name the meshes there, ``role_mesh``, IslandLife §7.1510).  Without either the conversion stops on "no full-detail
+    skinned renderer with a source mesh" (``convert.geometry_renderers``, §7.1455).  The renderer and the
+    ``RoleMeshRes`` are read; no mesh is, and no path is resolved (the export reports a path that does not resolve)."""
+    from .role_mesh import covered
     if not matches:
         return False
-    stack = [gameobject]
+    assigned = None
+    stack = [(gameobject, ())]
     while stack:
-        go = stack.pop()
+        go, path = stack.pop()
         components = go.m_Component
         if owned_part(go.m_Name, matches):
             for item in components:
@@ -230,8 +233,14 @@ def has_owned_mesh(gameobject: object, matches: list[dict]) -> bool:
                     mesh = item.component.read().m_Mesh
                     if getattr(mesh, 'm_PathID', getattr(mesh, 'path_id', 0)):
                         return True
+                    if assigned is None:
+                        assigned = covered(gameobject)
+                    if path in assigned:
+                        return True
         transform = next(item.component.read() for item in components if item.component.type.name == 'Transform')
-        stack.extend(pointer.read().m_GameObject.read() for pointer in transform.m_Children)
+        for pointer in transform.m_Children:
+            child = pointer.read().m_GameObject.read()
+            stack.append((child, path + (child.m_Name,)))
     return False
 
 

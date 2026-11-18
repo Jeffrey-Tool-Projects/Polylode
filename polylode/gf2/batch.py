@@ -38,6 +38,20 @@ def save_results(install: Path, results: dict) -> None:
                                              "results": list(results.values())}, indent=1)
 
 
+#: the screen's reason for a root whose own skinned renderers have no mesh; until RoleMeshRes was read (IslandLife
+#: §7.1510) every GF2 3.0 ``_model`` root got it, so a row with it and without ``role_mesh_res`` is checked again
+MESHLESS = "its skinned renderers point at no mesh (a _model variant)"
+
+
+def settled(row: dict) -> bool:
+    """Whether a stored outcome keeps a root out of the scan and of conversion: ``excluded_scope``, or ``not_model``
+    unless it is the mesh screen's verdict from before the screen read ``RoleMeshRes``."""
+    status = row.get("status")
+    if status == "excluded_scope":
+        return True
+    return status == "not_model" and (row.get("reason") != MESHLESS or bool(row.get("role_mesh_res")))
+
+
 def checked_groups(catalog, groups: list, declared, results: dict) -> list[dict]:
     """:func:`skinned_roots` over *groups* ``[(cab, entries), …]``: the entries kept, *results* given the rest."""
     kept = []
@@ -47,7 +61,7 @@ def checked_groups(catalog, groups: list, declared, results: dict) -> list[dict]
             file = env.find_file(cab)
             for entry in members:
                 key = f'{entry["cab"]}/{entry["id"]}'
-                if results.get(key, {}).get("status") in ("not_model", "excluded_scope"):
+                if settled(results.get(key, {})):
                     continue
                 try:
                     go = file.objects[entry["id"]].read()
@@ -63,7 +77,9 @@ def checked_groups(catalog, groups: list, declared, results: dict) -> list[dict]
                     results[key] = {"entry": entry, "status": "not_model",
                                     "reason": "no owned skinned mesh renderer" if not owned
                                     else "no complete human skeleton (a pet, weapon or prop)" if not rigged
-                                    else "its skinned renderers point at no mesh (a _model variant)"}
+                                    else MESHLESS}
+                    if owned and rigged:
+                        results[key]["role_mesh_res"] = True    # RoleMeshRes was read too
         except (ValueError, TypeError, KeyError, IndexError, OSError, EOFError, NotImplementedError,
                 RuntimeError, AttributeError):
             kept.extend(members)
@@ -92,8 +108,7 @@ def skinned_roots(catalog, entries: list[dict], declared, results: dict, log=pri
         groups[entry["cab"]].append(entry)
     todo = []
     for cab, members in sorted(groups.items()):
-        left = [entry for entry in members
-                if results.get(f'{entry["cab"]}/{entry["id"]}', {}).get("status") not in ("not_model", "excluded_scope")]
+        left = [entry for entry in members if not settled(results.get(f'{entry["cab"]}/{entry["id"]}', {}))]
         if left:
             todo.append((cab, left))
     if parallel is not None and len(todo) >= PARALLEL_FROM:
@@ -126,8 +141,8 @@ def convert_entry(catalog, entry: dict, declared, results: dict, *, force: bool 
     from .convert import NoGeometryError, convert
     key = f'{entry["cab"]}/{entry["id"]}'
     cached = results.get(key, {})
-    if (cached.get("status") in ("converted", "not_model", "excluded_scope") and not force
-            and (cached["status"] in ("not_model", "excluded_scope") or store.read_item(cached["ident"]) is not None)):
+    if not force and (settled(cached) or cached.get("status") == "converted"
+                      and store.read_item(cached["ident"]) is not None):
         return cached["status"]
     env = catalog.environment()
     go = transform = None

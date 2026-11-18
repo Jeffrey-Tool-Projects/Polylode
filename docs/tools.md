@@ -11,6 +11,12 @@
 - GF2：掃描先 `bundles.scan_directories`＋`bundles.scan`（續跑：大小與 mtime 不變的 bundle 不再讀；安裝已經沒有的 bundle 先從索引刪掉，不然改了名的 bundle 的舊列會讓目錄指向不存在的檔案，IslandLife §7.1508），再 `gf2.batch.declared_entries` → `selection.roots_only`；
   `conversion.json` 記為 `not_model`／`excluded_scope` 的不列。匯出 `gf2.batch.convert_entry` → `gf2.export.export_one`（Blender 寫出與讀回），
   `ok` 才複製 FBX（連同 `textures/`）與 `.blend` 到 `<輸出>/gf2/<編號>/`。轉換暫存仍在 `gf2.store.root()`。
+- GF2 3.0 的 `_model` 預製物（IslandLife §7.1510）：SkinnedMeshRenderer 的 `m_Mesh` 全是空的，網格由預製物裡的 `RoleMeshRes`（`MeshResList`：`TransfromPath` 是它所在節點底下的路徑、`MeshResPath` 是資源路徑）指定。
+  `gf2.role_mesh` 照遊戲的找法掛回：`gf2.addressables` 讀安裝的 Addressables 二進位目錄 `LocalCache/Data/AssetBundles_Windows/catalog_main_<n>.bin`（*n* 是 `GameConfig.cfg` 的 `CacheResVersion` 最後一段），
+  key 是 `BitConverter.ToString(MD5(UTF-16LE(路徑)))`，位置的 internal id 是資產的 GUID、依賴是一起載入的 bundle；GUID 就是那個 bundle 的容器 key，類型必須是 `Mesh`。
+  骨頭、bind pose、材質照預製物自己的。找不到 key、不是 `Mesh`、bundle 沒下載（遊戲邊玩邊下）或不在索引、節點不在、renderer 已有別的網格，都報錯，不照名字找。
+  掃描的篩選（`playable.has_owned_mesh`）把 `RoleMeshRes` 給的網格也算進去（`SCREEN` 4）；之前的「沒有網格」判定由 `batch.settled` 判成過期、重查。轉換紀錄寫 `role_mesh_res`、renderer 宣告寫 `mesh_source`，
+  `source_files` 多一列目錄檔（目錄換了，`polylode_roster sources` 就會把模型判成來源有變）。
 - GF2 的可見性（沒有審過的 `display_profiles` 時，`gf2.export.scene_document`）：三條規則的聯集，被藏的照樣寫進 FBX 與 `.blend`、只是隱藏（Blender 匯入 FBX 時會照 `Visibility` 0 隱藏）。`.glb` 只寫顯示的部件（`interchange.glb.shown`，三個來源都一樣）：glTF 唯一的隱藏方式 `KHR_node_visibility` 在 Blender 5.2 與多數檢視器被忽略，隱藏的 lod1、替換造型會全部疊在 lod0 上；放進第二個場景或不放進任何場景也實測過，Blender 一樣會匯入。
   - LOD：每個 LOD 家族只顯示最細的一層（`presentation.display_lods`）。
   - 可替換部件（`gf2/parts.py`）：有些衣裝在同一個 prefab 裡放了一個部位的好幾種版本（妮基塔 SSR0102 的上衣、裙子、腿各有

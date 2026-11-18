@@ -24,8 +24,8 @@ INSTALL = PathSpec("gf2", "GF2 安裝資料夾", "dir", "遊戲資料夾或它�
 BLENDER = PathSpec("blender", "Blender 執行檔", "file")
 #: the scan's screen of roots (``batch.skinned_roots``): a kept list of another screen is screened again
 #: (2: a whole human skeleton too, not only the character's own skinned mesh; 3: a renderer that points at
-#: a mesh, §7.1455)
-SCREEN = 3
+#: a mesh, §7.1455; 4: or a mesh a RoleMeshRes assigns, §7.1510)
+SCREEN = 4
 
 
 @contextmanager
@@ -143,7 +143,7 @@ class GF2Source:
     def _scan(self, settings, log: Log) -> list[Model]:
         import json
         from ..gf2 import playable, store
-        from ..gf2.batch import declared_entries, load_results, save_results, skinned_roots
+        from ..gf2.batch import declared_entries, load_results, save_results, settled, skinned_roots
         from ..gf2.selection import roots_only
         install, catalog, declared = self._catalog(settings, log)
         # the roots with a skinned mesh of their own, kept for the bundle index they were found in: an
@@ -164,7 +164,7 @@ class GF2Source:
         known = load_results()
         models = []
         for entry in entries:
-            if known.get(f'{entry["cab"]}/{entry["id"]}', {}).get("status") in ("not_model", "excluded_scope"):
+            if settled(known.get(f'{entry["cab"]}/{entry["id"]}', {})):
                 continue
             family = playable.families(entry["name"], declared)[0]
             models.append(Model("gf2", f'{entry["name"]}@{entry["cab"][-8:]}', family["name"],
