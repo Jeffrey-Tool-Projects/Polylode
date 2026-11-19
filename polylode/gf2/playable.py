@@ -213,12 +213,13 @@ def has_owned_skin(gameobject: object, matches: list[dict]) -> bool:
                for pointer in transform.m_Children)
 
 
-def has_owned_mesh(gameobject: object, matches: list[dict]) -> bool:
+def has_owned_mesh(gameobject: object, matches: list[dict], loadable=None) -> bool:
     """Whether one of the character's own skinned renderers under the root has a mesh: one its ``m_Mesh`` points at,
     or one a ``RoleMeshRes`` in the prefab assigns (GF2 3.0's ``_model`` prefabs leave every ``m_Mesh`` empty and
     name the meshes there, ``role_mesh``, IslandLife §7.1510).  Without either the conversion stops on "no full-detail
     skinned renderer with a source mesh" (``convert.geometry_renderers``, §7.1455).  The renderer and the
-    ``RoleMeshRes`` are read; no mesh is, and no path is resolved (the export reports a path that does not resolve)."""
+    ``RoleMeshRes`` are read; no mesh is, and no path is resolved (the export reports a path that does not resolve).
+    *loadable* (``role_mesh.loadable``), when given, must say yes to a ``RoleMeshRes`` row's asset path for it to count."""
     from .role_mesh import covered
     if not matches:
         return False
@@ -235,7 +236,7 @@ def has_owned_mesh(gameobject: object, matches: list[dict]) -> bool:
                         return True
                     if assigned is None:
                         assigned = covered(gameobject)
-                    if path in assigned:
+                    if path in assigned and (loadable is None or loadable(assigned[path])):
                         return True
         transform = next(item.component.read() for item in components if item.component.type.name == 'Transform')
         for pointer in transform.m_Children:

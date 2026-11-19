@@ -394,9 +394,9 @@ def test_a_gf2_scan_lists_only_roots_with_their_own_skinned_mesh(monkeypatch):
     monkeypatch.setattr(playable, "has_owned_skin", lambda go, matches: go.key in (0, 3))
     monkeypatch.setattr(playable, "has_owned_skin", lambda go, matches: go.key in (0, 3, 4))
     monkeypatch.setattr(playable, "has_human_rig", lambda go: go.key in (0, 4))     # the eagle has none
-    monkeypatch.setattr(playable, "has_owned_mesh", lambda go, matches: go.key == 0)  # _model: no mesh
+    monkeypatch.setattr(playable, "has_owned_mesh", lambda go, matches, loadable: go.key == 0)  # _model: no mesh
     results = {"B/9": {"status": "not_model"}}
-    kept = batch.skinned_roots(NS(environment=environment), roots, {}, results, log=lambda _line: None)
+    kept = batch.skinned_roots(NS(environment=environment, install=None), roots, {}, results, log=lambda _line: None)
     assert [e["name"] for e in kept] == ["c_X", "c_Y"]                  # c_Y unread: listed, not dropped
     assert results["A/1"]["status"] == "not_model" and "skinned" in results["A/1"]["reason"]
     assert results["A/3"]["status"] == "not_model" and "skeleton" in results["A/3"]["reason"]

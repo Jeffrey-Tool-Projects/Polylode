@@ -24,8 +24,8 @@ INSTALL = PathSpec("gf2", "GF2 安裝資料夾", "dir", "遊戲資料夾或它�
 BLENDER = PathSpec("blender", "Blender 執行檔", "file")
 #: the scan's screen of roots (``batch.skinned_roots``): a kept list of another screen is screened again
 #: (2: a whole human skeleton too, not only the character's own skinned mesh; 3: a renderer that points at
-#: a mesh, §7.1455; 4: or a mesh a RoleMeshRes assigns, §7.1510)
-SCREEN = 4
+#: a mesh, §7.1455; 4: or a mesh a RoleMeshRes assigns, §7.1510; 5: whose path the catalog has)
+SCREEN = 5
 
 
 @contextmanager

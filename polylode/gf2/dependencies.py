@@ -16,7 +16,7 @@ from UnityPy.files.ObjectReader import ObjectReader
 
 from ..endfield import prefab as P
 from ..endfield.unitymesh import UnityMesh
-from . import palette
+from . import palette, role_mesh
 from .catalog import Catalog
 
 NativeRef = tuple[str, int]
@@ -164,8 +164,14 @@ def resolve(catalog: Catalog, entry: dict, prefab: P.Prefab, readers: dict,
             raise ValueError('source dependency belongs to another character')
         source_key = original['cab'], original['id']
         if source_key not in sources:
-            sources[source_key] = C.hierarchy(env.find_file(original['cab']).objects[original['id']],
-                                            playable.families(original['name'], roster))[:2]
+            objects = env.find_file(original['cab']).objects
+            if original['id'] not in objects:
+                raise ValueError(f"source dependency counterpart {original['name']} ({original['cab']}/{original['id']}) "
+                                 f"is not in the install: its recipe was measured on another game version")
+            # GF2 3.0's counterparts are _model prefabs: their meshes are the ones RoleMeshRes names (role_mesh)
+            gameobject = objects[original['id']]
+            sources[source_key] = C.hierarchy(gameobject, playable.families(original['name'], roster),
+                                            assigned=role_mesh.assignments(catalog, env, gameobject.read()))[:2]
         source, native_readers = sources[source_key]
         counterpart = source.nodes[tuple(recipe['source_node'])]
         mesh_reader = readers[node.renderer.mesh]

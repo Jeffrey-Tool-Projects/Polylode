@@ -14,9 +14,12 @@
 - GF2 3.0 的 `_model` 預製物（IslandLife §7.1510）：SkinnedMeshRenderer 的 `m_Mesh` 全是空的，網格由預製物裡的 `RoleMeshRes`（`MeshResList`：`TransfromPath` 是它所在節點底下的路徑、`MeshResPath` 是資源路徑）指定。
   `gf2.role_mesh` 照遊戲的找法掛回：`gf2.addressables` 讀安裝的 Addressables 二進位目錄 `LocalCache/Data/AssetBundles_Windows/catalog_main_<n>.bin`（*n* 是 `GameConfig.cfg` 的 `CacheResVersion` 最後一段），
   key 是 `BitConverter.ToString(MD5(UTF-16LE(路徑)))`，位置的 internal id 是資產的 GUID、依賴是一起載入的 bundle；GUID 就是那個 bundle 的容器 key，類型必須是 `Mesh`。
-  骨頭、bind pose、材質照預製物自己的。找不到 key、不是 `Mesh`、bundle 沒下載（遊戲邊玩邊下）或不在索引、節點不在、renderer 已有別的網格，都報錯，不照名字找。
-  掃描的篩選（`playable.has_owned_mesh`）把 `RoleMeshRes` 給的網格也算進去（`SCREEN` 4）；之前的「沒有網格」判定由 `batch.settled` 判成過期、重查。轉換紀錄寫 `role_mesh_res`、renderer 宣告寫 `mesh_source`，
+  骨頭、bind pose、材質照預製物自己的。renderer 自己已經有網格的（2.x 的預製物也帶 `RoleMeshRes`，例 Mosinnagant SSR01 Class，路徑在 3.0 的目錄裡可能已經沒有）照用自己的，那一列不解析，目錄也不開。
+  目錄列的 bundle 安裝裡常常沒有（3.0 的目錄 60 945 個，裝了 8 244 個），網格卻以同一個 GUID 在安裝裡另一個目錄沒列的 bundle 檔（`_model` 預製物本身也在這種檔裡）：目錄的 bundle 都不裝著那個 GUID 時，改在整份 bundle 索引找 GUID，必須剛好一個 `Mesh`；旁記 `catalog_bundles` 是目錄列的檔名、`bundle` 是實際讀的檔。
+  找不到 key、不是 `Mesh`、目錄的 bundle 在磁碟上但不在索引（要重掃）、整份索引沒有或不只一個那個 GUID 的 `Mesh`、節點不在，都報錯，不照名字找。
+  掃描的篩選（`playable.has_owned_mesh`）把 `RoleMeshRes` 給的網格也算進去，但路徑必須在安裝的目錄裡（`role_mesh.loadable`；遊戲載不到目錄沒有的路徑，3.0 的兩個影子特效複本 `CeciliaSSR01_slg_shadow`、`AgentSSR01_Shadow` 的 `_model` 只指這種路徑，因此記成 `not_model` 不列；沒有目錄的安裝照列，`SCREEN` 5）；之前的「沒有網格」判定由 `batch.settled` 判成過期、重查。轉換紀錄寫 `role_mesh_res`、renderer 宣告寫 `mesh_source`，
   `source_files` 多一列目錄檔（目錄換了，`polylode_roster sources` 就會把模型判成來源有變）。
+- GF2 的來源相依配方（`gf2/source_dependencies.json`，IslandLife §7.686；`gf2.dependencies.resolve`）：過場與宿舍的預製物（Alva、Cheyanne SSR01 Upgrade，KseniaDorm Cloth Idle，Loreley、Mosinnagant、Vector SSR01 Class）有些 renderer 的骨頭清單或材質槽與自己的網格對不上，照本人衣裝預製物裡網格位元組完全相同的那個 renderer 補回。2.x 量的對照來源 `c_…_slg_skin` 在 3.0 不在了，同一個 CAB 換成 `_slg_skin_model`：29 筆配方的來源改指它（對照節點是 `RoleMeshRes` 給的網格 SHA256 等於配方 `mesh_sha256` 的那一個，每筆剛好一個），來源預製物照 `role_mesh.assignments` 掛網格再讀。其中 8 筆是 3.0 新量的 lod1（Alva cloth2／cloth3、Loreley face、Ksenia 五件；這些預製物沒有 `LODGroup`，lod1 只是關掉的 renderer，也會轉），證據照原本的：目標網格與對照網格位元組相同、目標的 `RoleMeshRes` 只有一列指那個節點、骨頭完整路徑的 CRC32 逐槽等於 `m_BoneNameHashes`、bind 在既有預算內。來源物件不在安裝裡時報「measured on another game version」。
 - GF2 的可見性（沒有審過的 `display_profiles` 時，`gf2.export.scene_document`）：三條規則的聯集，被藏的照樣寫進 FBX 與 `.blend`、只是隱藏（Blender 匯入 FBX 時會照 `Visibility` 0 隱藏）。`.glb` 只寫顯示的部件（`interchange.glb.shown`，三個來源都一樣）：glTF 唯一的隱藏方式 `KHR_node_visibility` 在 Blender 5.2 與多數檢視器被忽略，隱藏的 lod1、替換造型會全部疊在 lod0 上；放進第二個場景或不放進任何場景也實測過，Blender 一樣會匯入。
   - LOD：每個 LOD 家族只顯示最細的一層（`presentation.display_lods`）。
   - 可替換部件（`gf2/parts.py`）：有些衣裝在同一個 prefab 裡放了一個部位的好幾種版本（妮基塔 SSR0102 的上衣、裙子、腿各有

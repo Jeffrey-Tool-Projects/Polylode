@@ -110,11 +110,34 @@ def test_the_guid_is_the_container_key_of_the_one_bundle_that_holds_the_mesh(tmp
     with pytest.raises(role_mesh.RoleMeshError, match="Texture2D"):
         role_mesh.bundle_entry(catalog, MESH_PATH, "bb", ["b.bundle"])
     with pytest.raises(role_mesh.RoleMeshError, match="not downloaded"):
-        role_mesh.bundle_entry(catalog, MESH_PATH, "aa", ["dep.bundle", "missing.bundle"])
+        role_mesh.bundle_entry(catalog, MESH_PATH, "zz", ["dep.bundle", "missing.bundle"])
     (tmp_path / addressables.BUNDLES).mkdir(parents=True)
     (tmp_path / addressables.BUNDLES / "missing.bundle").write_bytes(b"")
     with pytest.raises(role_mesh.RoleMeshError, match="scan again"):
         role_mesh.bundle_entry(catalog, MESH_PATH, "aa", ["missing.bundle"])
+
+
+def test_a_guid_the_catalogs_bundles_do_not_hold_is_found_by_the_whole_index(tmp_path):
+    # GF2 3.0: the catalog's bundle for a _model prefab's face is not downloaded, and the mesh with that GUID is in
+    # the install under a bundle file name the catalog does not list (Vector SSR01's face: c69de0ff… → f08f4902…)
+    rows = {f"{addressables.BUNDLES}/dep.bundle": {"members": [{"containers": [
+                {"container": "cc", "cab": "CAB-d", "id": 1, "type": "Material"}]}]},
+            f"{addressables.BUNDLES}/old.bundle": {"members": [{"containers": [
+                {"container": "aa", "cab": "CAB-o", "id": 7, "type": "Mesh"},
+                {"container": "tt", "cab": "CAB-o", "id": 8, "type": "Texture2D"}]}]},
+            f"{addressables.BUNDLES}/copy.bundle": {"members": [{"containers": [
+                {"container": "aa", "cab": "CAB-o", "id": 7, "type": "Mesh"}]}]},
+            f"{addressables.BUNDLES}/two.bundle": {"members": [{"containers": [
+                {"container": "dd", "cab": "CAB-p", "id": 1, "type": "Mesh"},
+                {"container": "dd", "cab": "CAB-q", "id": 2, "type": "Mesh"}]}]},
+            f"{addressables.BUNDLES}/broken.bundle": {"error": "GFF is not a Unity bundle"}}
+    catalog = SimpleNamespace(rows=rows, install=tmp_path)
+    cab, path_id, bundle = role_mesh.bundle_entry(catalog, MESH_PATH, "aa", ["dep.bundle", "missing.bundle"])
+    assert (cab, path_id) == ("CAB-o", 7)                 # the same Mesh object in two files is one mesh
+    with pytest.raises(role_mesh.RoleMeshError, match="not downloaded"):      # only a Texture2D has the GUID
+        role_mesh.bundle_entry(catalog, MESH_PATH, "tt", ["missing.bundle"])
+    with pytest.raises(role_mesh.RoleMeshError, match="2 meshes"):            # two meshes: not settled
+        role_mesh.bundle_entry(catalog, MESH_PATH, "dd", ["missing.bundle"])
 
 
 # -- fake prefab objects ------------------------------------------------------------------------------------------
@@ -150,14 +173,23 @@ def node(name, children=(), components=()):
     return go
 
 
-def behaviour(script, rows):
-    value = SimpleNamespace(m_Script=Ref(SimpleNamespace(m_ClassName=script)),
-                            tree={"MeshResList": [{"TransfromPath": a, "MeshResPath": b} for a, b in rows]})
+class Reader(SimpleNamespace):
+    """An ObjectReader: ``read`` gives the parsed object, without insisting on consuming all its bytes."""
+
+    def read(self, check_read=True):
+        if check_read and getattr(self, "short", False):
+            raise ValueError("Expected to read 256 bytes, but only read 212 bytes")
+        return self
+
+
+def behaviour(script, rows, short=False):
+    value = Reader(m_Script=Ref(SimpleNamespace(m_ClassName=script)), short=short,
+                   tree={"MeshResList": [{"TransfromPath": a, "MeshResPath": b} for a, b in rows]})
     return Ref(value, "MonoBehaviour")
 
 
 def skinned(mesh=None):
-    return Ref(SimpleNamespace(m_Mesh=Ref(mesh)), "SkinnedMeshRenderer")
+    return Ref(Reader(m_Mesh=Ref(mesh)), "SkinnedMeshRenderer")
 
 
 def test_role_mesh_res_paths_are_paths_below_its_own_node():
@@ -175,6 +207,24 @@ def test_role_mesh_res_paths_are_paths_below_its_own_node():
     with pytest.raises(role_mesh.RoleMeshError, match="2 children"):
         role_mesh.find_node(transform, "c_X_slg_body_lod0")
     assert role_mesh.declared(node("plain", components=[behaviour("SomethingElse", [("a", "b")])])) is None
+    # another script whose typetree does not cover its data (Colphne SR01 Gacha's face) is still told apart
+    assert role_mesh.declared(node("face", components=[behaviour("SomethingElse", [], short=True)])) is None
+
+
+def test_a_renderer_with_its_own_mesh_keeps_it_and_its_row_is_not_resolved():
+    # the 2.x prefabs (Mosinnagant SSR01 Class) carry a RoleMeshRes whose paths the 3.0 catalog lacks; their
+    # renderers point at meshes of their own, and nothing is looked up, not even the content catalog
+    def unopened():
+        raise AssertionError("the content catalog was opened")
+    own = node("c_X_slg_body_lod0", components=[skinned(SimpleNamespace(name="own"))])
+    root = node("c_X_Class", [own])
+    transform = root.m_Component[0].component.target
+    row = {"node": "c_X_slg_body_lod0", "path": MESH_PATH.replace("body", "boby")}
+    assert role_mesh._resolve(None, None, unopened, transform, row) is None
+    empty = node("c_X_slg_body_lod0", components=[skinned()])
+    transform = node("c_X_slg_skin_model", [empty]).m_Component[0].component.target
+    with pytest.raises(AssertionError, match="opened"):   # an empty one is resolved
+        role_mesh._resolve(None, None, unopened, transform, row)
 
 
 def test_the_scan_counts_a_renderer_a_role_mesh_res_gives_a_mesh():
@@ -188,6 +238,20 @@ def test_the_scan_counts_a_renderer_a_role_mesh_res_gives_a_mesh():
     other = node("c_X_slg_body_lod0", components=[skinned()])
     elsewhere = node("c_X_slg_skin_model", [other], [behaviour("RoleMeshRes", [("c_X_slg_hair_lod0", MESH_PATH)])])
     assert not playable.has_owned_mesh(elsewhere, matches)
+    # a path the game's catalog lacks gives the renderer nothing (the 3.0 shadow _model copies name only such paths)
+    asked = []
+    assert not playable.has_owned_mesh(root, matches, lambda path: asked.append(path) or False)
+    assert asked == [MESH_PATH] and playable.has_owned_mesh(root, matches, lambda path: True)
+
+
+def test_the_screen_asks_the_install_catalog_whether_a_path_can_be_loaded(tmp_path):
+    folder = tmp_path / addressables.BUNDLES
+    folder.mkdir(parents=True)
+    (tmp_path / addressables.CONFIG).write_text("CacheResVersion:3.0.5388.0.29003\n", encoding="utf-8")
+    catalog_file(folder)
+    has = role_mesh.loadable(tmp_path)
+    assert has(MESH_PATH) and not has(MESH_PATH.replace("Player", "Effect"))
+    assert role_mesh.loadable(tmp_path / "elsewhere")(MESH_PATH)    # no catalog: listed, the export says why
 
 
 def test_a_meshless_verdict_from_before_role_mesh_res_was_read_is_checked_again():

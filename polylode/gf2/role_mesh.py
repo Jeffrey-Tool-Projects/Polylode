@@ -13,11 +13,20 @@ Here the same thing is done before conversion: the path is resolved through the 
 content catalog (:mod:`.addressables`: path → key → the mesh's GUID and its bundle file → that
 bundle's container entry), and the renderer of the node the ``TransfromPath`` names, a path
 below the root, gets that mesh.  Bones, bind poses and materials stay the prefab's own.
-Anything that does not resolve — a path the catalog lacks, a location that is not a ``Mesh``,
-a bundle the index does not have, a node that is not there or has no renderer, a renderer
-that already has a different mesh — is an error; nothing is matched by name.
+A renderer that already points at a mesh (the 2.x prefabs carry a ``RoleMeshRes`` too) keeps
+its own, and its row is not resolved: those prefabs were read that way before §7.1510.
+
+The catalog names bundle files the install often does not have (60 945 in 3.0's catalog, 8 244
+of them downloaded), while the mesh itself is in the install under another bundle file name
+the catalog does not list: the ``_model`` prefabs come from such bundles too.  So when none of
+the catalog's bundles holds the GUID, the GUID is looked up in the whole bundle index; it is
+the asset's identity, and exactly one ``Mesh`` must have it.  Anything that does not resolve —
+a path the catalog lacks, a location that is not a ``Mesh``, a GUID no indexed bundle holds,
+a node that is not there or has no renderer — is an error; nothing is matched by name.
 """
 from __future__ import annotations
+
+from collections import defaultdict
 
 from .addressables import BUNDLES, CatalogError, address, opened
 
@@ -32,8 +41,10 @@ class RoleMeshError(ValueError):
 
 
 def script_name(component) -> str | None:
-    """The class name of a MonoBehaviour component's MonoScript (None when it has none)."""
-    behaviour = component.read()
+    """The class name of a MonoBehaviour component's MonoScript (None when it has none).  Only the leading fields
+    are needed: another script's typetree may not cover its data (Colphne SR01 Gacha's face has one that reads 212 of
+    256 bytes), so the read does not insist on consuming it all."""
+    behaviour = component.deref().read(check_read=False)
     script = getattr(behaviour, "m_Script", None)
     if not script:
         return None
@@ -80,10 +91,31 @@ def mesh_location(content, path: str) -> tuple[str, list[str]]:
     return location.internal_id, names
 
 
+_BY_GUID: dict = {}
+
+
+def indexed_holders(catalog, guid: str) -> list[tuple[dict, str]]:
+    """``[(container entry, bundle path), …]`` of every indexed bundle whose container key is *guid*; the index is
+    gathered once per catalog."""
+    held = _BY_GUID.get(id(catalog))
+    if held is None or held[0] is not catalog:
+        table = defaultdict(list)
+        for relative, row in catalog.rows.items():
+            if row.get("error"):
+                continue
+            for member in row["members"]:
+                for entry in member["containers"]:
+                    table[entry["container"]].append((entry, relative))
+        _BY_GUID.clear()
+        _BY_GUID[id(catalog)] = held = (catalog, table)
+    return held[1].get(guid, [])
+
+
 def bundle_entry(catalog, path: str, guid: str, bundles: list[str]) -> tuple[str, int, str]:
     """``(CAB, path id, bundle path)`` of the ``Mesh`` container *guid* in the one of the indexed *bundles* that holds
-    it.  A bundle the install does not have (the game downloads them as it needs them) is reported when the
-    others do not hold the asset."""
+    it.  When none of them does (the catalog's bundle is not downloaded), the one ``Mesh`` the whole index has under
+    *guid*; a catalog bundle on disk but not indexed asks for a scan first, and a GUID nothing holds is reported as
+    not downloaded."""
     holders, absent, unindexed = [], [], []
     for bundle in bundles:
         relative = f"{BUNDLES}/{bundle}"
@@ -95,10 +127,18 @@ def bundle_entry(catalog, path: str, guid: str, bundles: list[str]) -> tuple[str
                     if entry["container"] == guid]
     if len(holders) == 1 and holders[0][0]["type"] == "Mesh":
         return holders[0][0]["cab"], holders[0][0]["id"], holders[0][1]
-    if not holders and absent:
-        raise RoleMeshError(f"{path}: not in the install: bundle {', '.join(absent)} is not downloaded")
     if not holders and unindexed:
         raise RoleMeshError(f"{path}: bundle {', '.join(unindexed)} is not in the bundle index (scan again)")
+    if not holders:
+        meshes = {(entry["cab"], entry["id"]): relative for entry, relative in indexed_holders(catalog, guid)
+                  if entry["type"] == "Mesh"}
+        if len(meshes) == 1:
+            (cab, path_id), relative = next(iter(meshes.items()))
+            return cab, path_id, relative
+        if not meshes:
+            raise RoleMeshError(f"{path}: not in the install: bundle {', '.join(absent)} is not downloaded "
+                                f"and no indexed bundle holds {guid}")
+        raise RoleMeshError(f"{path}: {len(meshes)} meshes {guid} in the indexed bundles, none in the catalog's")
     raise RoleMeshError(f"{path}: {len(holders)} containers {guid} in its bundles"
                         + (f", a {holders[0][0]['type']}" if len(holders) == 1 else ""))
 
@@ -125,7 +165,14 @@ def assignments(catalog, env, gameobject) -> dict:
     the bundle catalog (:class:`.catalog.Catalog`), whose install's content catalog resolves the asset paths and
     whose index finds the bundle entries."""
     found = {}
-    content = None
+
+    def content(owner: str):
+        # opened only when a row needs it: a prefab whose renderers have their own meshes resolves nothing
+        try:
+            return opened(catalog.install)
+        except CatalogError as exc:
+            raise RoleMeshError(f"{owner}: RoleMeshRes paths cannot be resolved: {exc}") from exc
+
     stack = [gameobject]
     while stack:
         go = stack.pop()
@@ -134,13 +181,11 @@ def assignments(catalog, env, gameobject) -> dict:
         rows = declared(go)
         if not rows:
             continue
-        if content is None:
-            try:
-                content = opened(catalog.install)
-            except CatalogError as exc:
-                raise RoleMeshError(f"{go.m_Name}: RoleMeshRes paths cannot be resolved: {exc}") from exc
         for row in rows:
-            mesh, provenance, renderer = _resolve(catalog, env, content, transform, row)
+            resolved = _resolve(catalog, env, lambda: content(go.m_Name), transform, row)
+            if resolved is None:
+                continue
+            mesh, provenance, renderer = resolved
             key = (renderer.assets_file.name.lower(), renderer.path_id)
             if key in found:
                 raise RoleMeshError(f"{row['node']}: RoleMeshRes names the renderer twice")
@@ -148,34 +193,55 @@ def assignments(catalog, env, gameobject) -> dict:
     return found
 
 
-def _resolve(catalog, env, content, owner, row):
-    guid, bundles = mesh_location(content, row["path"])
-    cab, path_id, bundle = bundle_entry(catalog, row["path"], guid, bundles)
+def _resolve(catalog, env, opening, owner, row):
+    """``(mesh, provenance, renderer)`` for one ``MeshResList`` row, or None when the renderer it names already
+    points at a mesh of its own (kept, the row is not resolved).  *opening* gives the content catalog."""
     node = find_node(owner, row["node"]).m_GameObject.read()
     renderers = [item.component.deref() for item in node.m_Component
                  if item.component.type.name == "SkinnedMeshRenderer"]
     if len(renderers) != 1:
         raise RoleMeshError(f"{row['node']}: {len(renderers)} SkinnedMeshRenderers on the node RoleMeshRes names")
     renderer = renderers[0]
+    if renderer.read().m_Mesh.m_PathID:
+        return None
+    content = opening()
+    guid, bundles = mesh_location(content, row["path"])
+    cab, path_id, bundle = bundle_entry(catalog, row["path"], guid, bundles)
     mesh = env.find_file(cab).objects[path_id]
     if mesh.type.name != "Mesh":
         raise RoleMeshError(f"{row['path']}: {cab}/{path_id} is a {mesh.type.name}")
-    held = renderer.read().m_Mesh
-    if held.m_PathID and (held.deref().assets_file.name.lower(), held.m_PathID) != (cab.lower(), path_id):
-        raise RoleMeshError(f"{row['node']}: the renderer already has another mesh")
     return mesh, {"node": row["node"], "path": row["path"], "address": address(row["path"]), "guid": guid,
-                  "bundle": bundle, "cab": cab, "id": path_id, "catalog": content.path.name}, renderer
+                  "bundle": bundle, "catalog_bundles": bundles, "cab": cab, "id": path_id,
+                  "catalog": content.path.name}, renderer
 
 
-def covered(gameobject, path: tuple = ()) -> set[tuple]:
-    """The node paths (tuples of names below *gameobject*) some ``RoleMeshRes`` in its subtree gives a mesh, read for
-    the scan's screen: nothing is resolved."""
-    out = set()
+def covered(gameobject, path: tuple = ()) -> dict[tuple, str]:
+    """``{node path (tuple of names below *gameobject*): asset path}`` for the nodes some ``RoleMeshRes`` in its
+    subtree gives a mesh, read for the scan's screen: nothing is resolved."""
+    out = {}
     rows = declared(gameobject) or []
-    out.update(path + tuple(row["node"].split("/")) for row in rows)
+    out.update((path + tuple(row["node"].split("/")), row["path"]) for row in rows)
     transform = next(item.component.read() for item in gameobject.m_Component
                      if item.component.type.name == "Transform")
     for pointer in transform.m_Children:
         child = pointer.read().m_GameObject.read()
-        out |= covered(child, path + (child.m_Name,))
+        out.update(covered(child, path + (child.m_Name,)))
     return out
+
+
+def loadable(install):
+    """``f(asset path) -> bool``: whether the install's content catalog has the path's key, the screen's test of a
+    ``RoleMeshRes`` row (the game cannot load a path its catalog lacks: GF2 3.0's two shadow ``_model`` copies,
+    ``…/Effect/Effect_sub/Mod_players_ain/…_shadow/Models/…``, name only such paths).  The catalog is opened at the
+    first question; an install without one answers yes, and the export reports why it cannot resolve."""
+    state = {}
+
+    def has(path: str) -> bool:
+        if "content" not in state:
+            try:
+                state["content"] = opened(install)
+            except (CatalogError, OSError):
+                state["content"] = None
+        content = state["content"]
+        return content is None or address(path) in content.keys()
+    return has

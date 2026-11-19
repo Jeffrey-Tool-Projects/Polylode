@@ -54,7 +54,9 @@ def settled(row: dict) -> bool:
 
 def checked_groups(catalog, groups: list, declared, results: dict) -> list[dict]:
     """:func:`skinned_roots` over *groups* ``[(cab, entries), …]``: the entries kept, *results* given the rest."""
+    from .role_mesh import loadable
     kept = []
+    addressable = loadable(catalog.install)          # one content catalog for every group
     for cab, members in groups:
         env = catalog.environment()
         try:
@@ -67,7 +69,8 @@ def checked_groups(catalog, groups: list, declared, results: dict) -> list[dict]
                     go = file.objects[entry["id"]].read()
                     owned = playable.has_owned_skin(go, playable.families(entry["name"], declared))
                     rigged = owned and playable.has_human_rig(go)
-                    meshed = rigged and playable.has_owned_mesh(go, playable.families(entry["name"], declared))
+                    meshed = rigged and playable.has_owned_mesh(go, playable.families(entry["name"], declared),
+                                                                addressable)
                 except (ValueError, TypeError, KeyError, IndexError, OSError, EOFError, StopIteration,
                         NotImplementedError, RuntimeError, AttributeError):
                     owned = rigged = meshed = True     # unread: listed, its export reports the reason
