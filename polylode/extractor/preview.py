@@ -34,8 +34,9 @@ QML = Path(__file__).with_name("preview.qml")
 #: dormitory variants hidden; 9: every dormitory part of a model that is not the dormitory one; 10: every display
 #: pose, not only the held ones; 11: a preview carries the poses, to switch between, GF2's and Endfield's poses
 #: their scale, and no cutscene clip that pulls the body apart; 12: GF2's bones a clip snaps out of place for its
-#: camera put back; 13: expression controls and sampled morph weights; 14: portable character shading maps)
-CACHE_VERSION = 14
+#: camera put back; 13: expression controls and sampled morph weights; 14: portable character shading maps;
+#: 15: GF2's worn replaceable parts and cut-scene characters the game switches on, shown)
+CACHE_VERSION = 15
 
 
 def cache_folder(model: Model) -> Path:

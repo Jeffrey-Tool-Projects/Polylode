@@ -151,11 +151,30 @@ def scene_document(ident, declared=None):
     document_data = json.loads(document.read_text(encoding='utf8'))
     document_data['save_blend'] = selection['eligible']
     document_data['blender_selection'] = selection
+    # for each part the prefab ships switched off, which node or renderer does it: read per renderer instance (a
+    # repeated instance's part is named ….2), the parts in the order RS.write wrote them
+    for part, built in zip(document_data['parts'], scene.parts, strict=True):
+        if part['name'] != built.name:
+            raise ValueError(f'{ident}: document part {part["name"]} is not scene part {built.name}')
+        part['source_hidden'] = bool(part['hidden'])
+        if part['hidden']:
+            part['source_off'] = {'inactive_node': built.off_node or None, 'renderer_disabled': built.renderer_off}
+    # weapons and the cut scene's directors and timeline, read before the rules below (a cut scene is told by them)
+    source_facts(document_data, item, extra)
     profile = display.stored_profile(ident)
     if profile is not None:
         document_data = display.document_profile(document_data, profile)
     else:
-        # no reviewed profile: the standard rule, each LOD family shown at its most detailed level and its
+        # no reviewed profile: the parts at rest as the game shows them — a node the game switches on (the worn
+        # option of a replaceable part, a cut scene's character: presentation.switched_on) is on
+        picked = parts.choices(_install(), ident)
+        cut_scene = bool((document_data.get('timeline') or {}).get('directors'))
+        for part in document_data['parts']:
+            on = presentation.switched_on(part, picked['worn'] if picked else [], cut_scene)
+            if on is not None:
+                part['switched_on'] = on
+            part['hidden'] = part['source_hidden'] and on is None
+        # then the standard rule, each LOD family shown at its most detailed level and its
         # other levels kept but hidden (presentation.display_lods); with every level shown, a viewer drew
         # each mesh two or three times over itself
         hidden = presentation.display_lods(document_data['parts'])['hidden']
@@ -163,19 +182,21 @@ def scene_document(ident, declared=None):
         # renderer's combat and dormitory versions only the combat one (presentation.combat_variants); the
         # others stay in the file, hidden — shown together they were three outfits worn through each other
         combat = presentation.combat_variants(document_data['parts'], ident)
-        picked = parts.choices(_install(), ident)
         spare = parts.hidden(document_data['parts'], picked) if picked else {}
+        # and of a garment's shapes only the general one (presentation.shape_variants)
+        shape = presentation.shape_variants(document_data['parts'])
         for part in document_data['parts']:
-            part.setdefault('source_hidden', part['hidden'])
+            at_rest = part['hidden']
             # why, for a reader of the FBX's sidecar (interchange.sidecar): each rule that hides it
-            part['hidden_by'] = [reason for reason, by in (('source', part['source_hidden']),
-                                                           ('lod', hidden[part['name']] and not part['source_hidden']),
+            part['hidden_by'] = [reason for reason, by in (('source', at_rest),
+                                                           ('lod', hidden[part['name']] and not at_rest),
                                                            ('dormitory', combat[part['name']]),
-                                                           ('alternate', spare.get(part['name'], False))) if by]
-            part['hidden'] = hidden[part['name']] or combat[part['name']] or spare.get(part['name'], False)
+                                                           ('alternate', spare.get(part['name'], False)),
+                                                           ('shape', shape[part['name']])) if by]
+            part['hidden'] = (hidden[part['name']] or combat[part['name']] or spare.get(part['name'], False)
+                              or shape[part['name']])
         if picked:
             document_data['parts_choice'] = picked
-    source_facts(document_data, item, extra)
     layout = frames.plan(scene.bones, scene.parts)
     if any(any(v != 0 for v in frame['origin']) for frame in layout['frames']):
         document_data['local_frames'] = layout
@@ -192,7 +213,7 @@ def source_facts(document_data: dict, item, extra: dict, log=lambda message: Non
     from . import scene_facts
     from .catalog import Catalog
     for part in document_data['parts']:
-        if not part.get('source_hidden', part.get('hidden')):
+        if 'source_off' in part or not part.get('source_hidden', part.get('hidden')):
             continue
         shaders = [p.shader for p in item.pieces if p.shader.get('_rendName') == part['name']]
         part['source_off'] = {'inactive_node': next((s['_offNode'] for s in shaders if s.get('_offNode')), None),

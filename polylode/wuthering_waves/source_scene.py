@@ -188,9 +188,23 @@ def material_record(native: dict, directory: Path, case: Path, used: bool) -> di
     if base is None and "BaseCol" in maps and "FinalCol_Tint_Layer1" in data["Colors"]:
         base, profile = "BaseCol", "layered_effect_texture_preview"
     constant = None
+    liquid = None
     if base is None and data["BlendMode"] == 2 and "BaseColor" in data["Colors"]:
         constant = [data["Colors"]["BaseColor"][key] for key in "RGBA"]
         profile = "authored_glass_color_preview"
+    bands = ("WaterColor_Down", "WaterColor_Middle", "WaterColor_High")
+    if base is None and constant is None and all(band in data["Colors"] for band in bands):
+        # a liquid (Lili's bottle, ELiliPingziMd10011 Yeti / Yeti01): its diffuse slots hold the engine's 1x1 white
+        # default, and its colour is the authored gradient up the liquid — a bottom band, the middle, the top
+        # (WaterColor_*, placed by WaterColor_*Process / *Width / Water_High*).  The preview draws the middle band's
+        # colour, the bulk between the thin bottom band and the surface; the gradient itself is not drawn, and all
+        # three colours with their placing are kept beside it
+        constant = [data["Colors"]["WaterColor_Middle"][key] for key in "RGB"] + [1.0]
+        profile = "authored_liquid_color_preview"
+        liquid = {"colors": {band: [data["Colors"][band][key] for key in "RGBA"] for band in bands},
+                  "placing": {name: value for name, value in data["Scalars"].items()
+                              if name.startswith(("WaterColor_", "Water_High"))},
+                  "drawn": "WaterColor_Middle"}
     missing_surface = (base is None and not data["Textures"] and not data["Colors"]
                        and data["Properties"].get("bUsedWithEmpty") is True)
     if missing_surface:
@@ -200,6 +214,8 @@ def material_record(native: dict, directory: Path, case: Path, used: bool) -> di
     record = {"maps": maps, "base": base, "profile": profile, "constant_color": constant,
               "native_surface_unmapped": bool(missing_surface), "native_material": data,
               "source_json_sha256": sha(source), "source_package": package, "unused": not used}
+    if liquid is not None:
+        record["liquid"] = liquid
     # How a translucent surface covers is wired in its parent material's graph, which the cooked game does
     # not carry (no Opacity input on any of them).  Owner 2026-11-02 (§7.1455): the base map's alpha is the
     # opacity — every such map measured carries graded coverage (a glass at 102, hair from 0 to 255) — said
@@ -350,6 +366,43 @@ def place_streams(source_arrays, placement):
     return values
 
 
+def leader_subset(part_ident: str, bones: list[dict], rests: np.ndarray, primary_bones: list[dict],
+                  primary_rests: np.ndarray) -> tuple[np.ndarray, dict]:
+    """``(primary index per part bone, proof)`` for a part whose skeleton is a subset of the primary's.
+
+    A model-table child without a socket follows the character's pose by bone name (Unreal's leader pose): Lili's
+    bottle, ``ELiliPingziMd10011``, has 18 of her 367 bones.  It is on her skeleton when every bone is hers by name,
+    each bone's parent is an ancestor of it in hers, and its rest is hers — the joint within the 0.01 mm the shared
+    skeleton is held to, the frame within float32 noise.  Anything else is not.
+    """
+    lookup = {bone["name"]: index for index, bone in enumerate(primary_bones)}
+    names = [bone["name"] for bone in bones]
+    missing = [name for name in names if name not in lookup]
+    if missing or len(set(names)) != len(names):
+        raise ValueError(f"{part_ident} is not on the primary's skeleton: {missing[:5] or 'repeated bones'}")
+    remap = np.array([lookup[name] for name in names])
+
+    def ancestors(index):
+        out = set()
+        while primary_bones[index]["parent"] >= 0:
+            index = primary_bones[index]["parent"]
+            out.add(index)
+        return out
+    for bone, target in zip(bones, remap):
+        if bone["parent"] >= 0 and remap[bone["parent"]] not in ancestors(target):
+            raise ValueError(f"{part_ident}: {bone['name']} is under {names[bone['parent']]}, "
+                             f"not one of its ancestors in the primary's skeleton")
+    joint_error = float(np.linalg.norm(rests[:, :3, 3] - primary_rests[remap, :3, 3], axis=1).max() * 1000)
+    if joint_error > .01:
+        raise ValueError(f"{part_ident}: its joints are {joint_error:.4f} mm off the primary's")
+    frame_error = float(np.abs(rests[:, :3, :3] - primary_rests[remap, :3, :3]).max())
+    if frame_error > 1e-4:
+        raise ValueError(f"{part_ident}: its rest frames differ from the primary's by {frame_error:.2e}")
+    return remap, dict(joint_offset_mm=joint_error, rest_frame_difference=frame_error,
+                       leader_pose_bones=len(bones), primary_bones=len(primary_bones),
+                       method="bones matched by name to the primary's (leader pose); parents are ancestors there")
+
+
 def assemble(row: dict, sources: Path, cases: Path) -> Path:
     """The display model *row* (``assembly.display_models``) as one scene in ``cases/<ident>``; that folder.
 
@@ -391,9 +444,7 @@ def assemble(row: dict, sources: Path, cases: Path) -> Path:
                 lengths.append(source_arrays["bone_length"][bone_index])
             values = place_streams(source_arrays, placement)
             values["p0_jnt"] += offset
-        else:
-            if source_document["bones"] != primary_bones:
-                raise ValueError(f"{part_ident} is not on the primary's skeleton")
+        elif source_document["bones"] == primary_bones:
             own_rigid, own_proof, own_skin, _ = bake_uniform(source_arrays["bone_native_rest"], source_document["bones"])
             _, _, _, shared_skin = bake_uniform(primary_native, primary_bones)
             joint_error = float(np.linalg.norm(source_arrays["bone_native_rest"][:, :3, 3] - primary_native[:, :3, 3],
@@ -406,6 +457,18 @@ def assemble(row: dict, sources: Path, cases: Path) -> Path:
                 ident=part_ident, joint_offset_mm=joint_error, source_vertices_unchanged=True,
                 all_vertices_rotation_error_mm=own_proof["all_native_vertices_rotation_skin_error_mm"]))
             values = {key: value for key, value in source_arrays.items() if key.startswith("p0_")}
+        else:
+            remap, proof_of_subset = leader_subset(part_ident, source_document["bones"], source_arrays["bone_native_rest"],
+                                                   primary_bones, primary_native)
+            _, own_proof, native_shared, baked_shared = bake_uniform(primary_native, primary_bones)
+            joints = remap[source_arrays["p0_jnt"]]
+            validate_skin_bound(own_proof, native_shared, baked_shared, source_arrays["p0_co"], joints,
+                                source_arrays["p0_wgt"])
+            shared_reference_bounds.append(dict(
+                ident=part_ident, source_vertices_unchanged=True, **proof_of_subset,
+                all_vertices_rotation_error_mm=own_proof["all_native_vertices_rotation_skin_error_mm"]))
+            values = {key: value for key, value in source_arrays.items() if key.startswith("p0_")}
+            values["p0_jnt"] = joints
         merge_materials(document, source_document, part)
         document["parts"].append(part)
         for key, value in values.items():

@@ -36,4 +36,4 @@
   - 終末地 matcap 用「相機的右、上沿著 u、v」的約定；左右眼 UV 若是鏡像，烘出的 matcap 會左右相反，還沒有對遊戲畫面比過。
 - **鳴潮覆蓋率烘焙的貼圖一律 wrap**（§7.1491 發現）：`shader_bake` 的直譯器不看貼圖資產的 `AddressX`／`AddressY`；
   眼睛烘焙已改照資產讀（`TA_Clamp` 的 `HeightLightMap` 用 wrap 會鋪滿整顆眼睛），裁切材質的覆蓋率還沒有改、也還沒有量過有沒有 clamp 的貼圖受影響。
-- **IslandLife 的 GF2 轉換器還沒跟上 3.0**：Polylode 已改（`role_mesh` 的 GUID 補找與自帶網格、29 筆重新指向 `_slg_skin_model` 的來源相依配方、篩選看目錄），IslandLife 的 `islandlife/gf2/dependencies.py` 與 `source_dependencies.json` 還是 2.x 的 21 筆，它的 `gf2.convert` 也沒有 `RoleMeshRes`；在 IslandLife 從 3.0 安裝轉 GF2 前要一起搬過去。
+- **IslandLife 的 GF2 轉換器還沒跟上 3.0**：Polylode 已改（`role_mesh` 的 GUID 補找與自帶網格、29 筆重新指向 `_slg_skin_model` 的來源相依配方、篩選看目錄），IslandLife 的 `islandlife/gf2/dependencies.py` 與 `source_dependencies.json` 還是 2.x 的 21 筆（Polylode 31 筆），它的 `gf2.convert` 也沒有 `RoleMeshRes`；可見性那邊（`parts.choices` 讀欄位 3 的 packed 資源編號、選項比對不看 LOD、`presentation.switched_on`／`shape_variants`、全空材質槽的 renderer 不轉、`palette.trim`）也只在 Polylode。在 IslandLife 從 3.0 安裝轉 GF2 前要一起搬過去。

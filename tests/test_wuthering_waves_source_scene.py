@@ -69,3 +69,49 @@ def test_the_biped_must_chain_its_limbs():
         S.humanoid(set(names), bones)
     with pytest.raises(ValueError, match="not the native biped"):
         S.humanoid({"Bip001Pelvis"}, bones)
+
+
+def test_a_part_on_a_subset_of_the_primarys_bones_follows_them_by_name():
+    # Lili's bottle (ELiliPingziMd10011): 18 of her 367 bones, matched by name as a leader pose matches them
+    primary = [{"name": "root", "parent": -1}, {"name": "spine", "parent": 0}, {"name": "arm", "parent": 1},
+               {"name": "twist", "parent": 2}, {"name": "flap", "parent": 3}]
+    rests = np.stack([np.eye(4)] * 5)
+    rests[:, :3, 3] = [(0, 0, 0), (0, 0, .5), (.2, 0, .6), (.3, 0, .6), (.35, 0, .6)]
+    part = [{"name": "root", "parent": -1}, {"name": "arm", "parent": 0}, {"name": "flap", "parent": 1}]
+    remap, proof = S.leader_subset("bottle", part, rests[[0, 2, 4]], primary, rests)
+    assert remap.tolist() == [0, 2, 4] and proof["leader_pose_bones"] == 3 and proof["joint_offset_mm"] == 0
+    with pytest.raises(ValueError, match="not on the primary's skeleton"):        # a bone she does not have
+        S.leader_subset("bottle", part + [{"name": "lid", "parent": 2}], rests[[0, 2, 4, 4]], primary, rests)
+    with pytest.raises(ValueError, match="ancestors"):                            # flap is not under spine
+        S.leader_subset("bottle", [{"name": "flap", "parent": -1}, {"name": "spine", "parent": 0}],
+                        rests[[4, 1]], primary, rests)
+    moved = rests[[0, 2, 4]].copy()
+    moved[1, 0, 3] += .001
+    with pytest.raises(ValueError, match="mm off"):
+        S.leader_subset("bottle", part, moved, primary, rests)
+    turned = rests[[0, 2, 4]].copy()
+    turned[2, :3, :3] = [[0, -1, 0], [1, 0, 0], [0, 0, 1]]
+    with pytest.raises(ValueError, match="rest frames differ"):
+        S.leader_subset("bottle", part, turned, primary, rests)
+
+
+def test_a_liquid_draws_its_middle_band_and_keeps_the_gradient(tmp_path):
+    # Lili's bottle liquid: its diffuse slots hold the engine's white default, its colour is the WaterColor_* bands
+    import json
+    colour = lambda r, g, b: {"R": r, "G": g, "B": b, "A": 1.0}                 # noqa: E731
+    material = {"BlendMode": 1, "Textures": {}, "Properties": {},
+                "Colors": {"WaterColor_Down": colour(.85, .77, .09), "WaterColor_Middle": colour(.9, .6, .15),
+                           "WaterColor_High": colour(.98, .6, .02), "FresnelColorAdd": colour(1, .92, 0)},
+                "Scalars": {"WaterColor_MiddleProcess": .57, "Water_HighWidth": 1.0, "Roughness": .05}}
+    (tmp_path / "Pkg").mkdir()
+    (tmp_path / "Pkg" / "MI_Liquid.json").write_text(json.dumps(material), encoding="utf-8")
+    (tmp_path / "texture_metadata.json").write_text("[]", encoding="utf-8")
+    record = S.material_record({"Material": {"ObjectPath": "Pkg/MI_Liquid.0"}}, tmp_path, tmp_path, True)
+    assert record["profile"] == "authored_liquid_color_preview" and record["constant_color"] == [.9, .6, .15, 1.0]
+    assert record["liquid"]["drawn"] == "WaterColor_Middle" and set(record["liquid"]["colors"]) ==         {"WaterColor_Down", "WaterColor_Middle", "WaterColor_High"}
+    assert record["liquid"]["placing"] == {"WaterColor_MiddleProcess": .57, "Water_HighWidth": 1.0}
+    del material["Colors"]["WaterColor_High"]                                    # not the liquid's bands: refused
+    (tmp_path / "Pkg" / "MI_Liquid.json").write_text(json.dumps(material), encoding="utf-8")
+    with pytest.raises(ValueError, match="no verified base colour binding"):
+        S.material_record({"Material": {"ObjectPath": "Pkg/MI_Liquid.0"}}, tmp_path, tmp_path, True)
+

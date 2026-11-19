@@ -5,6 +5,8 @@ import re
 
 import numpy as np
 
+from . import parts
+
 UBER = 'gf_shader/pbr/character/uber'
 TRANS = 'gf_shader/pbr/character/ubertrans'
 # These properties have explicit serialized m_DefTexture.m_DefaultName=white
@@ -58,6 +60,50 @@ def display_lods(parts: list[dict]) -> dict:
         for rank, name in choices:
             hidden[name] = rank != best
     return {'hidden': hidden, 'selected': selected, 'policy': 'standard_highest_visible_lod'}
+
+
+def switched_on(part: dict, worn: list[str], cut_scene: bool) -> dict | None:
+    """Why the game switches on a part its prefab ships switched off, or None: ``{"by": …, "node": …}``.
+
+    Only a node is switched on, never a disabled renderer (a ``Renderer.enabled`` false is how these prefabs keep
+    their lower levels off); *node* is the part's nearest switched-off node (``source_off``):
+
+    * ``worn_choice`` — the node is one of the replaceable options the game dresses the outfit in (``parts``).
+      GF2 3.0's ``_model`` prefabs ship every option's node off (Nikketa SSR0102: 84 nodes, her body, legs and
+      clothes among them) and the replaceable-parts code switches the worn one on; in 2.x they shipped on.
+    * ``cut_scene_character`` — the prefab has a director (a cut scene: ``_Class``, ``_Upgrade``, ``_Gacha``).  The
+      game fills in the character the scene is of (its character track plays ``c_…_Exclusive``, ``scene_facts``),
+      and the prefab ships her switched off whichever way: her instance node (``VectorSSR01(Clone)``, Loreley's
+      nested ``c_LoreleySSR01_Class (1)``), each part's own node with no track that turns it on (Biyoca, Voymastina
+      SSR01 Class: their character clips bind no ``m_IsActive``), a node a control track activates (Lene's
+      ``LeneSSR01_Mirage``).  The parts are hers already (``playable.character_scene``); the lower levels that
+      come on with them are left to the LOD rule.
+    """
+    off = part.get('source_off') or {}
+    node = off.get('inactive_node')
+    if not node or off.get('renderer_disabled'):
+        return None
+    if worn and parts.of(node, worn):
+        return {'by': 'worn_choice', 'node': node}
+    if cut_scene:
+        return {'by': 'cut_scene_character', 'node': node}
+    return None
+
+
+#: a garment's shapes (Helen SSR0101's ``cloth2``, SSR0102's tops in every option): one of each is drawn
+SHAPE = re.compile(r'_(Bend|Flat|General)(?:\.\d+)?$', re.IGNORECASE)
+
+
+def shape_variants(parts: list[dict]) -> dict[str, bool]:
+    """Each part hidden when it is the ``_Bend`` or ``_Flat`` shape of a garment the model also has as ``_General``.
+
+    The three are one garment over the same span, about the same vertices, differing in how far it stands off the
+    chest (Helen SSR0101 ``cloth2_lod0``: 5 521, 5 525, 5 589 vertices reaching 0.237, 0.149, 0.197 m forward for
+    Bend, Flat, General); the game picks one (no literal names them in its code, the code itself is encrypted).
+    SSR0101's prefab ships all three on, so all three were drawn through each other; ``General`` is shown."""
+    general = any((m := SHAPE.search(part['name'])) and m[1].lower() == 'general' for part in parts)
+    return {part['name']: general and bool((m := SHAPE.search(part['name'])) and m[1].lower() != 'general')
+            for part in parts}
 
 
 #: mode suffixes of renderers only the dormitory wears

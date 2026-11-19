@@ -17,17 +17,29 @@
   骨頭、bind pose、材質照預製物自己的。renderer 自己已經有網格的（2.x 的預製物也帶 `RoleMeshRes`，例 Mosinnagant SSR01 Class，路徑在 3.0 的目錄裡可能已經沒有）照用自己的，那一列不解析，目錄也不開。
   目錄列的 bundle 安裝裡常常沒有（3.0 的目錄 60 945 個，裝了 8 244 個），網格卻以同一個 GUID 在安裝裡另一個目錄沒列的 bundle 檔（`_model` 預製物本身也在這種檔裡）：目錄的 bundle 都不裝著那個 GUID 時，改在整份 bundle 索引找 GUID，必須剛好一個 `Mesh`；旁記 `catalog_bundles` 是目錄列的檔名、`bundle` 是實際讀的檔。
   找不到 key、不是 `Mesh`、目錄的 bundle 在磁碟上但不在索引（要重掃）、整份索引沒有或不只一個那個 GUID 的 `Mesh`、節點不在，都報錯，不照名字找。
+  每個材質槽都是空的 renderer（配方補完之後）照預製物出貨畫不出來，遊戲執行時才給材質（海倫 SSR01 的 `flag_*_Effect`，網格只由 `RoleMeshRes` 指定；之前它們是沒有網格的 renderer），跟沒有網格的一樣不轉、記在 `empty_renderers`（`reason` `no material`）；只有部分槽空的照舊報錯。
+  骨頭清單比網格的 bind 多時（舊版預製物配 3.0 目錄的網格：Cheeta SR01 的 `cloth_lod0` 117 個骨頭、網格 116 個 bind），只有網格的 `m_BoneNameHashes` 逐槽等於清單前段骨頭完整路徑的 CRC-32、bind 也在預算內，才把多出來的尾巴去掉（`palette.trim`；Unity 只用 bind 數以內的索引蒙皮），記在 `palette_completions`；證不出來照舊報錯。
   掃描的篩選（`playable.has_owned_mesh`）把 `RoleMeshRes` 給的網格也算進去，但路徑必須在安裝的目錄裡（`role_mesh.loadable`；遊戲載不到目錄沒有的路徑，3.0 的兩個影子特效複本 `CeciliaSSR01_slg_shadow`、`AgentSSR01_Shadow` 的 `_model` 只指這種路徑，因此記成 `not_model` 不列；沒有目錄的安裝照列，`SCREEN` 5）；之前的「沒有網格」判定由 `batch.settled` 判成過期、重查。轉換紀錄寫 `role_mesh_res`、renderer 宣告寫 `mesh_source`，
   `source_files` 多一列目錄檔（目錄換了，`polylode_roster sources` 就會把模型判成來源有變）。
-- GF2 的來源相依配方（`gf2/source_dependencies.json`，IslandLife §7.686；`gf2.dependencies.resolve`）：過場與宿舍的預製物（Alva、Cheyanne SSR01 Upgrade，KseniaDorm Cloth Idle，Loreley、Mosinnagant、Vector SSR01 Class）有些 renderer 的骨頭清單或材質槽與自己的網格對不上，照本人衣裝預製物裡網格位元組完全相同的那個 renderer 補回。2.x 量的對照來源 `c_…_slg_skin` 在 3.0 不在了，同一個 CAB 換成 `_slg_skin_model`：29 筆配方的來源改指它（對照節點是 `RoleMeshRes` 給的網格 SHA256 等於配方 `mesh_sha256` 的那一個，每筆剛好一個），來源預製物照 `role_mesh.assignments` 掛網格再讀。其中 8 筆是 3.0 新量的 lod1（Alva cloth2／cloth3、Loreley face、Ksenia 五件；這些預製物沒有 `LODGroup`，lod1 只是關掉的 renderer，也會轉），證據照原本的：目標網格與對照網格位元組相同、目標的 `RoleMeshRes` 只有一列指那個節點、骨頭完整路徑的 CRC32 逐槽等於 `m_BoneNameHashes`、bind 在既有預算內。來源物件不在安裝裡時報「measured on another game version」。
-- GF2 的可見性（沒有審過的 `display_profiles` 時，`gf2.export.scene_document`）：三條規則的聯集，被藏的照樣寫進 FBX 與 `.blend`、只是隱藏（Blender 匯入 FBX 時會照 `Visibility` 0 隱藏）。`.glb` 只寫顯示的部件（`interchange.glb.shown`，三個來源都一樣）：glTF 唯一的隱藏方式 `KHR_node_visibility` 在 Blender 5.2 與多數檢視器被忽略，隱藏的 lod1、替換造型會全部疊在 lod0 上；放進第二個場景或不放進任何場景也實測過，Blender 一樣會匯入。
-  - LOD：每個 LOD 家族只顯示最細的一層（`presentation.display_lods`）。
+- GF2 的來源相依配方（`gf2/source_dependencies.json`，IslandLife §7.686；`gf2.dependencies.resolve`）：過場與宿舍的預製物（Alva、Cheyanne SSR01 Upgrade，KseniaDorm Cloth Idle，Loreley、Mosinnagant、Vector、Voymastina SSR01 Class）有些 renderer 的骨頭清單或材質槽與自己的網格對不上，照本人衣裝預製物裡網格位元組完全相同的那個 renderer 補回。2.x 量的對照來源 `c_…_slg_skin` 在 3.0 不在了，同一個 CAB 換成 `_slg_skin_model`：原本 21 筆配方的來源改指它（對照節點是 `RoleMeshRes` 給的網格 SHA256 等於配方 `mesh_sha256` 的那一個，每筆剛好一個），來源預製物照 `role_mesh.assignments` 掛網格再讀。3.0 另外新量 10 筆：8 筆 lod1（Alva cloth2／cloth3、Loreley face、Ksenia 五件；這些預製物沒有 `LODGroup`，lod1 只是關掉的 renderer，也會轉），2 筆 Voymastina SSR01 Class 的 cloth1 lod0／lod1（骨頭清單 68／66 槽、網格 73／71 個 bind，沒有上層 Avatar 可補；對照在 `c_VoymastinaSSR01_slg_skin_model`），共 31 筆；證據照原本的：目標網格與對照網格位元組相同、目標的 `RoleMeshRes` 只有一列指那個節點、骨頭完整路徑的 CRC32 逐槽等於 `m_BoneNameHashes`、bind 在既有預算內。來源物件不在安裝裡時報「measured on another game version」。
+- GF2 的可見性（沒有審過的 `display_profiles` 時，`gf2.export.scene_document`）：先把遊戲執行時才打開的節點當成開著（下面），再取幾條規則的聯集，被藏的照樣寫進 FBX 與 `.blend`、只是隱藏（Blender 匯入 FBX 時會照 `Visibility` 0 隱藏）。`.glb` 只寫顯示的部件（`interchange.glb.shown`，三個來源都一樣）：glTF 唯一的隱藏方式 `KHR_node_visibility` 在 Blender 5.2 與多數檢視器被忽略，隱藏的 lod1、替換造型會全部疊在 lod0 上；放進第二個場景或不放進任何場景也實測過，Blender 一樣會匯入。
+  - 遊戲打開的節點（`presentation.switched_on`，部件記 `switched_on`，`source_off` 照記）：只開節點，不開關掉的 Renderer（這些預製物用 `Renderer.enabled` 關 lod1）。
+    `worn_choice`：最近的關著節點是預設穿的可替換部件——3.0 的 `_model` 把每個選項的節點都關著出貨（妮基塔 SSR0102 84 個，身體、腿、衣服都在內），2.x 是開著的。
+    `cut_scene_character`：有 PlayableDirector 的過場預製物（`_Class`／`_Upgrade`／`_Gacha`）裡角色自己的部件，遊戲播放時會把角色填進去，預製物用哪種方式關著都一樣：
+    角色實例節點（`VectorSSR01(Clone)`、Loreley 巢狀的 `c_LoreleySSR01_Class (1)`）、每個部件自己的節點（Biyoca、Voymastina SSR01 Class，角色 clip 沒有任何 `m_IsActive` 綁定）、
+    控制軌打開的節點（Lene 的 `LeneSSR01_Mirage`）。沒有這條規則時這些過場模型的預覽是空的。
+  - LOD：每個 LOD 家族只顯示最細的一層（`presentation.display_lods`），在上一條之後算。
   - 可替換部件（`gf2/parts.py`）：有些衣裝在同一個 prefab 裡放了一個部位的好幾種版本（妮基塔 SSR0102 的上衣、裙子、腿各有
     `P1`／`P2`／`P3`，renderer 全都 active），遊戲執行時每個部位挑一種。挑法是安裝裡 `LocalCache/Data/Table` 的資料表（protobuf，
     `rows` 不靠 schema 解）：`ModelConfigData` 名稱 → 模型編號；`PartsGroupData` 的部位（欄位 5 是衣裝 = 模型編號 + 1 000 000，表上 36 套都成立）；
     `PartsListData` 的選項（欄位 7 部位、欄位 2 是 P 幾；欄位 4 = 1 是不用解鎖、預設穿的那一個，其他帶欄位 5 的解鎖條件，111 個部位都是 index 1）；
     `PartsResourceData` 是選項的節點名（`P1_hip2` 對到 `…_P1_hip2_trans_lod0`）。預設以外的選項的節點藏起來；記在文件的 `parts_choice`。
+    選項的資源是欄位 3 的 `PartsResourceData` 編號（一個，或 packed 清單：海倫 SSR0102 的上衣一個選項 15 個），表上那一列不一定以選項編號為 key；
+    節點名比對時不看 LOD（選項 `P1_cloth1_Bend` 是節點 `…_P1_cloth1_lod0_Bend`）。
     少數選項（欄位 8／9，例：庫蕾 SSR0104）的資源不在 `PartsResourceData`，不是換節點，這裡不動它們。
+  - 同一件衣服的形狀（`presentation.shape_variants`）：`_Bend`／`_Flat`／`_General` 是同一件衣服蓋同一塊、頂點數幾乎一樣，只差往前突出多少
+    （海倫 SSR0101 `cloth2_lod0`：5 521／5 525／5 589 個頂點，往前 0.237／0.149／0.197 m）；遊戲挑一種（程式字串裡沒有這些字）。有 `_General` 時只顯示它，
+    其他記 `shape`。SSR0101 的預製物三種都開著出貨，之前三件疊在一起畫。
   - 宿舍版本：不是宿舍模型的模型，`_Dorm` 字尾（不分大小寫）的部件藏起來（`presentation.combat_variants`）。`slg` prefab 是戰鬥模型；
     依據是遊戲程式的字串常值：戰鬥合併旁的 `(\w*_lod[0-1](?:_Fight)?)`、可替換部件程式（`ReplaceableModelRes`）裡的 `Fight`，全程式沒有 `_Dorm`。
     戰鬥版和宿舍版不一定在同一個 renderer（春田 SSR0101 的戰鬥高跟鞋在 `cloth2_lod0_Fight`、宿舍涼鞋在 `body_lod0_Dorm`），戰鬥字尾也有
@@ -67,6 +79,8 @@
   匯出：每個部件 `mesh` 傾印到 `assets_cache/wuthering_waves/source/<部件>`（已有成功的 `export.json` 就不重讀），再對這些部件跑 `metadata`；
   `wuthering_waves.source_scene.assemble` 組成 `cases/<編號>`，`tools/wuwa_source_blender.py` 的 `build` 建 `.blend`／FBX、`check` 讀回
   （FBX 與開回的 `.blend` 都要在 0.05 mm、骨頭 0.01° 內，`.blend` 裡不能有不在檔內的圖），通過才複製出去。
+  沒有插槽的模型表子件跟著角色的姿勢走：骨架跟主網格一樣就照舊核對；只有主網格的一部分骨頭時（Unreal 的 leader pose 照骨名對；莉莉的瓶子 `ELiliPingziMd10011` 是她 367 根裡的 18 根），`source_scene.leader_subset` 要每根都在主網格裡、父骨是主網格裡它的祖先、關節在 0.01 mm 內、rest 框架在 float32 雜訊內（1e-4），頂點照主網格的骨頭重編號後再過同一個蒙皮界限；不然照舊報「not on the primary's skeleton」。
+  材質的底色：`MainTex`、聲痕的 `D`、分層特效的 `BaseCol`、玻璃（半透明＋`BaseColor`）之外，液體（瓶中液 `MI_…Yeti`：漫反射槽只有引擎 1×1 白圖，顏色是 `WaterColor_Down`／`_Middle`／`_High` 三段漸層）畫中段的顏色（`authored_liquid_color_preview`，預覽的選擇：漸層本身不畫），三段顏色與位置參數記在材質的 `liquid`。
 - `.glb`（§7.1447）：`polylode.interchange.glb.write` 讀三個來源共用的交換文件與陣列寫出，`write_checked` 在有 Blender 時以
   `tools/ef_fbx_blender.py` 的 `glb` 模式讀回（門檻同 FBX，`readback_problems`）；`.glb` 不需要 Blender，`.blend`／FBX 需要（`sources.blender_for`）。
   獨立的規格檢查用 Khronos 的 glTF-Validator（npm `gltf-validator`，在自己的資料夾裝，不進專案）。
@@ -95,14 +109,14 @@
     （`character_styles.native_style`，預覽的角色著色用的同一組參數，ramp／surface／LUT 寫屬性名）、`fbx`（FBX 寫進哪個槽：`fbx.write` 回報的
     `report["materials"]`）、`maps`：FBX 內嵌的寫 `in_fbx` 與槽名，其餘複製一份到 `textures/<sha256>.<副檔名>`，記 SHA-256、`srgb`／`linear`、
     縮放與位移；沒有三角形用到的材質只記雜湊不複製。
-  - `parts`：每個網格、`hidden_by`（`source` 來源就關著；GF2 另有 `lod`、`dormitory`、`alternate`、`display_profile`，記在 `gf2.export.scene_document`）、
+  - `parts`：每個網格、`hidden_by`（`source` 來源就關著；GF2 另有 `lod`、`dormitory`、`alternate`、`shape`、`display_profile`，記在 `gf2.export.scene_document`）、
     每個材質槽的三角形數與角色。角色只看遊戲資料：終末地看 shader（`_Skin` 有 `_SDFLIGHTMAP` 是臉、沒有是身體皮膚；`_Hair`、`_Eye`、
     `_OverlayShadow`、`_VFX`、`HGRP/Effect/…`；`HGRP/CharacterNPR` 是衣物）；鳴潮看材質的 `ShadingModel` 與靜態開關（`MSM_ToonHair` 頭髮、
     `MSM_ToonFace` 有 `UseEyeSDF` 是眼睛、沒有是臉、`MSM_ToonOutline` 外框、`MSM_ToonCommon` 有 `UseSkinMask` 是 `skin_and_clothing`、聲痕參數是特效）；
     GF2 只有眼睛的 shader 分得出（`eye`、`eyeblend_*` 是 `eye_overlay`），`uber`／`ubertrans` 畫皮膚、衣服、頭髮、臉、武器都一樣，寫 `unknown`；
     例外是武器表認得的材質（下面 `weapon`）。每個部件另有 `vertex_colors`（FBX 有沒有寫它的頂點色；寫法在頂層 `vertex_colors`：
     `LayerElementColor` `Col`、ByPolygonVertex、線性 0..1，鳴潮是網格的 8 位元色 ÷ 255，正是 shader 讀到的 `COLOR0`）。
-    來源關著的部件多記 `source_off`（`inactive_node` 是最近的關著節點、`renderer_disabled` 是 Renderer 自己關著）。
+    來源關著的部件多記 `source_off`（`inactive_node` 是最近的關著節點、`renderer_disabled` 是 Renderer 自己關著）；GF2 遊戲會打開的另記 `switched_on`（`by`、`node`），不算隱藏。
   - 2026-11-13 加進 version 1 的欄位（沒有搬動或改義既有欄位，讀第一版的程式讀到的值不變；`weapon` 是新的角色值，
     不認得它的讀者當成用不上的角色處理，和 `unknown` 一樣）：
     - 鳴潮卡通材質（`MSM_ToonCommon`、`MSM_ToonFace`、`MSM_ToonHair`）的 `skin_band`（`wuthering_waves/skin_band.py`，見下面「鳴潮的皮膚帶」；臉與頭髮是 2026-11-17 加的，IslandLife §7.1525）：`status`

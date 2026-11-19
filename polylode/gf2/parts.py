@@ -19,6 +19,7 @@ The code that applies them is encrypted (HybridCLR); these tables, and the strin
 """
 from __future__ import annotations
 
+import re
 import struct
 from pathlib import Path
 
@@ -109,20 +110,31 @@ def choices(install: Path, ident: str) -> dict | None:
     if not slots:
         return None
     resources = rows(names[3])
+    # an option's resources are the ids in its field 3 (one, or a packed list: Helen SSR0102's top lists 15), each a
+    # PartsResourceData entry (field 1 the id, field 2 the node); the table's row of the option's id holds the same
+    # entries for most options, not for those
+    by_id = {part[1]: part for entries in resources.values() for part in entries if isinstance(part.get(1), int)}
     worn, spare = [], []
     for entries in rows(names[2]).values():
         for entry in entries:
             if entry.get(7) not in slots:
                 continue
-            nodes = [part[2].decode("utf-8") for part in resources.get(entry[1], []) if isinstance(part.get(2), bytes)]
+            listed = [by_id[i] for i in _packed(entry[3]) if i in by_id] if 3 in entry else []
+            listed += resources.get(entry[1], [])
+            nodes = [part[2].decode("utf-8") for part in listed if isinstance(part.get(2), bytes)]
             (worn if entry.get(4) == 1 else spare).extend(nodes)
     return {"outfit": outfit, "worn": sorted(set(worn)), "spare": sorted(set(spare) - set(worn))}
+
+
+def of(name: str, nodes: list[str]) -> bool:
+    """Whether the node or part *name* belongs to one of the choices *nodes* (``…_P2_cloth1_lod0`` to ``P2_cloth1``).
+    The level is not part of a choice's name: Helen SSR0102's ``P1_cloth1_Bend`` is the node ``…_P1_cloth1_lod0_Bend``."""
+    bare = re.sub(r"_lodm?\d+", "", name, flags=re.IGNORECASE)
+    return any(f"_{node}_" in f"_{name}_" or f"_{node}_" in f"_{bare}_" for node in nodes)
 
 
 def hidden(parts: list[dict], picked: dict) -> dict[str, bool]:
     """Each part hidden when it is a node of a choice not worn (``…_P2_cloth1_lod0`` for ``P2_cloth1``) and of
     no worn one."""
-    def of(name: str, nodes: list[str]) -> bool:
-        return any(f"_{node}_" in f"_{name}_" for node in nodes)
     return {part["name"]: of(part["name"], picked["spare"]) and not of(part["name"], picked["worn"])
             for part in parts}
