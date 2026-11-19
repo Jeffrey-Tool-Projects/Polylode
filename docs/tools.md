@@ -79,6 +79,8 @@
   匯出：每個部件 `mesh` 傾印到 `assets_cache/wuthering_waves/source/<部件>`（已有成功的 `export.json` 就不重讀），再對這些部件跑 `metadata`；
   `wuthering_waves.source_scene.assemble` 組成 `cases/<編號>`，`tools/wuwa_source_blender.py` 的 `build` 建 `.blend`／FBX、`check` 讀回
   （FBX 與開回的 `.blend` 都要在 0.05 mm、骨頭 0.01° 內，`.blend` 裡不能有不在檔內的圖），通過才複製出去。
+  沒有插槽的模型表子件跟著角色的姿勢走：骨架跟主網格一樣就照舊核對；只有主網格的一部分骨頭時（Unreal 的 leader pose 照骨名對；莉莉的瓶子 `ELiliPingziMd10011` 是她 367 根裡的 18 根），`source_scene.leader_subset` 要每根都在主網格裡、父骨是主網格裡它的祖先、關節在 0.01 mm 內、rest 框架在 float32 雜訊內（1e-4），頂點照主網格的骨頭重編號後再過同一個蒙皮界限；不然照舊報「not on the primary's skeleton」。
+  材質的底色：`MainTex`、聲痕的 `D`、分層特效的 `BaseCol`、玻璃（半透明＋`BaseColor`）之外，液體（瓶中液 `MI_…Yeti`：漫反射槽只有引擎 1×1 白圖，顏色是 `WaterColor_Down`／`_Middle`／`_High` 三段漸層）畫中段的顏色（`authored_liquid_color_preview`，預覽的選擇：漸層本身不畫），三段顏色與位置參數記在材質的 `liquid`。
 - `.glb`（§7.1447）：`polylode.interchange.glb.write` 讀三個來源共用的交換文件與陣列寫出，`write_checked` 在有 Blender 時以
   `tools/ef_fbx_blender.py` 的 `glb` 模式讀回（門檻同 FBX，`readback_problems`）；`.glb` 不需要 Blender，`.blend`／FBX 需要（`sources.blender_for`）。
   獨立的規格檢查用 Khronos 的 glTF-Validator（npm `gltf-validator`，在自己的資料夾裝，不進專案）。
