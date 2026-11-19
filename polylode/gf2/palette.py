@@ -47,6 +47,29 @@ def complete(prefab: P.Prefab, node: P.Node, mesh: object, hashes: list,
     return report
 
 
+def trim(prefab: P.Prefab, node: P.Node, mesh: object, hashes: list) -> dict:
+    """Drop palette slots past the mesh's binds when every bind's bone is proven to be the palette's slot.
+
+    Unity skins only with indices below the mesh's bind count, so a longer palette's tail is never read.  Cheeta SR01's
+    prefab (an older build than the 3.0 catalog's mesh) gives ``cloth_lod0`` 117 bones for the mesh's 116 binds; the
+    mesh's ``m_BoneNameHashes`` are the CRC-32 of the first 116 bones' full paths, slot for slot.  Without that proof,
+    or with the binds disagreeing with the rest skeleton, nothing changes and the caller's mismatch stands.
+    """
+    import zlib
+    original = node.renderer.bones.copy()
+    count = len(mesh.binds)
+    if not count < len(original) or len(hashes) != count:
+        raise ValueError(f'{node.name}: palette trim requires a longer palette and a hash per bind')
+    paths = [P.node_path(prefab, key) for key in original[:count]]
+    if any(zlib.crc32(path.encode('utf8')) != h for path, h in zip(paths, hashes)):
+        raise ValueError(f'{node.name}: palette trim: bone hashes disagree with the palette prefix')
+    error, budget = verify_binds(prefab, original[:count], mesh.binds)
+    node.renderer.bones = original[:count]
+    return {'name': node.name, 'node': node.tid, 'original_bones': original, 'resolved_bones': original[:count],
+            'dropped': original[count:], 'mesh_hashes': hashes, 'max_bind_error': error,
+            'source_float32_budget': budget, 'mesh_weights_binds_unchanged': True}
+
+
 def verify_binds(prefab: P.Prefab, bones: list, binds: np.ndarray) -> tuple[float, float]:
     """Verify the native rest skeleton against every serialized bind matrix."""
     if not len(bones) == len(binds) or not bones or any(b not in prefab.nodes for b in bones):

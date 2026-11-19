@@ -1129,5 +1129,83 @@
       5707063737984793616
     ],
     "mesh_sha256": "bbcf868a13176cea6721a586276af10376fc52e70e6982dd50a083681c855e66"
+  },
+  {
+    "target": {
+      "container": "1070e644950056a48a9544ad57d84c3c",
+      "cab": "CAB-e4ef05cfe2b8aac449d3a3b01cbfe925",
+      "id": 2595333366394155272,
+      "type": "GameObject",
+      "name": "c_VoymastinaSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/5479e63e5baa4c479d9b5a4acb0465b0.bundle",
+      "offset": 2475332
+    },
+    "node": [
+      "cab-e4ef05cfe2b8aac449d3a3b01cbfe925",
+      2595333366303766703
+    ],
+    "owner": [
+      "cab-e4ef05cfe2b8aac449d3a3b01cbfe925",
+      2595333367891399659
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Voymastina/VoymastinaSSR01/Models/c_VoymastinaSSR01_slg_cloth1_lod0.mesh",
+    "role_mesh_res": [
+      "cab-e4ef05cfe2b8aac449d3a3b01cbfe925",
+      2595333366924707018
+    ],
+    "role_sha256": "b6ba70b30ecbe1389622e8082736b88df7f4d062058d9b718d13f8ef14d4f80a",
+    "source": {
+      "container": "cbd84a7e37f1ec84fa6d3cf24e682ee0",
+      "cab": "CAB-7ca0cc96e2c81617d4ae939a45e1b950",
+      "id": -7806514739443562646,
+      "type": "GameObject",
+      "name": "c_VoymastinaSSR01_slg_skin_model",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/45d0a55bfbd254a209d4ea4cf89ecb06.bundle",
+      "offset": 6886235
+    },
+    "source_node": [
+      "cab-7ca0cc96e2c81617d4ae939a45e1b950",
+      -7806514741269261421
+    ],
+    "mesh_sha256": "801898c76b3c92e133ef5d32a8e3eaa45bfffa792bca05d8cbea66ca52775891"
+  },
+  {
+    "target": {
+      "container": "1070e644950056a48a9544ad57d84c3c",
+      "cab": "CAB-e4ef05cfe2b8aac449d3a3b01cbfe925",
+      "id": 2595333366394155272,
+      "type": "GameObject",
+      "name": "c_VoymastinaSSR01_Class",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/5479e63e5baa4c479d9b5a4acb0465b0.bundle",
+      "offset": 2475332
+    },
+    "node": [
+      "cab-e4ef05cfe2b8aac449d3a3b01cbfe925",
+      2595333368855361087
+    ],
+    "owner": [
+      "cab-e4ef05cfe2b8aac449d3a3b01cbfe925",
+      2595333367891399659
+    ],
+    "asset_path": "Assets/ArtsResource/Player/Voymastina/VoymastinaSSR01/Models/c_VoymastinaSSR01_slg_cloth1_lod1.mesh",
+    "role_mesh_res": [
+      "cab-e4ef05cfe2b8aac449d3a3b01cbfe925",
+      2595333366924707018
+    ],
+    "role_sha256": "b6ba70b30ecbe1389622e8082736b88df7f4d062058d9b718d13f8ef14d4f80a",
+    "source": {
+      "container": "cbd84a7e37f1ec84fa6d3cf24e682ee0",
+      "cab": "CAB-7ca0cc96e2c81617d4ae939a45e1b950",
+      "id": -7806514739443562646,
+      "type": "GameObject",
+      "name": "c_VoymastinaSSR01_slg_skin_model",
+      "path": "GF2_Exilium_Data/LocalCache/Data/AssetBundles_Windows/45d0a55bfbd254a209d4ea4cf89ecb06.bundle",
+      "offset": 6886235
+    },
+    "source_node": [
+      "cab-7ca0cc96e2c81617d4ae939a45e1b950",
+      -7806514741362295202
+    ],
+    "mesh_sha256": "b7b06e89937332f1a5348ecf2228ab9803f6dde64ee7b8f488b78c89340630ac"
   }
 ]

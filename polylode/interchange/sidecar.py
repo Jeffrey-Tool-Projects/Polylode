@@ -25,7 +25,10 @@ same interchange scene the FBX was written from:
                 overlay, outline, effect, weapon … or ``unknown``) with what
                 decided it; whether the FBX carries its vertex colours; for a
                 part the source switched off, which node or renderer did it, and
-                (GF2, every part) the timeline tracks on its way;
+                (GF2, every part) the timeline tracks on its way; (GF2) a part
+                the source switches off and the game switches on, why
+                (``switched_on``: the worn replaceable option, a cut scene's
+                character) — it keeps its ``source_off`` and is not hidden;
 ``expressions`` the shape keys the FBX's BlendShapes already hold, and the
                 expressions the game drives with bones (Endfield's face
                 controls and presets), as local bone transforms in the FBX's own
@@ -51,7 +54,7 @@ IslandLife §7.1512), or ``unread`` with the reason.
 ``rbf`` holds the pose-space correctives (Wuthering Waves: the skeleton's ``RBFDriver`` objects that drive the
 shoulder shape keys, with the game's precomputed weight tables, and the blueprint's ``AnimNode_PoseDriver`` nodes
 that turn hair bones by the head; ``docs/sidecar_rbf.md``, IslandLife §7.1514), or ``unread`` with the reason.
-These, ``eye``, ``vertex_colors``, ``source_off``, ``timeline``, ``skin_materials``, ``physics`` and ``rbf`` were
+These, ``eye``, ``vertex_colors``, ``source_off``, ``switched_on``, ``timeline``, ``skin_materials``, ``physics`` and ``rbf`` were
 added to version 1 without moving or reinterpreting a field: a reader of the first
 version reads the same values, and ``weapon`` is a role such a reader treats as it
 treats any role it has no use for (as ``unknown``).
@@ -430,7 +433,7 @@ def write(document_path: Path, model: Path, fbx_report: dict, *, identity: dict,
                "hidden_by": hidden_by, "vertices": part.get("vertices"),
                "triangles": int(len(slots)), "shapes": list(part.get("shapes") or []),
                "vertex_colors": bool(part.get("colors")) and f"p{index}_col" in arrays, "slots": rows}
-        for key in ("source_off", "timeline"):
+        for key in ("source_off", "switched_on", "timeline"):
             if key in part:
                 row[key] = part[key]
         parts.append(row)

@@ -82,6 +82,8 @@ class Part:
     hidden: bool = False       # the prefab ships this renderer switched off
     tangents: np.ndarray | None = None  # authored rest xyz and separate source handedness
     source_node: str = ""
+    off_node: str = ""          # the nearest node on the renderer's chain the prefab ships inactive ("" = none)
+    renderer_off: bool = False  # the renderer itself ships disabled
 
 
 @dataclass
@@ -321,7 +323,8 @@ def _part(group: list, name: str, bone_index: dict, materials: list) -> Part:
         materials=materials, joints=np.where(weights > 0, table[local], 0).astype(np.int32),
         weights=weights.astype(np.float32), shapes=shapes,
         hidden=bool(shader.get("_offNode") or shader.get("_rendOff")), tangents=tangents,
-        source_node=str(shader["_rendName"]))
+        source_node=str(shader["_rendName"]), off_node=str(shader.get("_offNode") or ""),
+        renderer_off=bool(shader.get("_rendOff")))
 
 
 def _material(shader: dict, files: dict) -> dict:

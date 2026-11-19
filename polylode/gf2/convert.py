@@ -389,10 +389,11 @@ def source_selection(prefab, names, readers, keep, meshes, entry, declared):
 
 
 def complete_palettes(prefab, readers, animators, keep, meshes):
-    """Resolve a short source palette only with its own exact Avatar and binds."""
+    """Resolve a short source palette only with its own exact Avatar and binds; trim a long one only when the mesh's
+    bone hashes prove its prefix (``palette.trim``)."""
     from . import palette
 
-    pending = []
+    pending, trimmed = [], []
     for node in keep:
         rd = node.renderer
         if not rd.skinned:
@@ -400,10 +401,16 @@ def complete_palettes(prefab, readers, animators, keep, meshes):
         if rd.mesh not in meshes:
             meshes[rd.mesh] = read_mesh(readers[rd.mesh])
         mesh = meshes[rd.mesh]
+        if mesh.skin is not None and mesh.binds is not None and len(rd.bones) > len(mesh.binds):
+            hashes = readers[rd.mesh].read_typetree().get('m_BoneNameHashes', [])
+            try:
+                trimmed.append(dict(palette.trim(prefab, node, mesh, hashes), mesh=list(rd.mesh)))
+            except ValueError:
+                pass            # unproven: the palette/bind mismatch is reported where the part is converted
         if mesh.skin is not None and mesh.binds is not None and len(rd.bones) < len(mesh.binds):
             pending.append(node)
     if not pending:
-        return []
+        return trimmed
     avatars = []
     for reader in animators:
         value = reader.read()
@@ -415,9 +422,10 @@ def complete_palettes(prefab, readers, animators, keep, meshes):
         avatars.append({'identity': list(identity(avatar)),
                         'owner_path': P.node_path(prefab, identity(transform)),
                         'paths': dict(avatar.read_typetree()['m_TOS'])})
-    return [dict(palette.complete(prefab, node, meshes[node.renderer.mesh],
-                                  readers[node.renderer.mesh].read_typetree().get('m_BoneNameHashes', []), avatars),
-                 mesh=list(node.renderer.mesh)) for node in pending]
+    return trimmed + [dict(palette.complete(prefab, node, meshes[node.renderer.mesh],
+                                            readers[node.renderer.mesh].read_typetree().get('m_BoneNameHashes', []),
+                                            avatars),
+                           mesh=list(node.renderer.mesh)) for node in pending]
 
 
 def convert(catalog, entry):
@@ -438,6 +446,17 @@ def convert(catalog, entry):
     pieces, renderers = [], []
     meshes = {}
     source_dependencies = dependencies.resolve(catalog, entry, prefab, readers, keep, meshes)
+    # a renderer with no material in any slot, once the recipes have filled theirs, draws nothing as the prefab ships
+    # it: the game gives it one at run time (Helen SSR01's flag_*_Effect, whose mesh only RoleMeshRes names; before
+    # it was read they were null-mesh renderers).  It is kept out as a null-mesh one is; a partly empty list stays an
+    # error below
+    for node in [node for node in keep if node.renderer.materials and all(m is None for m in node.renderer.materials)]:
+        keep.remove(node)
+        skipped['no material'] += 1
+        rd = node.renderer
+        empty.append({'name': names[node.tid], 'mesh': list(rd.mesh), 'materials': [None] * len(rd.materials),
+                      'active': node.active, 'enabled': rd.enabled, 'skinned': rd.skinned,
+                      'bones': [list(b) if b is not None else None for b in rd.bones], 'reason': 'no material'})
     names = node_names(prefab)
     worlds = P.world_matrices(prefab)
     palette_completions = complete_palettes(prefab, readers, animators, keep, meshes)
