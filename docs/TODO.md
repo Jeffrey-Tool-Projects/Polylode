@@ -29,7 +29,6 @@
 
 - **GF2 平行建索引被打斷就全部重來**（IslandLife §7.1508）：`bundles.scan` 交給工作行程時（`PARALLEL_FROM` 以上），要等全部工作行程做完才寫進 `bundle_index.jsonl`；GF2 3.0 的更新要重讀約 4 000 個 bundle，記憶體緊的機器上被 guard 殺掉三次都沒留下任何一列。一個工作行程的那一段做完就寫，或像單行程那樣逐列寫。這次是在 Polylode 的直譯器裡呼叫 `bundles.scan(..., parallel=None)` 逐列補完的。
 - **鳴潮本機 AES 自動取得的版本支援**：目前安裝的遊戲程式未找到可驗證的候選金鑰；需研究該版本的程式封裝後再擴充。3.8.0（2026-11-15 更新）也一樣：`--discover-wuwa-keys` 驗了 27 個候選，沒有一個解得開全部加密封存檔（IslandLife §7.1508）；這一版改用「下載公開 AES 金鑰」（擁有者同意），`_verify_and_publish` 驗過才寫進金鑰檔（IslandLife §7.1509）。本機自動取得仍要研究。
-- **鳴潮 3.8.0 的眼睛 base pass 讀 View[286]，眼睛烘焙拒絕**（IslandLife §7.1509）：3.8.0 重匯的 Chun 10011、Aimisi 10011 的眼睛都是 `eye.status` null：`the base pass's targets depend on View[286], which a bake has no value for (moved 0.542)`。`eye_bake.FRAME` 只寫到 285（pre-exposure），3.7.1 的 shader 沒讀 286。結果眼睛沒烘、沒有分 `_Overlap1`，IslandLife 拒絕這種眼睛材質。要讀新 base pass 的組語，看 286 槽乘在哪個輸出上；假設（未驗證）View 緩衝在 285 附近多了一個成員、pre-exposure 移到 286，那 `FRAME` 的其他槽（44–47、134、135、144、147–149）也要逐一確認有沒有移。不要只把 286 加進 `FRAME` 就算數。
 - **眼睛烘焙是正面看的一個畫面**（§7.1491）：glTF／FBX 帶的是正面、燈 1 的結果。
   - GF2 `eye` 的視差偏移（頂點程式的輸出 × `_CorneaParallax`／`_SpecularParallax`）沒有讀，`_Specularmap` 照原 UV 取樣。
   - 鳴潮眼睛 base pass 的 `EM` 視差在正面看是 0；側看時虹膜的位移只有預覽與 IslandLife 以外的讀者會缺。

@@ -340,7 +340,7 @@ glTF／FBX 不能走視線，所以把同一個高度場做成幾何：卡片原
 - **鳴潮**（`wuthering_waves/eye_bake.py`，三種格式都用）：`MSM_ToonFace` + `UseEyeSDF` 的眼睛在 base pass 裡畫高光：`HeightLightMap`
   （`T_EyesSecondHeightLight*_EG`）在由 UV0、材質的位置／寬度／旋轉參數與頂點色 G（選兩個位置之一）算出的座標取樣，`EM` 給視差高度與
   另一個高光形狀。直接執行實例 shader map 的全部 base pass 變體（`shaders.vm`；整數位元指令 `ubfe`／`ibfe`／`bfi`／`imad` 是這次加的），
-  在眼睛底色圖每個被三角形蓋到的貼圖像素上，正面看、時間 0、pre-exposure 1：`SV_Target3`（GBufferC 的底色，延遲的卡通光照會照到）寫成底色圖，
+  在眼睛底色圖每個被三角形蓋到的貼圖像素上，正面看、時間 0、View 的發光倍率 1：`SV_Target3`（GBufferC 的底色，延遲的卡通光照會照到）寫成底色圖，
   `SV_Target0`（base pass 自己加的場景色，即 Unreal 的 emissive，不受光）寫成發光圖與強度。貼圖照資產自己的 `AddressX`／`AddressY`
   取樣（`GameFiles.address`；`TA_Clamp` 夾在邊緣，直譯器本身是 wrap），`HeightLightMap` 與 `EM` 都是 clamp——用 wrap 讀會把高光鋪滿整顆眼睛。
   沒寫在 `FRAME` 的 View／Primitive／ToonShadowLightData 槽一一給亂數、網格沒有的輸入給 0 與 1、螢幕位置移動，目標有變就拒絕；
@@ -348,3 +348,7 @@ glTF／FBX 不能走視線，所以把同一個高度場做成幾何：卡片原
   分到 `<材質>_Overlap<k>`（和覆蓋率同一套搬部件）。椿：12 個 base pass 變體一致，2 507 499 個貼圖像素、4 898 923 個取樣，
   兩張圖（594／38 個三角形），發光最大 1；在 4 096 個取樣上，`HeightLightMap` 的 R 只改底色（最多 0.049），
   B 只改發光（0.40），G、A 不影響。結果依規則版本、材質與幾何快取在 `shaders/eye/`，第一次約 3 分鐘。
+  View 的發光倍率（3.8.0 在 `View[286].xyz`，3.7.1 在 `[285]`）是遊戲自己加在 Unreal View 上的成員：每一種材質的 base pass（不透明、半透明、地形、
+  粒子）都把夾到 0 以上的 emissive 乘上它再寫進 `SV_Target0`，只有 primitive 的 `Primitive[42].w` 有值時跳過；沒有 Material 緩衝的 shader 都不讀它。
+  給 1 就是遊戲跳過倍率的那條路：材質自己給的 emissive。它不是 pre-exposure——pre-exposure 在 `View[141].y`（`.x` 是 MSAA 取樣數、`.z` 是倒數），
+  眼睛的 base pass 不讀（IslandLife §7.1567）。

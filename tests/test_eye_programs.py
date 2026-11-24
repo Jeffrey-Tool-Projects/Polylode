@@ -125,6 +125,45 @@ def test_overlapping_eye_islands_drawn_differently_get_a_map_each():
     assert takes[1].tolist() == [False, False, True, True, False, False]
 
 
+#: the tail of game 3.8.0's eye base pass (IslandLife §7.1567): the clamped emissive × View[286].xyz unless the
+#: primitive's Primitive[42].w is set, into SV_Target0
+_EMISSIVE_SCALE_PASS = """ps_5_0
+dcl_constantbuffer CB0[287], immediateIndexed
+dcl_constantbuffer CB2[43], immediateIndexed
+dcl_constantbuffer CB5[1], immediateIndexed
+dcl_output o0.xyzw
+dcl_output o3.xyzw
+max r1.xyz, cb5[0].xyzx, l(0.000000, 0.000000, 0.000000, 0.000000)
+if_z cb2[42].w
+  mul r1.xyz, r1.xyzx, cb0[286].xyzx
+endif
+mov o0.xyz, r1.xyzx
+mov o0.w, l(0)
+mov o3.xyzw, l(0.500000, 0.500000, 0.500000, 0.000000)
+"""
+
+
+def test_the_views_emissive_scale_is_stated_and_a_slot_the_frame_does_not_state_refuses_the_bake(monkeypatch):
+    from polylode.wuthering_waves.shaders import dxbc
+    shader = dxbc.Shader(asm=_EMISSIVE_SCALE_PASS, textures={}, samplers={},
+                         buffers={"View": 0, "Primitive": 2, "Material": 5}, inputs={})
+    material = np.array([[0.2, 0.4, 0.6, 0.0]])
+    points = {"normal": np.tile([0.0, 0.0, 1.0], (4, 1)), "uvs": []}
+
+    def baked():
+        run = WB._Pass(shader, WB._buffers(shader, material, []), {}, 0, {})
+        return run, run.run(points)
+
+    run, targets = baked()
+    assert np.allclose(targets[WB.EMISSION][:, :3], [0.2, 0.4, 0.6])     # the emissive as the material gives it
+    tried = WB._sensitivity(run, points, [])
+    assert "Primitive[42]" in tried["frame_slots_unmoved"] and "View[286]" not in tried["frame_slots_unmoved"]
+    monkeypatch.setitem(WB.FRAME, "View", {k: v for k, v in WB.FRAME["View"].items() if k != 286})
+    run, _targets = baked()
+    with pytest.raises(WB.EyeError, match=r"View\[286\]"):
+        WB._sensitivity(run, points, [])
+
+
 def test_the_wuwa_eye_is_drawn_from_its_base_pass_maps_and_states_them(tmp_path):
     (tmp_path / "src.png").write_bytes(b"")
     record = {"base": "MainTex", "maps": {"MainTex": {"file": "src.png", "srgb": True, "sha256": "x"}}}

@@ -13,8 +13,9 @@ The highlight map's channels lerp the eye's colour towards two highlight colours
 two, and one channel is added to the emissive alone — so the highlight is partly lit and partly not.  Rather
 than writing those terms down as a rule, the pass is run (``shaders.vm``) over every texel of the eye's map, as
 :mod:`shader_bake` runs the shadow-depth pass: the surface there interpolated, seen head-on (the view along its
-normal: the parallax walks no distance), at time 0, pre-exposure 1.  The two targets become the material's base
-map and its emission map (``emission``: map × colour × strength), which glTF, FBX and Blender all carry; the
+normal: the parallax walks no distance), at time 0, the view's emissive scale 1.  The two targets become the
+material's base map and its emission map (``emission``: map × colour × strength), which glTF, FBX and Blender all
+carry; the
 source's own map stays among the maps (``eye.source_base``) for a reader that runs the game's program itself.
 
 Every frame value the pass reads is either stated here (:data:`FRAME`) or shown not to change the two targets:
@@ -37,19 +38,26 @@ from .shaders import archive as A
 from .shaders import dxbc, inline, preshader, vm
 
 #: bump when what a bake gives changes: the cache key carries it
-VERSION = 2
+VERSION = 3
 #: the base pass's render targets read: the scene colour it adds (not lit) and GBufferC's base colour (lit)
 EMISSION, BASE_COLOR = 0, 3
 #: the frame a bake gives, against Unreal 4.26's View and Primitive buffers as the base pass reads them:
 #:   View [44..47] SVPositionToTranslatedWorld — identity: a point's position is its SV_Position (−N per point,
 #:   so the camera, at the origin, looks along the normal);  [134] the viewport's origin 0;  [135] its size and
-#:   inverse 1;  [144] Diffuse/NormalOverrideParameter (0, 0, 0, 1);  [147].w 1;  [148] game time 0;
-#:   [149] mip bias 0;  [285] pre-exposure 1 (the scene colour as the material gives it);
+#:   inverse 1;  [144] NormalOverrideParameter (0, 0, 0, 1);  [147].w 1;  [148] game time 0 (its .z: the pass
+#:   pans by it / 60);  [149] mip bias 0 (its .y: every ``sample_b``'s bias);
+#:   [286] the view's scale on emissive (1, 1, 1): every material's base pass, opaque or translucent, multiplies
+#:   its clamped emissive by View[286].xyz before SV_Target0 unless the primitive's Primitive[42].w is set — a
+#:   member the game adds to Unreal's View (no shader without a Material buffer reads it).  1 is the game's own
+#:   path for a primitive that skips the scale: the emissive as the material gives it.  It is not pre-exposure:
+#:   that is View[141].y (141.x the MSAA sample count, ``1 < x``; 141.z OneOverPreExposure, multiplying scene
+#:   colour reads; 141.y picked against the capture's own in the sky passes), which the eye pass does not read.
+#:   Game 3.7.1 had this scale at View[285] and read no 286; 3.8.0 reads 286 and no 285 (IslandLife §7.1567);
 #:   Primitive [0..3] LocalToWorld identity, [4].w the determinant's sign 1.
 FRAME = {"View": {44: (1.0, 0.0, 0.0, 0.0), 45: (0.0, 1.0, 0.0, 0.0), 46: (0.0, 0.0, 1.0, 0.0),
                   47: (0.0, 0.0, 0.0, 1.0), 134: (0.0, 0.0, 0.0, 0.0), 135: (1.0, 1.0, 1.0, 1.0),
                   144: (0.0, 0.0, 0.0, 1.0), 147: (0.0, 0.0, 0.0, 1.0), 148: (0.0, 0.0, 0.0, 0.0),
-                  149: (0.0, 0.0, 0.0, 0.0), 285: (1.0, 1.0, 1.0, 1.0)},
+                  149: (0.0, 0.0, 0.0, 0.0), 286: (1.0, 1.0, 1.0, 1.0)},
          "Primitive": {0: (1.0, 0.0, 0.0, 0.0), 1: (0.0, 1.0, 0.0, 0.0), 2: (0.0, 0.0, 1.0, 0.0),
                        3: (0.0, 0.0, 0.0, 1.0), 4: (1.0, 1.0, 1.0, 1.0)}}
 #: points the sensitivity tests and the variant check run; lanes run at once
@@ -518,5 +526,5 @@ def apply(name: str, record: dict, baked: dict, evidence: dict, case: Path) -> d
                            "basis": "SV_Target3 (GBufferC base colour), lit by the game's deferred toon lighting"},
             "emission": {"map": EMISSION_KEY, "strength": strength, "lit": False,
                          "basis": "SV_Target0 (the scene colour the base pass adds: Unreal's emissive), unlit"},
-            "view": "head-on (the view along each texel's normal), game time 0, pre-exposure 1",
+            "view": "head-on (the view along each texel's normal), game time 0, the view's emissive scale 1",
             "evidence": evidence}
